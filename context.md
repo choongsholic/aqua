@@ -34,8 +34,8 @@
 ---
 
 ## GitHub 연결
-- 리포: 미설정 (사용자가 GitHub에서 리포 생성 후 연결 예정)
-- 연결 후: `git remote add origin https://github.com/choongsholic/aqua.git`
+- 리포: https://github.com/choongsholic/aqua
+- 브랜치: main
 
 ---
 
