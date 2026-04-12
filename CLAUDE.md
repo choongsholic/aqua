@@ -1,10 +1,14 @@
 # 트리거 규칙
 
+## DP-AQUA (dp-aqua.html 세트)
 - "아쿠아"라고 하면 `./context.md` 파일을 읽고 이전 작업 맥락을 파악한 뒤 바로 작업 준비 상태로 시작
-
-- "아쿠아 써밋"이라고 하면 변경된 파일을 확인하고 context.md를 현재 작업 상태로 업데이트한 뒤 git commit + push
-
+- "아쿠아 써밋"이라고 하면 변경된 파일을 확인하고 `context.md`를 현재 작업 상태로 업데이트한 뒤 git commit + push
 - "아쿠아 풀"이라고 하면 git pull로 최신 파일을 받아오고 완료 여부를 알려줌
+
+## DP-AQUA Growth (dp-aqua_growth.html 세트)
+- "아쿠아 그로쓰"라고 하면 `./context_growth.md` 파일을 읽고 이전 작업 맥락을 파악한 뒤 바로 작업 준비 상태로 시작
+- "아쿠아 그로쓰 써밋"이라고 하면 변경된 파일을 확인하고 `context_growth.md`를 현재 작업 상태로 업데이트한 뒤 git commit + push
+- "아쿠아 그로쓰 풀"이라고 하면 git pull로 최신 파일을 받아오고 완료 여부를 알려줌
 
 ---
 

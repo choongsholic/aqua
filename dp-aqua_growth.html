@@ -1,0 +1,2769 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DP-AQUA · App User Quantitative Analysis</title>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
+<style>
+@font-face { font-family:'YouandiNewKr'; font-weight:700; font-style:normal; src:url('https://img.hyundaicard.com/docfiles/resources/pc/fonts/YouandiNewKrTitle-Bold.woff2') format('woff2'), url('https://img.hyundaicard.com/docfiles/resources/pc/fonts/YouandiNewKrTitle-Bold.woff') format('woff'); font-display:swap; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a0a; overflow:hidden; cursor:default; font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Spoqa Han Sans Neo','Malgun Gothic',sans-serif; }
+canvas { display:block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+const dpr = window.devicePixelRatio || 1;
+
+// ═══ CONFIG ═══
+const HEALTH = {
+  healthy: { r:80,  g:210, b:120, label:'건강', code:'5' },
+  good:    { r:80,  g:150, b:230, label:'양호', code:'4' },
+  normal:  { r:200, g:200, b:200, label:'일반', code:'3' },
+  caution: { r:220, g:190, b:80,  label:'주의', code:'2' },
+  danger:  { r:220, g:75,  b:75,  label:'위험', code:'1' },
+};
+const HEALTH_KEYS = ['healthy','good','normal','caution','danger'];
+
+const HEALTH_DIST = {
+  power:       [0.55, 0.25, 0.12, 0.06, 0.02],
+  casual:      [0.08, 0.28, 0.35, 0.22, 0.07],
+  light:       [0.02, 0.06, 0.22, 0.40, 0.30],
+  uninstalled: [0.01, 0.04, 0.20, 0.42, 0.33],
+  dormant:     [0.01, 0.03, 0.18, 0.44, 0.34],
+  intermittent:[0.02, 0.07, 0.28, 0.38, 0.25],
+};
+
+function assignHealth(seg) {
+  const dist = HEALTH_DIST[seg] || HEALTH_DIST.light;
+  let r = Math.random(), acc = 0;
+  for (let i = 0; i < dist.length; i++) { acc += dist[i]; if (r < acc) return HEALTH_KEYS[i]; }
+  return 'normal';
+}
+
+function hColor(h, a) { const c = HEALTH[h]; return `rgba(${c.r},${c.g},${c.b},${a})`; }
+function lerpRGB(h1, h2, t, a) {
+  const c1 = HEALTH[h1], c2 = HEALTH[h2];
+  return `rgba(${c1.r+(c2.r-c1.r)*t|0},${c1.g+(c2.g-c1.g)*t|0},${c1.b+(c2.b-c1.b)*t|0},${a})`;
+}
+
+const CFG = {
+  physics: { noise:0.034, maxSpeed:0.8, maxSpeedScatter:2.5, damping:0.995, boundary:0.01, repulsion:0.03, repDist:15, mouseR:150, mouseF:2.0, mouseFC:4.0 },
+  migration: { speed:0.004, rates:{ light_casual:0.03, casual_power:0.02, power_casual:0.012, casual_light:0.025, churn:0.08, newEntry:0.10 } },
+  pipe: { width:38 },
+};
+
+// ═══ LAYOUT ═══
+const headerH = 96;
+let tanks = {}, mauTanks = {}, aquarium = {}, newZone = {}, churnZone = {};
+let signalPanel = {}, actionPanel = {}, pipes = {};
+let rightPad = 22, leftPad = 22, channelX = 0;
+let mauSectionH = 0, trackSepGlobal = 16; // set by computeLayout, read by draw fns
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  computeLayout();
+}
+
+function computeLayout() {
+  const pad = 28;
+  const panelW = Math.min(200, W*0.15);
+  const sideW = 120;
+  const marginX = Math.max(50, W*0.05);
+  const marginY = Math.max(14, (H-headerH)*0.03);
+
+  // Outer aquarium
+  const aX = sideW + pad + marginX;
+  const aY = headerH + pad + marginY;
+  const aW = W - sideW - panelW - pad*3 - marginX*1.2;
+  const aH = H - headerH - pad*2 - marginY*2;
+  aquarium = { x:aX, y:aY, w:aW, h:aH };
+
+  // ─ Layout constants ─
+  const ip = 16;          // equal inner padding: left / right / bottom / top-of-each-track
+  const titleAreaH = 36;  // Aquarium title + gap before MAU TRACK label
+  const trkLabelH = 14;   // track label text height
+  const trkLabelGap = 8;  // gap between track label and tanks
+  const sepH = 28;        // total height of separator zone (14 above + 14 below)
+  trackSepGlobal = sepH;
+
+  // Fixed vertical overhead (everything except the two tankH)
+  const overhead = titleAreaH + ip + trkLabelH + trkLabelGap   // top section
+                 + ip + sepH                                     // bottom of MAU + separator
+                 + trkLabelH + trkLabelGap                      // retention label
+                 + ip;                                           // bottom padding
+  const tankH = Math.floor((aH - overhead) / 2);
+
+  // MAU tanks Y
+  const mauLabelY = aY + titleAreaH;
+  const mauTankY  = mauLabelY + trkLabelH + trkLabelGap;
+  mauSectionH = titleAreaH + trkLabelH + trkLabelGap + tankH + ip; // global
+
+  // Retention tanks Y
+  const retLabelY = aY + mauSectionH + sepH;
+  const retTankY  = retLabelY + trkLabelH + trkLabelGap;
+
+  // Store for drawAquarium
+  leftPad  = ip;
+  rightPad = ip;
+
+  // ─ MAU Track: 3 tanks side by side ─
+  const innerX = aX + ip;
+  const innerW = aW - ip * 2;
+  const tankGap = 12;
+  const mauTankW = (innerW - tankGap * 2) / 3;
+
+  mauTanks.uninstalled  = { x:innerX,                              y:mauTankY, w:mauTankW, h:tankH };
+  mauTanks.dormant      = { x:innerX + mauTankW + tankGap,          y:mauTankY, w:mauTankW, h:tankH };
+  mauTanks.intermittent = { x:innerX + (mauTankW + tankGap) * 2,    y:mauTankY, w:mauTankW, h:tankH };
+
+  // ─ Retention Track: Light / Casual / Power side by side ─
+  const retTankW = (innerW - tankGap * 2) / 3;
+
+  tanks.light  = { x:innerX,                              y:retTankY, w:retTankW, h:tankH };
+  tanks.casual = { x:innerX + retTankW + tankGap,          y:retTankY, w:retTankW, h:tankH };
+  tanks.power  = { x:innerX + (retTankW + tankGap) * 2,    y:retTankY, w:retTankW, h:tankH };
+
+  // Inter-tank horizontal pipes (Light↔Casual, Casual↔Power)
+  const retPassY = retTankY + tankH/2;
+  pipes.lc = { cy:retPassY, leftX:tanks.light.x+tanks.light.w,  rightX:tanks.casual.x };
+  pipes.cp = { cy:retPassY, leftX:tanks.casual.x+tanks.casual.w, rightX:tanks.power.x };
+
+  // MAU inter-tank pipe: 장기미이용(dormant) ↔ 간헐이용(intermittent)
+  const mauPassY = mauTankY + tankH/2;
+  pipes.di = { cy:mauPassY, leftX:mauTanks.dormant.x+mauTanks.dormant.w, rightX:mauTanks.intermittent.x };
+
+  // MAU → Light holes: bottom of each MAU tank, top of Light tank
+  // hole center X per tank (stored for drawTanks + migration)
+  aquarium._mauHoleCX = {
+    uninstalled:  mauTanks.uninstalled.x  + mauTanks.uninstalled.w  / 2,
+    dormant:      mauTanks.dormant.x      + mauTanks.dormant.w      / 2,
+    intermittent: mauTanks.intermittent.x + mauTanks.intermittent.w / 2,
+  };
+  aquarium._lightHoleCX = tanks.light.x + tanks.light.w / 2;
+
+  // Store for drawAquarium labels
+  aquarium._mauLabelY = mauLabelY;
+  aquarium._retLabelY = retLabelY;
+
+  channelX = aX + aW - rightPad/2;
+
+  // Panels
+  const pX = W - panelW - pad;
+  signalPanel = { x:pX, y:aY + aH*0.03, w:panelW, h:Math.min(180, aH*0.34) };
+  actionPanel = { x:pX, y:signalPanel.y + signalPanel.h + pad*0.6, w:panelW, h:Math.min(200, aH*0.30) };
+
+  // 신규 & 이탈: left / right of aquarium (aligned to Retention Track row)
+  const sideZoneH = Math.min(tankH, 120);
+  const sideZoneY = retTankY + (tankH - sideZoneH) / 2;
+  newZone   = { x:aX - sideW - pad*0.8, y:sideZoneY, w:sideW, h:sideZoneH };
+  churnZone = { x:pX, y:sideZoneY, w:panelW, h:sideZoneH };
+
+  // Horizontal pipes: 신규 → Light (left), Power → 이탈 (right)
+  pipes.new_in    = { cy:retTankY + tankH/2, leftX:newZone.x+newZone.w, rightX:tanks.light.x };
+  pipes.churn_out = { cy:retTankY + tankH/2, leftX:tanks.power.x+tanks.power.w, rightX:churnZone.x };
+
+  // Light 하단 이탈 채널: Light 하단 구멍 → 아쿠아리움 하단 → churnZone 좌측
+  const lightChurnCX = tanks.light.x + tanks.light.w / 2;
+  aquarium._lightChurnHoleCX = lightChurnCX;
+  pipes.light_churn = {
+    cy:  aY + aH + CFG.pipe.width / 2 + 4,  // aquarium 하단 아래
+    leftX:  lightChurnCX,
+    rightX: churnZone.x,
+  };
+
+  // Dummy vertical pipes (kept for code compatibility, not drawn)
+  pipes.cp_up   = { cx:0, topY:0, botY:0 };
+  pipes.pc_down = { cx:0, topY:0, botY:0 };
+  pipes.lc_up   = { cx:0, topY:0, botY:0 };
+  pipes.cl_down = { cx:0, topY:0, botY:0 };
+
+  // Reposition particles
+  if (particles.length) particles.forEach(p => {
+    if (!p.migrating && p.segment !== 'churn') {
+      const z = getSubZone(p.segment, p.subType);
+      if (z) { p.x = clamp(p.x, z.x+p.radius, z.x+z.w-p.radius); p.y = clamp(p.y, z.y+p.radius, z.y+z.h-p.radius); }
+    }
+  });
+}
+
+function clamp(v,mn,mx) { return Math.max(mn, Math.min(mx, v)); }
+
+function getSubZone(seg, sub) {
+  const t = tanks[seg] || mauTanks[seg];
+  if (!t) return null;
+  const ipY = 5;
+  return { x:t.x, y:t.y+ipY, w:t.w, h:t.h-ipY*2, tankRef:t };
+}
+
+// ═══ PARTICLE ═══
+class Particle {
+  constructor(seg, sub) {
+    this.segment = seg;
+    this.subType = sub;
+    this.health = assignHealth(seg);
+    this.radius = 1.8;
+    this.baseOpacity = 0.3 + Math.random()*0.5;
+    this.phase = Math.random()*Math.PI*2;
+    this.vx = (Math.random()-0.5)*0.15;
+    this.vy = (Math.random()-0.5)*0.15;
+    const z = getSubZone(seg, sub);
+    if (z) { this.x = z.x+Math.random()*z.w; this.y = z.y+Math.random()*z.h; }
+    else { this.x = W/2; this.y = H/2; }
+
+    this.migrating = false;
+    this.migProgress = 0; this.migSpeed = 0;
+    this.migFrom = null; this.migTo = null;
+    this.waypoints = []; this.totalPathLen = 0;
+    this.trail = [];
+
+    // 이탈 state
+    this.fading = false;
+    this.fadeAlpha = 1.0;
+    this.churnTimer = -1;
+    this.fadingIn = false; this.fadeInTimer = 0;
+    this.scattered = 0;
+  }
+
+  getColor(alpha) {
+    const a = this.fading ? alpha * this.fadeAlpha : alpha;
+    if (this.migrating && this.migTo === 'churn') return lerpRGB(this.health, 'danger', Math.min(this.migProgress*2,1), a);
+    if (this.migrating && this.migFrom === 'churn') return lerpRGB('danger', this.health, this.migProgress, a);
+    if (this.segment === 'churn') return hColor('danger', a);
+    return hColor(this.health, a);
+  }
+
+  update(frame) {
+    // 신규유입 fade-in
+    if (this.fadingIn) {
+      this.fadeAlpha = Math.min(1, this.fadeAlpha + 0.025);
+      this.fadeInTimer--;
+      if (this.fadeInTimer <= 0 && this.fadeAlpha >= 1) {
+        this.startNewMigration();
+      }
+      return;
+    }
+    // 이탈 fade
+    if (this.fading) {
+      this.fadeAlpha -= 0.008;
+      if (this.fadeAlpha <= 0) { this.recycleAsNew(); return; }
+    }
+    // 이탈 return timer
+    if (this.segment === 'churn' && !this.migrating && !this.fading && this.churnTimer > 0) {
+      this.churnTimer--;
+      if (this.churnTimer <= 0) this.returnFromChurn();
+    }
+    if (this.migrating) { this.updateMigration(); return; }
+
+    // Determine zone
+    let z;
+    if (this.segment === 'churn') {
+      z = { x:churnZone.x+4, y:churnZone.y+4, w:churnZone.w-8, h:churnZone.h-8 };
+    } else {
+      z = getSubZone(this.segment, this.subType);
+    }
+    if (!z) return;
+
+    // Organic noise — gentle drift
+    const nx = Math.sin(this.phase+frame*0.005)*Math.cos(this.y*0.004+frame*0.002)*CFG.physics.noise;
+    const ny = Math.cos(this.phase+frame*0.004)*Math.sin(this.x*0.004+frame*0.002)*CFG.physics.noise;
+    this.vx += nx; this.vy += ny;
+
+    // Cohesion + swirl — elliptical pull with vortex rotation
+    const cx = z.x+z.w/2, cy = z.y+z.h/2;
+    const dx = cx - this.x, dy = cy - this.y;
+    const normDx = dx / (z.w*0.3), normDy = dy / (z.h*0.25);
+    const dist = Math.sqrt(normDx*normDx + normDy*normDy);
+    const cohesion = Math.min(dist * 0.0008, 0.008);
+    // Radial pull (toward center)
+    this.vx += dx * cohesion * 0.8;
+    this.vy += dy * cohesion * 1.5;
+    // Tangential swirl (perpendicular to center direction, creates rotation)
+    const swirl = Math.min(dist * 0.00008, 0.0015);
+    this.vx += -dy * swirl;
+    this.vy += dx * swirl * 0.6;
+
+    if (this.scattered>0) this.scattered--;
+    const curMax = this.scattered>0 ? CFG.physics.maxSpeedScatter : CFG.physics.maxSpeed;
+    const curDamp = this.scattered>0 ? 0.985 : CFG.physics.damping;
+    this.vx *= curDamp; this.vy *= curDamp;
+    const spd = Math.sqrt(this.vx*this.vx+this.vy*this.vy);
+    if (spd > curMax) { this.vx=(this.vx/spd)*curMax; this.vy=(this.vy/spd)*curMax; }
+
+    this.x += this.vx; this.y += this.vy;
+
+    const m = 5, k = CFG.physics.boundary;
+    const t = z.tankRef;
+
+    if (t) {
+      const wallL = z.x + this.radius + 2;
+      const wallR = z.x + z.w - this.radius - 2;
+
+      // ABSOLUTE sub-zone walls — position forced, velocity killed
+      this.x = Math.max(wallL, Math.min(wallR, this.x));
+      if (this.x <= wallL + 1) this.vx = Math.abs(this.vx) * 0.2;
+      if (this.x >= wallR - 1) this.vx = -Math.abs(this.vx) * 0.2;
+    } else {
+      if (this.x < z.x+m) this.vx += (z.x+m-this.x)*k;
+      if (this.x > z.x+z.w-m) this.vx += (z.x+z.w-m-this.x)*k;
+      this.x = clamp(this.x, z.x+this.radius, z.x+z.w-this.radius);
+    }
+
+    // Top/bottom — hard walls
+    const wallT = z.y + this.radius + 3;
+    const wallB = z.y + z.h - this.radius - 3;
+    if (this.y <= wallT) { this.y = wallT; if (this.vy < 0) this.vy = 0; }
+    if (this.y >= wallB) { this.y = wallB; if (this.vy > 0) this.vy = 0; }
+  }
+
+  startMigration(toSeg, toSub) {
+    this.migrating = true; this.migProgress = 0;
+    this.migSpeed = CFG.migration.speed + Math.random()*0.001;
+    this.migFrom = this.segment; this.migTo = toSeg;
+    this.trail = [];
+    if (toSub) this.subType = toSub;
+
+    const wp = [{x:this.x, y:this.y}];
+    const from = this.segment, to = toSeg;
+
+    const retSegs = ['power','casual','light'];
+    if (to === 'churn') {
+      if (from === 'light') {
+        // Light → 이탈: 하단 구멍 → 하단 채널 → churnZone
+        const lt = tanks.light;
+        const holeCX = aquarium._lightChurnHoleCX || (lt.x + lt.w/2);
+        const pipeY = pipes.light_churn ? pipes.light_churn.cy : lt.y + lt.h + 22;
+        wp.push({x:holeCX, y:lt.y + lt.h - 2});             // 하단 구멍으로 이동
+        wp.push({x:holeCX, y:pipeY});                        // 채널 진입
+        wp.push({x:pipes.light_churn ? pipes.light_churn.rightX : churnZone.x, y:pipeY}); // 채널 통과
+        wp.push({x:churnZone.x+Math.random()*churnZone.w, y:churnZone.y+Math.random()*churnZone.h});
+      } else {
+        // Casual / Power → 이탈: 기존 churn_out 파이프 (극소량)
+        const fromT = tanks[from] || tanks.power;
+        const pipeY = pipes.churn_out.cy;
+        wp.push({x:fromT.x + fromT.w - 2, y:this.y});
+        wp.push({x:fromT.x + fromT.w - 2, y:pipeY});
+        wp.push({x:pipes.churn_out.leftX + 2, y:pipeY});
+        wp.push({x:pipes.churn_out.rightX - 2, y:pipeY});
+        wp.push({x:churnZone.x+Math.random()*churnZone.w, y:churnZone.y+Math.random()*churnZone.h});
+      }
+    } else if (retSegs.includes(from) && retSegs.includes(to)) {
+      // Side pipe passage: travel through the inter-tank pipe
+      const fromT = tanks[from];
+      const toT   = tanks[to];
+      // Use the relevant pipe's cy as passage height
+      const pipe = (from==='light'&&to==='casual')||(from==='casual'&&to==='light') ? pipes.lc : pipes.cp;
+      const passY = pipe ? pipe.cy : fromT.y + fromT.h/2;
+      const dz = getSubZone(to, 1);
+      wp.push({x:this.x, y:passY});
+      if (toT.x > fromT.x) {
+        wp.push({x:fromT.x+fromT.w-2, y:passY});
+        wp.push({x:toT.x+2,           y:passY});
+      } else {
+        wp.push({x:fromT.x+2,         y:passY});
+        wp.push({x:toT.x+toT.w-2,     y:passY});
+      }
+      if (dz) wp.push({x:dz.x+dz.w/2, y:dz.y+dz.h/2});
+    } else if ((from==='uninstalled'||from==='dormant'||from==='intermittent') && to==='light') {
+      // MAU → Retention: through bottom hole of MAU tank, down to Light top hole
+      const fromT = mauTanks[from];
+      const dz = getSubZone('light', 1);
+      if (fromT && dz) {
+        const holeCX = (aquarium._mauHoleCX && aquarium._mauHoleCX[from]) || (fromT.x + fromT.w/2);
+        const lightHoleCX = aquarium._lightHoleCX || (tanks.light.x + tanks.light.w/2);
+        wp.push({x:holeCX, y:fromT.y + fromT.h - 2});   // approach bottom hole
+        wp.push({x:holeCX, y:fromT.y + fromT.h + trackSepGlobal*0.5}); // drop through separator
+        wp.push({x:lightHoleCX, y:tanks.light.y + 2});   // enter light top hole
+        if (dz) wp.push({x:dz.x + dz.w/2, y:dz.y + dz.h/2}); // settle inside light
+      }
+    } else if ((from==='dormant'&&to==='intermittent')||(from==='intermittent'&&to==='dormant')) {
+      // MAU inter-tank: through pipes.di side passage
+      const fromT = mauTanks[from];
+      const toT   = mauTanks[to];
+      const passY = pipes.di ? pipes.di.cy : fromT.y + fromT.h/2;
+      wp.push({x:this.x, y:passY});
+      if (toT.x > fromT.x) {
+        wp.push({x:fromT.x + fromT.w - 2, y:passY});
+        wp.push({x:toT.x + 2,             y:passY});
+      } else {
+        wp.push({x:fromT.x + 2,           y:passY});
+        wp.push({x:toT.x + toT.w - 2,     y:passY});
+      }
+      const dz = getSubZone(to, 1);
+      if (dz) wp.push({x:dz.x + dz.w/2, y:dz.y + dz.h/2});
+    }
+
+    this.waypoints = wp;
+    this.totalPathLen = 0;
+    for (let i=1;i<wp.length;i++) { const dx=wp[i].x-wp[i-1].x, dy=wp[i].y-wp[i-1].y; this.totalPathLen += Math.sqrt(dx*dx+dy*dy); }
+  }
+
+  updateMigration() {
+    this.migProgress += this.migSpeed;
+    if (this.migProgress > 1) this.migProgress = 1;
+    this.trail.push({x:this.x, y:this.y}); if (this.trail.length > 20) this.trail.shift();
+
+    const td = this.migProgress * this.totalPathLen;
+    let acc = 0;
+    for (let i=1;i<this.waypoints.length;i++) {
+      const dx=this.waypoints[i].x-this.waypoints[i-1].x, dy=this.waypoints[i].y-this.waypoints[i-1].y;
+      const sl = Math.sqrt(dx*dx+dy*dy);
+      if (acc+sl >= td || i===this.waypoints.length-1) {
+        const t = sl>0 ? Math.min((td-acc)/sl,1) : 1;
+        this.x = this.waypoints[i-1].x+dx*t; this.y = this.waypoints[i-1].y+dy*t; break;
+      }
+      acc += sl;
+    }
+
+    if (this.migProgress >= 1) {
+      this.migrating = false; this.trail = [];
+      this.vx = (Math.random()-0.5)*0.1; this.vy = (Math.random()-0.5)*0.1;
+
+      if (this.migTo === 'churn') {
+        this.segment = 'churn'; this.health = 'danger';
+        if (Math.random() < 0.6) { this.fading = true; this.fadeAlpha = 1.0; }
+        else { this.churnTimer = 80 + Math.random()*120|0; }
+      } else {
+        this.segment = this.migTo;
+        this.health = assignHealth(this.migTo);
+        // Force position inside correct sub-zone
+        const dz = getSubZone(this.segment, this.subType);
+        if (dz) {
+          this.x = clamp(this.x, dz.x + this.radius + 5, dz.x + dz.w - this.radius - 5);
+          this.y = clamp(this.y, dz.y + this.radius + 5, dz.y + dz.h - this.radius - 5);
+        }
+      }
+
+      if ((this.migFrom==='power'&&this.migTo==='casual')||(this.migFrom==='casual'&&this.migTo==='light')||this.migTo==='churn') {
+        signalEvents.push({from:this.migFrom, to:this.migTo, time:Date.now()});
+      }
+    }
+  }
+
+  returnFromChurn() {
+    // Return from 이탈 → new_in pipe → Light (leftmost tank)
+    this.migrating = true; this.migProgress = 0;
+    this.migSpeed = CFG.migration.speed;
+    this.migFrom = 'churn'; this.migTo = 'light';
+    this.subType = 1;
+    this.health = assignHealth('light');
+    this.trail = []; this.fading = false; this.fadeAlpha = 1.0;
+    const dz = getSubZone('light', 1);
+    const dt = tanks.light;
+    const pipeY = pipes.new_in.cy;
+    const wp = [
+      {x:this.x, y:this.y},
+      {x:newZone.x + newZone.w/2, y:pipeY},
+      {x:pipes.new_in.leftX + 2, y:pipeY},
+      {x:pipes.new_in.rightX + 5, y:pipeY},
+      {x:dz.x + dz.w/2, y:dz.y + dz.h/2},
+    ];
+    this.waypoints = wp; this.totalPathLen = 0;
+    for (let i=1;i<wp.length;i++) { const dx=wp[i].x-wp[i-1].x,dy=wp[i].y-wp[i-1].y; this.totalPathLen+=Math.sqrt(dx*dx+dy*dy); }
+  }
+
+  recycleAsNew() {
+    // Recycle: fade in at random position in newZone, then migrate
+    // 35% → 미설치자, 65% → Light
+    this._goToUninstalled = Math.random() < 0.35;
+    this.segment = 'new'; this.subType = 1;
+    this.health = 'normal';
+    this.fading = false; this.churnTimer = -1;
+    this.fadeAlpha = 0;
+    this.fadeInTimer = 40 + Math.random()*60|0;
+    this.fadingIn = true;
+    this.x = newZone.x + 10 + Math.random()*(newZone.w-20);
+    this.y = newZone.y + 10 + Math.random()*(newZone.h-20);
+    this.vx = 0; this.vy = 0;
+    this.migrating = false;
+  }
+  startNewMigration() {
+    this.fadeAlpha = 1.0; this.fadingIn = false;
+    this.migrating = true; this.migProgress = 0;
+    this.migSpeed = CFG.migration.speed + Math.random()*0.001;
+    this.migFrom = 'new';
+    this.trail = [];
+
+    if (this._goToUninstalled) {
+      // 신규 → 미설치자: newZone → 위로 이동 → uninstalled 하단 구멍 → 탱크 내부
+      this.segment = 'uninstalled';
+      this.migTo = 'uninstalled';
+      const ut = mauTanks.uninstalled;
+      const holeCX = (aquarium._mauHoleCX && aquarium._mauHoleCX.uninstalled) || (ut.x + ut.w/2);
+      const wp = [
+        {x:this.x, y:this.y},
+        {x:holeCX, y:ut.y + ut.h + trackSepGlobal * 0.4},  // 분리대 아래
+        {x:holeCX, y:ut.y + ut.h - 2},                     // 하단 구멍 진입
+        {x:ut.x + ut.w/2, y:ut.y + ut.h/2},                // 탱크 내부
+      ];
+      this.waypoints = wp; this.totalPathLen = 0;
+      for (let i=1;i<wp.length;i++) { const dx=wp[i].x-wp[i-1].x,dy=wp[i].y-wp[i-1].y; this.totalPathLen+=Math.sqrt(dx*dx+dy*dy); }
+    } else {
+      // 신규 → Light: 기존 new_in 파이프 경로
+      this.segment = 'light';
+      this.migTo = 'light';
+      const pin = pipes.new_in;
+      const dz = getSubZone('light', 1);
+      const wp = [
+        {x:this.x, y:this.y},
+        {x:this.x, y:pin.cy},
+        {x:pin.leftX+2, y:pin.cy},
+        {x:pin.rightX+5, y:pin.cy},
+        {x:dz.x+dz.w/2, y:pin.cy},
+        {x:dz.x+dz.w/2, y:dz.y+dz.h/2},
+      ];
+      this.waypoints = wp; this.totalPathLen = 0;
+      for (let i=1;i<wp.length;i++) { const dx=wp[i].x-wp[i-1].x,dy=wp[i].y-wp[i-1].y; this.totalPathLen+=Math.sqrt(dx*dx+dy*dy); }
+    }
+  }
+
+  isMauTrack() {
+    return this.segment === 'uninstalled' || this.segment === 'dormant' || this.segment === 'intermittent';
+  }
+
+  draw() {
+    if (this.fadeAlpha <= 0) return;
+    const alpha = this.migrating ? 0.5 : this.baseOpacity;
+    if (this.isMauTrack()) {
+      // Outline bubble — white, no health color
+      const a = this.fading ? alpha * this.fadeAlpha * 0.64 : alpha * 0.64;
+      ctx.beginPath(); ctx.arc(this.x, this.y, this.radius + 0.5, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(255,255,255,${a})`;
+      ctx.lineWidth = 0.9;
+      ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+      ctx.fillStyle = this.getColor(alpha); ctx.fill();
+    }
+  }
+}
+
+// ═══ INIT ═══
+let particles = [], signalEvents = [];
+
+function initParticles() {
+  particles = [];
+  // Retention Track (filled dots): Light 280만 / Casual 300만 / Power 180만
+  // scale 1:2000 for perf
+  [{seg:'light',n:1400},{seg:'casual',n:1500},{seg:'power',n:900}].forEach(d => {
+    for (let j=0;j<d.n;j++) particles.push(new Particle(d.seg, 1));
+  });
+  // MAU Track (outline bubbles): 미설치자 113만 / 장기미이용 110만 / 간헐이용 190만
+  [{seg:'uninstalled',n:560},{seg:'dormant',n:550},{seg:'intermittent',n:950}].forEach(d => {
+    for (let j=0;j<d.n;j++) particles.push(new Particle(d.seg, 1));
+  });
+}
+
+// ═══ SPATIAL GRID ═══
+const GC = 20; let grid = {};
+function buildGrid() {
+  grid = {};
+  for (const p of particles) { if (p.migrating||p.fadeAlpha<=0) continue; const k=`${p.x/GC|0},${p.y/GC|0}`; (grid[k]||(grid[k]=[])).push(p); }
+}
+function applyRepulsion() {
+  for (const p of particles) {
+    if (p.migrating) continue;
+    const gx=p.x/GC|0, gy=p.y/GC|0;
+    let avgVx=0, avgVy=0, nCount=0;
+    for (let dx=-1;dx<=1;dx++) for (let dy=-1;dy<=1;dy++) {
+      const nb=grid[`${gx+dx},${gy+dy}`]; if(!nb) continue;
+      for (const q of nb) {
+        if (q===p||q.migrating) continue;
+        // Skip repulsion across sub-zone walls
+        if (p.segment===q.segment && p.subType!==q.subType) continue;
+        const ex=p.x-q.x, ey=p.y-q.y, dSq=ex*ex+ey*ey;
+        // Separation
+        const md=(p.radius+q.radius)*CFG.physics.repDist/4;
+        if (dSq<md*md&&dSq>0.1) { const d=Math.sqrt(dSq), f=(md-d)/md*CFG.physics.repulsion; p.vx+=(ex/d)*f; p.vy+=(ey/d)*f; }
+        // Alignment — match neighbors' velocity
+        if (dSq<400) { avgVx+=q.vx; avgVy+=q.vy; nCount++; }
+      }
+    }
+    if (nCount>0) {
+      p.vx += (avgVx/nCount - p.vx) * 0.02;
+      p.vy += (avgVy/nCount - p.vy) * 0.02;
+    }
+  }
+}
+
+// ═══ MOUSE + DRAG ═══
+let mouseX=-999, mouseY=-999, mouseDown=false;
+let drag = {active:false, lx:0, ly:0, vx:0, vy:0, sx:0, sy:0};
+
+function inAqua(x,y) { return x>=aquarium.x&&x<=aquarium.x+aquarium.w&&y>=aquarium.y&&y<=aquarium.y+aquarium.h; }
+
+canvas.addEventListener('mousemove', e => {
+  if (handActive) return; // hand tracking takes priority
+  mouseX=e.clientX; mouseY=e.clientY;
+  if (drag.active) { drag.vx=e.clientX-drag.lx; drag.vy=e.clientY-drag.ly; drag.lx=e.clientX; drag.ly=e.clientY; drag.sx+=drag.vx*0.35; drag.sy+=drag.vy*0.35; }
+});
+canvas.addEventListener('mouseleave', ()=>{ mouseX=-999; mouseY=-999; drag.active=false; });
+canvas.addEventListener('mousedown', e => {
+  mouseDown=true;
+  if (inAqua(e.clientX,e.clientY)) { drag.active=true; drag.lx=e.clientX; drag.ly=e.clientY; drag.vx=0; drag.vy=0; drag.sx=0; drag.sy=0; }
+});
+canvas.addEventListener('mouseup', ()=>{ mouseDown=false; drag.active=false; });
+
+function applyMouseForce() {
+  if (mouseX<0||drag.active) return;
+
+  // Hand mode: only react when fingers are clearly spread
+  if (handActive && fingerTips.length && fingerSpread > 0.4) {
+    // Burst: sudden open → explosive scatter in random directions
+    if (burstFrame > 0) {
+      burstFrame--;
+      const rad = 250;
+      const str = 5.0;
+      for (const p of particles) {
+        if (p.migrating) continue;
+        const dx=p.x-handX, dy=p.y-handY, dSq=dx*dx+dy*dy;
+        if (dSq<rad*rad && dSq>1) {
+          const angle = Math.random() * Math.PI * 2;
+          const d=Math.sqrt(dSq), f=(1-d/rad)*str;
+          p.vx += Math.cos(angle)*f;
+          p.vy += Math.sin(angle)*f;
+          p.scattered=30;
+        }
+      }
+    }
+    // Palm swipe: push particles in hand movement direction
+    const handSpeed = Math.sqrt(handVX*handVX + handVY*handVY);
+    if (handSpeed > 3) {
+      const pushRad = 200;
+      const pushStr = Math.min(handSpeed * 0.15, 5);
+      const nx = handVX/handSpeed, ny = handVY/handSpeed;
+      for (const p of particles) {
+        if (p.migrating) continue;
+        const dx=p.x-handX, dy=p.y-handY, dSq=dx*dx+dy*dy;
+        if (dSq < pushRad*pushRad && dSq > 1) {
+          const d = Math.sqrt(dSq), f = (1-d/pushRad) * pushStr;
+          p.vx += nx * f;
+          p.vy += ny * f;
+          p.scattered = 20;
+        }
+      }
+    }
+
+    // Swirl: single finger circular motion → each subzone swirls (donut)
+    if (fingerTips.length === 1 && Math.abs(swirlForce) > 0.05) {
+      const str = swirlForce * 3.0;
+      for (const p of particles) {
+        if (p.migrating) continue;
+        const z = getSubZone(p.segment, p.subType);
+        if (!z) continue;
+        const cx = z.x + z.w/2, cy = z.y + z.h/2;
+        const dx = p.x - cx, dy = p.y - cy;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d > 1) {
+          p.vx += (-dy/d) * str;
+          p.vy += (dx/d) * str;
+          p.scattered = 15;
+        }
+      }
+    }
+
+    // Chaos: triggered by swirl + spread fingers
+    if (chaosActive > 0) {
+      chaosActive--;
+      const intensity = chaosActive / 120; // fades out
+      const chaos = intensity * 8.0;
+      for (const p of particles) {
+        if (p.migrating) continue;
+        const z = getSubZone(p.segment, p.subType);
+        if (!z) continue;
+        const cx = z.x + z.w/2, cy = z.y + z.h/2;
+        const dx = p.x - cx, dy = p.y - cy;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d > 1) {
+          const angle = Math.random() * Math.PI * 2;
+          p.vx += Math.cos(angle) * chaos * (1 + Math.random());
+          p.vy += Math.sin(angle) * chaos * (1 + Math.random());
+          if (Math.random() < 0.3) {
+            p.vx += (dx/d) * chaos * 2;
+            p.vy += (dy/d) * chaos * 2;
+          }
+          if (Math.random() < 0.1) {
+            p.vx *= -(0.5 + Math.random());
+            p.vy *= -(0.5 + Math.random());
+          }
+          p.scattered = 40;
+        }
+      }
+    }
+
+    // Normal spread repulsion from fingertips
+    const rad = 80 + fingerSpread * 140;
+    const str = (fingerSpread - 0.4) * 6.0;
+    for (const p of particles) {
+      if (p.migrating) continue;
+      for (const ft of fingerTips) {
+        const dx=p.x-ft.x, dy=p.y-ft.y, dSq=dx*dx+dy*dy;
+        if (dSq<rad*rad && dSq>1) {
+          const d=Math.sqrt(dSq), f=(1-d/rad)*str;
+          p.vx+=(dx/d)*f+(Math.random()-0.5)*f*0.5;
+          p.vy+=(dy/d)*f+(Math.random()-0.5)*f*0.5;
+          p.scattered=30;
+        }
+      }
+    }
+    return;
+  }
+  if (handActive) return; // closed hand = completely ignore
+
+  // Normal mouse mode
+  const rad=mouseDown?180:CFG.physics.mouseR, str=mouseDown?CFG.physics.mouseFC:CFG.physics.mouseF;
+  for (const p of particles) {
+    if(p.migrating) continue;
+    const dx=p.x-mouseX,dy=p.y-mouseY,dSq=dx*dx+dy*dy;
+    if(dSq<rad*rad&&dSq>1){
+      const d=Math.sqrt(dSq),f=(1-d/rad)*str;
+      p.vx+=(dx/d)*f+(Math.random()-0.5)*f*0.8;
+      p.vy+=(dy/d)*f+(Math.random()-0.5)*f*0.8;
+      p.scattered=30;
+    }
+  }
+}
+function applyDragForce() {
+  drag.sx*=0.92; drag.sy*=0.92;
+  if (Math.abs(drag.sx)<0.01&&Math.abs(drag.sy)<0.01) return;
+  particles.forEach(p => { if(!p.migrating) { p.vx+=drag.sx*0.007; p.vy+=drag.sy*0.007; } });
+}
+
+// ═══ MIGRATION ═══
+function tryMigrations() {
+  const seg={power:[],casual:[],light:[],uninstalled:[],dormant:[],intermittent:[]};
+  particles.forEach(p => { if(!p.migrating&&seg[p.segment]) seg[p.segment].push(p); });
+  const R=CFG.migration.rates;
+  function pick(a){return a[Math.random()*a.length|0];}
+
+  // Segment migrations — Up: healthy/good only, Down: caution/danger only
+  const upPool = arr => arr.filter(p=>p.health==='healthy'||p.health==='good');
+  const downPool = arr => arr.filter(p=>p.health==='caution'||p.health==='danger');
+
+  const lightUp=upPool(seg.light), casualUp=upPool(seg.casual);
+  const powerDown=downPool(seg.power), casualDown=downPool(seg.casual);
+
+  if (Math.random()<R.light_casual&&lightUp.length>5) pick(lightUp).startMigration('casual');
+  if (Math.random()<R.casual_power&&casualUp.length>5) pick(casualUp).startMigration('power');
+  if (Math.random()<R.power_casual&&powerDown.length>3) pick(powerDown).startMigration('casual');
+  if (Math.random()<R.casual_light&&casualDown.length>5) pick(casualDown).startMigration('light');
+
+  // Churn — Light가 주요 이탈 경로, Casual/Power는 극소량
+  if (Math.random()<R.churn && seg.light.length>50) pick(seg.light).startMigration('churn');
+  if (Math.random()<R.churn*0.06 && seg.casual.length>50) pick(seg.casual).startMigration('churn'); // 극소량
+  if (Math.random()<R.churn*0.02 && seg.power.length>30) pick(seg.power).startMigration('churn'); // 거의 없음
+
+  // MAU → Light (occasional conversion: 미설치자/장기미이용/간헐이용 → Light)
+  if (Math.random()<0.003 && seg.uninstalled.length>5) pick(seg.uninstalled).startMigration('light');
+  if (Math.random()<0.008 && seg.dormant.length>5) pick(seg.dormant).startMigration('light');
+  if (Math.random()<0.014 && seg.intermittent.length>5) pick(seg.intermittent).startMigration('light');
+
+  // MAU inter-tank (very occasional): 장기미이용 ↔ 간헐이용
+  if (Math.random()<0.004 && seg.dormant.length>5) pick(seg.dormant).startMigration('intermittent');
+  if (Math.random()<0.003 && seg.intermittent.length>5) pick(seg.intermittent).startMigration('dormant');
+}
+
+// ═══ DRAWING: Background ═══
+function drawBG() {
+  ctx.fillStyle='#0a0a0a'; ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='rgba(255,255,255,0.015)';
+  for (let x=40;x<W;x+=40) for (let y=40;y<H;y+=40) ctx.fillRect(x,y,1,1);
+}
+
+// ═══ DRAWING: Dashboard ═══
+function drawDashboard() {
+  const seg={power:0,casual:0,light:0};
+  particles.forEach(p=>{if(seg[p.segment]!==undefined)seg[p.segment]++;});
+  const total=seg.power+seg.casual+seg.light;
+  ctx.save();
+  ctx.font='700 22px "YouandiNewKr"'; ctx.fillStyle='#fff'; ctx.textBaseline='middle'; ctx.textAlign='left';
+  ctx.fillText('DP-AQUA',28,30);
+  ctx.font='300 8px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle='rgba(255,255,255,0.2)';
+  ctx.fillText('App User Quantitative Analysis · 2026',28,48);
+
+  const kY=74, rs=signalEvents.filter(e=>Date.now()-e.time<10000).length;
+  const kpis=[
+    {l:'MAU',v:'763만',s:'목표 800만',c:'rgba(255,255,255,0.9)'},
+    {l:'POWER',v:'180만',s:'월 8회+',c:'rgba(255,255,255,0.85)'},
+    {l:'CASUAL',v:'300만',s:'월 3~7회',c:'rgba(255,255,255,0.85)'},
+    {l:'LIGHT',v:'280만',s:'월 1~2회',c:'rgba(255,255,255,0.85)'},
+    {l:'이상징후',v:`${Math.min(rs,99)}건`,s:'최근 10초',c:hColor('danger',0.85)},
+  ];
+  const kW=(W-56)/kpis.length;
+  kpis.forEach((k,i)=>{
+    const kx=28+i*kW;
+    if(i>0){ctx.beginPath();ctx.moveTo(kx,kY-14);ctx.lineTo(kx,kY+14);ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.stroke();}
+    ctx.font='600 9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.textAlign='left';
+    const tx=i===0?kx:kx+14;
+    ctx.fillText(k.l,tx,kY-8);
+    ctx.font='700 17px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle=k.c;
+    ctx.fillText(k.v,tx,kY+9);
+    const vw=ctx.measureText(k.v).width;
+    ctx.font='10px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle='rgba(255,255,255,0.2)';
+    ctx.fillText(k.s,tx+vw+8,kY+9);
+  });
+  ctx.beginPath();ctx.moveTo(28,headerH-2);ctx.lineTo(W-28,headerH-2);ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;ctx.stroke();
+  ctx.restore();
+}
+
+// ═══ DRAWING: Legend ═══
+function drawLegend() {
+  ctx.save();
+  const lx = 28, ly = H - 22;
+  ctx.font='9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  let x = lx;
+  HEALTH_KEYS.forEach(k => {
+    const c = HEALTH[k];
+    ctx.beginPath(); ctx.arc(x+4, ly, 2, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},0.75)`; ctx.fill();
+    ctx.font = '400 9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    ctx.fillText(c.label, x+12, ly);
+    x += ctx.measureText(c.label).width + 26;
+  });
+  ctx.restore();
+}
+
+// ═══ DRAWING: Aquarium ═══
+let aquaTab = 0; // 0=세그 현황판, 1=이동 트래킹
+let aquaTabRects = []; // click areas, updated each frame
+
+function drawAquarium(frame) {
+  const a=aquarium; ctx.save();
+  ctx.beginPath(); ctx.roundRect(a.x,a.y,a.w,a.h,18);
+  ctx.strokeStyle=`rgba(255,255,255,${0.12+Math.sin(frame*0.008)*0.02})`; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(a.x,a.y,a.w,a.h,18);
+  ctx.fillStyle='rgba(255,255,255,0.006)'; ctx.fill();
+
+  // ── Aquarium title (top-left) ──
+  ctx.font='700 13px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+  ctx.fillStyle='rgba(255,255,255,0.55)';
+  ctx.textBaseline='middle'; ctx.textAlign='left';
+  ctx.fillText('USER AQUARIUM', a.x+leftPad, a.y+22);
+
+  // ── Tabs (top-right) — matches 주간UV 탭 스타일 ──
+  const tabLabels = ['세그 현황판','이동 트래킹'];
+  ctx.font='600 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+  const tabPadX = 14, tabPadY = 5, tabR = 6, contPad = 3, tabGap = 2;
+  const tabH = 12 + tabPadY*2; // font(12) + top/bottom pad
+  const contH = tabH + contPad*2;
+  // measure tab widths
+  const tabWidths = tabLabels.map(l => ctx.measureText(l).width + tabPadX*2);
+  const contW = tabWidths.reduce((a,b)=>a+b,0) + tabGap*(tabLabels.length-1) + contPad*2;
+  const contX = a.x + a.w - rightPad - contW;
+  const contY = a.y + 8 + (36 - contH)/2; // 8px top margin
+
+  // Container background
+  ctx.beginPath(); ctx.roundRect(contX, contY, contW, contH, 8);
+  ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fill();
+
+  // Individual tabs
+  aquaTabRects = [];
+  let tx2 = contX + contPad;
+  tabLabels.forEach((label, i) => {
+    const tw = tabWidths[i];
+    const tabRect = {x:tx2, y:contY+contPad, w:tw, h:tabH};
+    aquaTabRects[i] = tabRect;
+    const isActive = i === aquaTab;
+    if (isActive) {
+      ctx.beginPath(); ctx.roundRect(tabRect.x, tabRect.y, tabRect.w, tabRect.h, tabR);
+      ctx.fillStyle='#ffffff'; ctx.fill();
+    }
+    ctx.font='600 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle = isActive ? 'rgba(10,10,10,0.85)' : 'rgba(255,255,255,0.4)';
+    ctx.textBaseline='middle'; ctx.textAlign='center';
+    ctx.fillText(label, tabRect.x + tabRect.w/2, tabRect.y + tabRect.h/2);
+    tx2 += tw + tabGap;
+  });
+
+  // ── Track labels ──
+  ctx.font='600 9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+  ctx.textBaseline='top'; ctx.textAlign='left';
+  ctx.fillStyle='rgba(255,255,255,0.28)';
+  ctx.fillText('MAU TRACK', a.x+leftPad, a._mauLabelY);
+  ctx.fillStyle='rgba(255,255,255,0.22)';
+  ctx.fillText('RETENTION TRACK', a.x+leftPad, a._retLabelY);
+
+  // Separator line between tracks (midpoint of separator zone)
+  const sepY = a.y + mauSectionH + trackSepGlobal/2;
+  ctx.beginPath(); ctx.moveTo(a.x+16, sepY); ctx.lineTo(a.x+a.w-16, sepY);
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1; ctx.setLineDash([4,6]); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Erase aquarium border where pipes connect
+  const eraseC = '#0a0a0a';
+  const phw = CFG.pipe.width/2 - 1;
+  if (pipes.new_in.cy) { ctx.fillStyle=eraseC; ctx.fillRect(a.x-2, pipes.new_in.cy-phw, 5, phw*2); }
+  if (pipes.churn_out.cy) { ctx.fillStyle=eraseC; ctx.fillRect(a.x+a.w-2, pipes.churn_out.cy-phw, 5, phw*2); }
+  // Erase aquarium bottom border at Light churn hole
+  if (aquarium._lightChurnHoleCX) {
+    ctx.fillStyle=eraseC;
+    ctx.fillRect(aquarium._lightChurnHoleCX - phw, a.y+a.h-2, phw*2, 5);
+  }
+
+  ctx.restore();
+}
+
+// ═══ DRAWING: Tanks (with right holes) ═══
+function drawTanks() {
+  // ─ Retention Track tanks ─
+  const defs=[
+    {key:'light',  label:'Light',  sub:'280만', sub2:'월 1~2회'},
+    {key:'casual', label:'Casual', sub:'300만', sub2:'월 3~7회'},
+    {key:'power',  label:'Power',  sub:'180만', sub2:'월 8회 이상'},
+  ];
+  const sideHoleH = CFG.pipe.width; // 38px side passage height
+  defs.forEach(d => {
+    const t=tanks[d.key];
+    if (!t) return;
+    ctx.save();
+    const r = 10;
+    const eraseC = '#0a0a0a';
+    const passY = t.y + t.h/2; // passage mid Y
+    const phw = sideHoleH/2;
+
+    // Closed rounded rect
+    ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, r);
+    ctx.strokeStyle='rgba(255,255,255,0.14)'; ctx.lineWidth=1; ctx.stroke();
+
+    // Right wall passage (Light→Casual, Casual→Power) — aligned to pipe center
+    if ((d.key==='light' || d.key==='casual') && pipes.lc && pipes.lc.cy) {
+      const py = (d.key==='light' ? pipes.lc.cy : pipes.cp && pipes.cp.cy ? pipes.cp.cy : pipes.lc.cy);
+      ctx.fillStyle=eraseC; ctx.fillRect(t.x+t.w-2, py-phw, 5, sideHoleH);
+    }
+    // Left wall passage (Casual←Light, Power←Casual)
+    if ((d.key==='casual' || d.key==='power') && pipes.lc && pipes.lc.cy) {
+      const py = (d.key==='casual' ? pipes.lc.cy : pipes.cp && pipes.cp.cy ? pipes.cp.cy : pipes.lc.cy);
+      ctx.fillStyle=eraseC; ctx.fillRect(t.x-2, py-phw, 5, sideHoleH);
+    }
+    // Light: top hole (from MAU track) + left hole (new_in) + bottom hole (churn exit)
+    if (d.key==='light') {
+      const lhcx = aquarium._lightHoleCX || (t.x+t.w/2);
+      ctx.fillStyle=eraseC; ctx.fillRect(lhcx-phw, t.y-2, sideHoleH, 5); // top hole (MAU→Light)
+      if (pipes.new_in.cy) {
+        const npw = CFG.pipe.width/2;
+        ctx.fillStyle=eraseC; ctx.fillRect(t.x-2, pipes.new_in.cy-npw, 5, npw*2); // left hole (신규)
+      }
+      // Bottom hole (Light → 이탈 churn exit)
+      const lchcx = aquarium._lightChurnHoleCX || lhcx;
+      ctx.fillStyle=eraseC; ctx.fillRect(lchcx-phw, t.y+t.h-2, sideHoleH, 5);
+    }
+    // Power: right hole (churn_out pipe)
+    if (d.key==='power' && pipes.churn_out.cy) {
+      const cpw = CFG.pipe.width/2;
+      ctx.fillStyle=eraseC; ctx.fillRect(t.x+t.w-2, pipes.churn_out.cy-cpw, 5, cpw*2);
+    }
+
+    ctx.font='bold 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText(d.label, t.x+12, t.y+9);
+    const lw=ctx.measureText(d.label).width;
+    ctx.font='600 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.35)';
+    ctx.fillText(d.sub, t.x+12+lw+8, t.y+9);
+    ctx.font='9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.18)';
+    ctx.fillText(d.sub2, t.x+12, t.y+24);
+    ctx.restore();
+  });
+
+  // ─ MAU Track tanks ─
+  const mauDefs=[
+    {key:'uninstalled',  label:'미설치자',    sub:'113만', sub2:'신규 발급 미로그인'},
+    {key:'dormant',      label:'장기 미이용',  sub:'110만', sub2:'3개월 초과'},
+    {key:'intermittent', label:'간헐 이용',    sub:'190만', sub2:'3개월 내 비연속'},
+  ];
+  mauDefs.forEach(d => {
+    const t=mauTanks[d.key];
+    if (!t) return;
+    ctx.save();
+    const r = 10;
+    const eraseC = '#0a0a0a';
+    const holeW = CFG.pipe.width; // 38px
+    const phw = holeW / 2;
+
+    ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, r);
+    ctx.strokeStyle='rgba(255,255,255,0.10)'; ctx.lineWidth=1; ctx.stroke();
+    // subtle fill
+    ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, r);
+    ctx.fillStyle='rgba(255,255,255,0.003)'; ctx.fill();
+
+    // Bottom hole (MAU → Light)
+    if (aquarium._mauHoleCX && aquarium._mauHoleCX[d.key]) {
+      const holeCX = aquarium._mauHoleCX[d.key];
+      ctx.fillStyle = eraseC;
+      ctx.fillRect(holeCX - phw, t.y + t.h - 2, holeW, 5);
+    }
+    // Side holes for dormant ↔ intermittent pipe
+    if (d.key === 'dormant' && pipes.di && pipes.di.cy) {
+      ctx.fillStyle = eraseC;
+      ctx.fillRect(t.x + t.w - 2, pipes.di.cy - phw, 5, holeW);
+    }
+    if (d.key === 'intermittent' && pipes.di && pipes.di.cy) {
+      ctx.fillStyle = eraseC;
+      ctx.fillRect(t.x - 2, pipes.di.cy - phw, 5, holeW);
+    }
+
+    ctx.font='bold 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.fillText(d.label, t.x+12, t.y+9);
+    const lw=ctx.measureText(d.label).width;
+    ctx.font='600 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.35)';
+    ctx.fillText(d.sub, t.x+12+lw+8, t.y+9);
+    ctx.font='9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.18)';
+    ctx.fillText(d.sub2, t.x+12, t.y+24);
+    ctx.restore();
+  });
+}
+
+// ═══ DRAWING: Pipes ═══
+function drawVPipe(cx,y1,y2,color,frame,dir) {
+  const hw=CFG.pipe.width/2;
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(cx-hw,y1);ctx.lineTo(cx-hw,y2);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(cx+hw,y1);ctx.lineTo(cx+hw,y2);ctx.stroke();
+  // Chevrons
+  for(let i=0;i<3;i++){
+    const ph=((frame*0.004*dir+i/3)%1+1)%1;
+    const cy=y1+(y2-y1)*ph, sz=3;
+    ctx.beginPath();
+    if(dir>0){ctx.moveTo(cx-sz,cy-sz);ctx.lineTo(cx,cy);ctx.lineTo(cx+sz,cy-sz);}
+    else{ctx.moveTo(cx-sz,cy+sz);ctx.lineTo(cx,cy);ctx.lineTo(cx+sz,cy+sz);}
+    ctx.strokeStyle=`rgba(${color},${0.35*(1-Math.abs(ph-0.5)*2)})`;ctx.lineWidth=1;ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawHPipe(cy,x1,x2,color,frame,dir) {
+  const hw=CFG.pipe.width/2;
+  ctx.save();
+  ctx.fillStyle='rgba(255,255,255,0.01)';ctx.beginPath();ctx.roundRect(x1,cy-hw,x2-x1,CFG.pipe.width,3);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(x1,cy-hw);ctx.lineTo(x2,cy-hw);ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x1,cy+hw);ctx.lineTo(x2,cy+hw);ctx.stroke();
+  for(let i=0;i<3;i++){
+    const ph=((frame*0.004*dir+i/3)%1+1)%1;
+    const cx2=x1+(x2-x1)*ph, sz=3;
+    ctx.beginPath();
+    if(dir>0){ctx.moveTo(cx2-sz,cy-sz);ctx.lineTo(cx2,cy);ctx.lineTo(cx2-sz,cy+sz);}
+    else{ctx.moveTo(cx2+sz,cy-sz);ctx.lineTo(cx2,cy);ctx.lineTo(cx2+sz,cy+sz);}
+    ctx.strokeStyle=`rgba(${color},${0.35*(1-Math.abs(ph-0.5)*2)})`;ctx.lineWidth=1;ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawAllPipes(frame) {
+  const g='200,200,200', r='240,75,75';
+  // 신규 → Light
+  if (pipes.new_in.cy) drawHPipe(pipes.new_in.cy, pipes.new_in.leftX, pipes.new_in.rightX, g, frame, 1);
+  // Power → 이탈
+  if (pipes.churn_out.cy) drawHPipe(pipes.churn_out.cy, pipes.churn_out.leftX, pipes.churn_out.rightX, r, frame, 1);
+  // Light ↔ Casual
+  if (pipes.lc) {
+    drawHPipe(pipes.lc.cy, pipes.lc.leftX, pipes.lc.rightX, g, frame, 1);  // Light→Casual
+    drawHPipe(pipes.lc.cy, pipes.lc.leftX, pipes.lc.rightX, g, frame, -1); // Casual→Light
+  }
+  // Casual ↔ Power
+  if (pipes.cp) {
+    drawHPipe(pipes.cp.cy, pipes.cp.leftX, pipes.cp.rightX, g, frame, 1);  // Casual→Power
+    drawHPipe(pipes.cp.cy, pipes.cp.leftX, pipes.cp.rightX, g, frame, -1); // Power→Casual
+  }
+  // 장기미이용 ↔ 간헐이용
+  if (pipes.di && pipes.di.cy) {
+    drawHPipe(pipes.di.cy, pipes.di.leftX, pipes.di.rightX, g, frame, 1);  // dormant→intermittent
+    drawHPipe(pipes.di.cy, pipes.di.leftX, pipes.di.rightX, g, frame, -1); // intermittent→dormant
+  }
+  // Light 하단 이탈 채널 (Light → 이탈, 아쿠아리움 아래)
+  if (pipes.light_churn && pipes.light_churn.cy) {
+    drawHPipe(pipes.light_churn.cy, pipes.light_churn.leftX, pipes.light_churn.rightX, r, frame, 1);
+  }
+}
+
+// ═══ DRAWING: Side Zones ═══
+function drawSideZones() {
+  ctx.save();
+  // 신규
+  ctx.beginPath(); ctx.roundRect(newZone.x,newZone.y,newZone.w,newZone.h,8);
+  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.font='bold 11px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle='rgba(255,255,255,0.35)';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('신규 유입', newZone.x+newZone.w/2, newZone.y+newZone.h/2);
+  // Erase right wall where pipe connects
+  const eraseC2 = '#0a0a0a', phw2 = CFG.pipe.width/2 - 1;
+  ctx.fillStyle=eraseC2; ctx.fillRect(newZone.x+newZone.w-2, pipes.new_in.cy-phw2, 5, phw2*2);
+
+  // 이탈
+  ctx.beginPath(); ctx.roundRect(churnZone.x,churnZone.y,churnZone.w,churnZone.h,8);
+  ctx.strokeStyle='rgba(240,75,75,0.12)'; ctx.stroke();
+  ctx.font='bold 11px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle=hColor('danger',0.4);
+  ctx.textAlign='center';
+  ctx.fillText('이탈', churnZone.x+churnZone.w/2, churnZone.y+churnZone.h/2-7);
+  ctx.font='9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle=hColor('danger',0.18);
+  ctx.fillText('30일+ 미방문', churnZone.x+churnZone.w/2, churnZone.y+churnZone.h/2+8);
+  // Erase left wall where pipe connects
+  ctx.fillStyle=eraseC2; ctx.fillRect(churnZone.x-2, pipes.churn_out.cy-phw2, 5, phw2*2);
+  ctx.restore();
+}
+
+// ═══ DRAWING: Signal Panel ═══
+function drawSignalPanel(frame) {
+  const sp=signalPanel; ctx.save();
+  ctx.beginPath();ctx.roundRect(sp.x,sp.y,sp.w,sp.h,12);ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;ctx.stroke();
+  ctx.font='bold 11px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle='rgba(255,255,255,0.45)';
+  ctx.textAlign='left';ctx.textBaseline='top'; ctx.fillText('이상 신호 감지',sp.x+14,sp.y+12);
+
+  const sigs=[
+    {l:'Power → Casual',d:'확인형 비중 증가',f:'power',t:'casual',s:'warn'},
+    {l:'Casual → Light',d:'기능 유형 수렴',f:'casual',t:'light',s:'warn'},
+    {l:'Any → 이탈',d:'위험 상태 이탈',f:null,t:'churn',s:'critical'},
+  ];
+  const now=Date.now();
+  sigs.forEach((s,i)=>{
+    const cnt=signalEvents.filter(e=>(!s.f||e.from===s.f)&&e.to===s.t&&now-e.time<10000).length;
+    const sy=sp.y+38+i*(sp.h-54)/3, hr=cnt>0;
+    ctx.font='11px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle=`rgba(255,255,255,${hr?0.65:0.3})`; ctx.textAlign='left';
+    ctx.fillText(s.l,sp.x+14,sy+3);
+    ctx.font='bold 16px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';ctx.textAlign='right';
+    if(hr){ctx.fillStyle='rgba(240,90,90,0.9)';ctx.fillText(`${cnt}`,sp.x+sp.w-14,sy+5);}
+    else{ctx.fillStyle='rgba(255,255,255,0.2)';ctx.fillText('0',sp.x+sp.w-14,sy+5);}
+    ctx.font='9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.textAlign='left';
+    ctx.fillText(s.d,sp.x+14,sy+17);
+  });
+  ctx.restore();
+}
+
+// ═══ DRAWING: Action Panel (Carousel with slide animation) ═══
+let actionSlide = 0;
+let actionSlideTimer = 0;
+let slideOffset = 0; // animated x offset
+let slideTarget = 0;
+const actionCards = [
+  { tag:'POWER', title:'Power 이탈 조짐', desc:'확인형 비중 12%↑ 감지.\n리텐션 캠페인 필요.', btn:'캠페인 설정' },
+  { tag:'CASUAL', title:'Power 전환 기회', desc:'혼합형 이용 패턴 증가.\n온보딩 유도 권장.', btn:'시나리오 설정' },
+  { tag:'LIGHT', title:'재방문율 하락', desc:'14일+ 미방문 8%↑ 증가.\n푸시 캠페인 즉시 실행.', btn:'캠페인 실행' },
+];
+
+function goToSlide(idx) {
+  actionSlide = idx % actionCards.length;
+  slideTarget = -actionSlide * actionPanel.w;
+  actionSlideTimer = 0;
+}
+
+canvas.addEventListener('click', e => {
+  const ap=actionPanel;
+  if (e.clientX>=ap.x&&e.clientX<=ap.x+ap.w&&e.clientY>=ap.y&&e.clientY<=ap.y+ap.h) {
+    goToSlide(actionSlide+1);
+  }
+  // Aquarium tab click
+  aquaTabRects.forEach((r, i) => {
+    if (r && e.clientX>=r.x&&e.clientX<=r.x+r.w&&e.clientY>=r.y&&e.clientY<=r.y+r.h) {
+      aquaTab = i;
+    }
+  });
+});
+
+function wrapText(text, maxW) {
+  let line='', lines=[];
+  for(const ch of text) {
+    if(ch==='\n'){lines.push(line);line='';continue;}
+    const test=line+ch;
+    if(ctx.measureText(test).width>maxW&&line.length>0){lines.push(line);line=ch;}
+    else line=test;
+  }
+  if(line) lines.push(line);
+  return lines;
+}
+
+function drawActionPanel(frame) {
+  const ap=actionPanel; ctx.save();
+
+  // Auto-slide
+  actionSlideTimer++;
+  if (actionSlideTimer > 600) goToSlide(actionSlide+1);
+
+  // Animate offset
+  slideOffset += (slideTarget - slideOffset) * 0.1;
+
+  // Clip
+  ctx.beginPath();ctx.roundRect(ap.x,ap.y,ap.w,ap.h,12);ctx.clip();
+  ctx.fillStyle='#0a0a0a';ctx.fillRect(ap.x,ap.y,ap.w,ap.h);
+
+  const pw = ap.w-28;
+
+  // Draw all cards side by side
+  actionCards.forEach((card,ci) => {
+    const cardX = ap.x + ci*ap.w + slideOffset;
+    if (cardX > ap.x+ap.w+10 || cardX < ap.x-ap.w-10) return; // skip off-screen
+
+    const lx=cardX+14;
+    let ty=cardX > -9999 ? ap.y+14 : 0; // always same Y
+    ty=ap.y+14;
+
+    // Tag
+    ctx.font='bold 9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.18)';ctx.textAlign='left';ctx.textBaseline='top';
+    ctx.fillText(card.tag,lx,ty);
+    ty+=16;
+
+    // Title
+    ctx.font='bold 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.65)';
+    ctx.fillText(card.title,lx,ty);
+    ty+=20;
+
+    // Desc
+    ctx.font='10px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(255,255,255,0.28)';
+    wrapText(card.desc,pw).forEach(l=>{ctx.fillText(l,lx,ty);ty+=14;});
+
+    // Button
+    const btnY=ap.y+ap.h-48;
+    ctx.beginPath();ctx.roundRect(lx,btnY,pw,22,6);
+    ctx.fillStyle='rgba(255,255,255,0.85)';ctx.fill();
+    ctx.font='bold 9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle='rgba(0,0,0,0.8)';ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillText(card.btn,cardX+ap.w/2,btnY+11);
+  });
+
+  ctx.restore(); ctx.save();
+
+  // Border
+  ctx.beginPath();ctx.roundRect(ap.x,ap.y,ap.w,ap.h,12);ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;ctx.stroke();
+
+  // Section title (fixed, not sliding)
+  ctx.font='bold 10px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+  ctx.fillStyle='rgba(255,255,255,0.35)';ctx.textAlign='center';ctx.textBaseline='top';
+
+  // Indicators
+  const indY=ap.y+ap.h-14;
+  const indGap=12;
+  const totalInd=actionCards.length*indGap;
+  let ix=ap.x+ap.w/2-totalInd/2;
+  actionCards.forEach((_,i)=>{
+    ctx.beginPath();ctx.arc(ix+3,indY,2.5,0,Math.PI*2);
+    ctx.fillStyle=i===actionSlide?'rgba(255,255,255,0.6)':'rgba(255,255,255,0.12)';
+    ctx.fill(); ix+=indGap;
+  });
+
+  // Connector
+  ctx.beginPath();ctx.setLineDash([2,3]);
+  ctx.moveTo(signalPanel.x+signalPanel.w/2,signalPanel.y+signalPanel.h);
+  ctx.lineTo(ap.x+ap.w/2,ap.y);
+  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+  ctx.restore();
+}
+
+// ═══ DRAWING: Connecting Lines ═══
+function drawConnLines() {
+  let cnt=0; const mx=160; ctx.save(); ctx.lineWidth=0.5;
+  for(const key in grid){if(cnt>=mx)break;const cell=grid[key];if(!cell||cell.length<2)continue;
+    for(let i=0;i<cell.length&&cnt<mx;i++)for(let j=i+1;j<cell.length&&cnt<mx;j++){
+      const a=cell[i],b=cell[j]; if(a.migrating||b.migrating||a.segment!==b.segment)continue;
+      const dx=a.x-b.x,dy=a.y-b.y,dSq=dx*dx+dy*dy;
+      if(dSq<169){const al=(1-Math.sqrt(dSq)/13)*0.045;const ch=HEALTH[a.health];
+        ctx.strokeStyle=`rgba(${ch.r},${ch.g},${ch.b},${al})`;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();cnt++;}
+    }
+  } ctx.restore();
+}
+
+
+// ═══ DRAWING: Left GNB ═══
+const gnbItems = ['HOME','Menu 1','Menu 2','Menu 3'];
+const gnbActive = 0; // HOME
+
+function drawGNB() {
+  ctx.save();
+  const gx = 28, gy = signalPanel.y;
+  const itemH = 46;
+
+  gnbItems.forEach((label, i) => {
+    const iy = gy + i * itemH;
+    const isActive = i === gnbActive;
+    const isHover = mouseX >= gx-4 && mouseX <= gx+120 && mouseY >= iy-12 && mouseY <= iy+16;
+
+    ctx.font = '700 20px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle = (isActive||isHover) ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.2)';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, gx, iy);
+  });
+
+  ctx.restore();
+}
+
+// ═══ HAND TRACKING (MediaPipe) ═══
+let handActive = false;
+let handX = -999, handY = -999;
+let fingerTips = []; // [{x,y}, ...] for 5 fingertips
+let fingerSpread = 0; // 0 = closed, 1 = fully spread
+let prevSpread = 0;
+let burstFrame = 0; // countdown for burst effect
+let fingerHistory = []; // track index finger positions for swirl detection
+let swirlForce = 0; // -1 to 1, negative=CW, positive=CCW
+let swirlEnergy = 0; // accumulates with sustained rotation
+let chaosActive = 0; // countdown frames for chaos effect
+let handVX = 0, handVY = 0; // hand velocity
+// Tap gesture: finger shake (sustained wiggle)
+let tapTipYs = [];
+let tapInZoneFrames = 0;
+let tapTargetZone = null;
+let detailPageActive = false;
+let prevHandX = -999, prevHandY = -999;
+let fingerTipsRaw = []; // normalized coords for camera overlay
+let smoothTips = []; // smoothed fingertip positions
+let handLostFrames = 0; // frames since hand was last seen
+
+// Camera toggle button (bottom-right)
+// Detail page overlay
+const detailOverlay = document.createElement('div');
+detailOverlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:#0a0a0a;z-index:99;display:none;opacity:0;transition:opacity 0.4s;';
+detailOverlay.innerHTML = `
+  <div style="position:absolute;top:40px;left:40px;color:rgba(255,255,255,0.6);font:500 14px 'SF Pro Display',-apple-system,sans-serif;">
+    <div id="detailBack" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:12px;padding:6px 12px 6px 6px;border-radius:6px;transition:background 0.2s;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      <span style="color:rgba(255,255,255,0.5);font-size:13px;">돌아가기</span>
+    </div>
+  </div>
+  <div style="position:absolute;top:110px;left:74px;right:74px;bottom:40px;overflow-y:auto;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;">
+      <div id="chartTitle" style="color:#fff;font:700 30px/1 'YouandiNewKr',sans-serif;">주간 UV 추이</div>
+      <div style="display:flex;gap:2px;background:rgba(255,255,255,0.06);border-radius:8px;padding:3px;">
+        <button id="tabWeekly"  onclick="switchChartMode('weekly')"  style="background:#fff;color:#0a0a0a;border:none;border-radius:6px;padding:5px 14px;font:600 12px/1 'SF Pro Display',-apple-system,sans-serif;cursor:pointer;transition:all 0.2s;">주간</button>
+        <button id="tabMonthly" onclick="switchChartMode('monthly')" style="background:transparent;color:rgba(255,255,255,0.4);border:none;border-radius:6px;padding:5px 14px;font:600 12px/1 'SF Pro Display',-apple-system,sans-serif;cursor:pointer;transition:all 0.2s;">월간</button>
+        <button id="tabYearly"  onclick="switchChartMode('yearly')"  style="background:transparent;color:rgba(255,255,255,0.4);border:none;border-radius:6px;padding:5px 14px;font:600 12px/1 'SF Pro Display',-apple-system,sans-serif;cursor:pointer;transition:all 0.2s;">연간</button>
+      </div>
+    </div>
+    <div id="chartSubtitle" style="color:rgba(255,255,255,0.3);font:400 12px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;margin-bottom:32px;">기준: 2026년 4월 · 전월 동기 비교</div>
+    <div style="display:flex;gap:0;margin-bottom:36px;">
+      <div style="flex:1;padding-right:24px;border-right:1px solid rgba(255,255,255,0.07);">
+        <div id="kpiLbl1" style="color:rgba(255,255,255,0.3);font:400 10px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;letter-spacing:0.06em;margin-bottom:10px;">당월진행</div>
+        <div style="color:#fff;font:800 26px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;display:flex;align-items:flex-end;"><span id="kpiVal1">763</span><span style="font-size:12px;color:rgba(255,255,255,0.4);margin-left:3px;">만</span></div>
+      </div>
+      <div style="flex:1;padding:0 24px;border-right:1px solid rgba(255,255,255,0.07);">
+        <div id="kpiLbl2" style="color:rgba(255,255,255,0.3);font:400 10px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;letter-spacing:0.06em;margin-bottom:10px;">전월동기</div>
+        <div style="color:#fff;font:800 26px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;display:flex;align-items:flex-end;"><span id="kpiVal2">749</span><span style="font-size:12px;color:rgba(255,255,255,0.4);margin-left:3px;">만</span></div>
+      </div>
+      <div style="flex:1;padding-left:24px;">
+        <div id="kpiLbl3" style="color:rgba(255,255,255,0.3);font:400 10px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;letter-spacing:0.06em;margin-bottom:10px;">전월동기대비</div>
+        <div style="color:#50d278;font:800 26px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;display:flex;align-items:flex-end;"><span id="kpiVal3">▲14</span><span style="font-size:12px;margin-left:3px;">만</span></div>
+      </div>
+    </div>
+    <svg id="chartSvg" viewBox="0 0 1300 420" style="width:100%;display:block;overflow:hidden;">
+      <defs><clipPath id="chartClip"><rect x="0" y="0" width="1262" height="420"/></clipPath></defs>
+      <g id="staticYAxis">
+        <line x1="80" y1="20"  x2="1260" y2="20"  stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <line x1="80" y1="80"  x2="1260" y2="80"  stroke="rgba(80,210,120,0.18)" stroke-width="1" stroke-dasharray="4,4"/>
+        <line x1="80" y1="140" x2="1260" y2="140" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <line x1="80" y1="200" x2="1260" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="80" y1="260" x2="1260" y2="260" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <line x1="80" y1="320" x2="1260" y2="320" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+        <line x1="80" y1="380" x2="1260" y2="380" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <text x="68" y="24"  text-anchor="end" fill="rgba(255,255,255,0.12)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">850만</text>
+        <text x="68" y="84"  text-anchor="end" fill="rgba(80,210,120,0.7)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">목표→ 800만</text>
+        <text x="68" y="144" text-anchor="end" fill="rgba(255,255,255,0.18)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">750만</text>
+        <text x="68" y="204" text-anchor="end" fill="rgba(255,255,255,0.10)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">700만</text>
+        <text x="68" y="264" text-anchor="end" fill="rgba(255,255,255,0.18)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">650만</text>
+        <text x="68" y="324" text-anchor="end" fill="rgba(255,255,255,0.10)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">600만</text>
+        <text x="68" y="384" text-anchor="end" fill="rgba(255,255,255,0.18)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">550만</text>
+      </g>
+      <g id="dynamicYAxis"></g>
+      <path id="chartPathPrev" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2" stroke-dasharray="4,3" clip-path="url(#chartClip)"/>
+      <path id="chartPathCur"  fill="none" stroke="#50d278" stroke-width="2.5" clip-path="url(#chartClip)"/>
+      <circle class="wdot-cur"  cx="80"   cy="284" r="5" fill="#50d278" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-cur"  cx="375"  cy="224" r="5" fill="#50d278" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-cur"  cx="670"  cy="194" r="5" fill="#50d278" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-cur"  cx="965"  cy="146" r="5" fill="#50d278" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-cur"  cx="1260" cy="128" r="5" fill="#50d278" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-prev" cx="80"   cy="308" r="4" fill="rgba(255,255,255,0)" stroke="rgba(255,255,255,0.3)" stroke-width="2" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-prev" cx="375"  cy="254" r="4" fill="rgba(255,255,255,0)" stroke="rgba(255,255,255,0.3)" stroke-width="2" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-prev" cx="670"  cy="212" r="4" fill="rgba(255,255,255,0)" stroke="rgba(255,255,255,0.3)" stroke-width="2" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-prev" cx="965"  cy="166" r="4" fill="rgba(255,255,255,0)" stroke="rgba(255,255,255,0.3)" stroke-width="2" style="transition:r 0.2s ease;"/>
+      <circle class="wdot-prev" cx="1260" cy="150" r="4" fill="rgba(255,255,255,0)" stroke="rgba(255,255,255,0.3)" stroke-width="2" style="transition:r 0.2s ease;"/>
+      <circle id="activeDotCur"  r="0" fill="#50d278" style="transition:r 0.2s ease;"/>
+      <circle id="activeDotPrev" r="0" fill="rgba(255,255,255,0)" stroke="rgba(255,255,255,0.5)" stroke-width="2" style="transition:r 0.2s ease;"/>
+      <g id="xLabels"></g>
+      <!-- 연간 전용 레이어 (MAU+DAU 정적 차트) -->
+      <g id="yearlyLayer" style="display:none;"></g>
+    </svg>
+    <div style="display:flex;gap:20px;margin-top:14px;">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <svg width="28" height="10" viewBox="0 0 28 10" style="flex-shrink:0;"><line x1="0" y1="5" x2="28" y2="5" stroke="#50d278" stroke-width="2"/><circle cx="14" cy="5" r="3" fill="#50d278"/></svg>
+        <span style="color:rgba(255,255,255,0.35);font:400 11px 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;">이번달</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <svg width="28" height="10" viewBox="0 0 28 10" style="flex-shrink:0;"><line x1="0" y1="5" x2="28" y2="5" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-dasharray="5,4"/><circle cx="14" cy="5" r="2.5" fill="rgba(255,255,255,0)" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/></svg>
+        <span style="color:rgba(255,255,255,0.35);font:400 11px 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;">전월동기</span>
+      </div>
+    </div>
+    <div style="margin-top:20px;color:rgba(255,255,255,0.15);font:400 10px 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;">* UV 기준: 앱 실행 기준 순사용자 / 단위: 만 명</div>
+  </div>
+`;
+detailOverlay.querySelector('#detailBack').addEventListener('mouseenter', e => e.currentTarget.style.background='rgba(255,255,255,0.08)');
+detailOverlay.querySelector('#detailBack').addEventListener('mouseleave', e => e.currentTarget.style.background='transparent');
+detailOverlay.querySelector('#detailBack').addEventListener('click', () => hideDetailPage());
+document.body.appendChild(detailOverlay);
+
+// ── 차트 크로스헤어 + 말풍선 ──
+(function() {
+  // 주차 시작일 → SVG x 앵커 (1주차=Apr1, 2주차=Apr8 ...)
+  const WEEK_DAYS = [1, 8, 15, 22, 29];
+  const WEEK_XS   = [80, 375, 670, 965, 1260];
+
+  // 주차별 데이터 (주 시작일 기준)
+  const anchors = [
+    { day:1,  cur:630, prev:610, yCur:284, yPrev:308 },
+    { day:8,  cur:680, prev:655, yCur:224, yPrev:254 },
+    { day:15, cur:705, prev:690, yCur:194, yPrev:212 },
+    { day:22, cur:745, prev:728, yCur:146, yPrev:166 },
+    { day:29, cur:760, prev:742, yCur:128, yPrev:150 },
+  ];
+
+  function lerp(a, b, t) { return a + t*(b-a); }
+
+  function dayToSvgX(day) {
+    if (day <= 1)  return WEEK_XS[0];
+    if (day >= 29) return WEEK_XS[4];
+    for (let i=0; i<4; i++) {
+      if (day >= WEEK_DAYS[i] && day < WEEK_DAYS[i+1]) {
+        const t = (day - WEEK_DAYS[i]) / (WEEK_DAYS[i+1] - WEEK_DAYS[i]);
+        return lerp(WEEK_XS[i], WEEK_XS[i+1], t);
+      }
+    }
+    return WEEK_XS[4];
+  }
+
+  function svgXToDay(svgX) {
+    if (svgX <= WEEK_XS[0]) return 1;
+    if (svgX >= WEEK_XS[4]) return 30;
+    for (let i=0; i<4; i++) {
+      if (svgX >= WEEK_XS[i] && svgX < WEEK_XS[i+1]) {
+        const t = (svgX - WEEK_XS[i]) / (WEEK_XS[i+1] - WEEK_XS[i]);
+        return Math.round(lerp(WEEK_DAYS[i], WEEK_DAYS[i+1], t));
+      }
+    }
+    return 30;
+  }
+
+  function interpDay(day, key) {
+    if (day <= anchors[0].day) return anchors[0][key];
+    if (day >= anchors[4].day) return anchors[4][key];
+    for (let i=0; i<4; i++) {
+      if (day >= anchors[i].day && day < anchors[i+1].day) {
+        const t = (day - anchors[i].day) / (anchors[i+1].day - anchors[i].day);
+        return lerp(anchors[i][key], anchors[i+1][key], t);
+      }
+    }
+    return anchors[4][key];
+  }
+
+  function weekLabel(day) {
+    return day<8?'1주차':day<15?'2주차':day<22?'3주차':day<29?'4주차':'5주차';
+  }
+
+  let audioCtx = null;
+  let lastSnap = -1;
+  function tick() {
+    if (navigator.vibrate) navigator.vibrate(4);
+    try {
+      if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+      const t = audioCtx.currentTime;
+
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.connect(g); g.connect(audioCtx.destination);
+
+      o.type = 'sine';
+      o.frequency.setValueAtTime(140, t);
+      o.frequency.exponentialRampToValueAtTime(80, t + 0.04);
+
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(0.05, t + 0.008);
+      g.gain.linearRampToValueAtTime(0.0001, t + 0.04);
+
+      o.start(t); o.stop(t + 0.045);
+    } catch(e){}
+  }
+
+  // SVG elements
+  const crosshair = document.createElementNS('http://www.w3.org/2000/svg','line');
+  crosshair.setAttribute('y1','20'); crosshair.setAttribute('y2','380');
+  crosshair.setAttribute('stroke','rgba(255,255,255,0.2)'); crosshair.setAttribute('stroke-width','1');
+  crosshair.style.display='none';
+
+
+  // tooltip
+  const tooltip = document.createElement('div');
+  tooltip.style.cssText='position:fixed;pointer-events:none;display:none;background:rgba(18,18,18,0.94);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px 18px;backdrop-filter:blur(12px);white-space:nowrap;z-index:200;';
+  tooltip.innerHTML=`
+    <div id="tt-date" style="color:rgba(255,255,255,0.35);font:400 11px 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;margin-bottom:10px;letter-spacing:0.02em;"></div>
+    <div style="display:flex;gap:20px;align-items:flex-end;">
+      <div>
+        <div style="color:rgba(255,255,255,0.3);font:400 9px 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;margin-bottom:3px;">이번달</div>
+        <div id="tt-cur" style="color:#50d278;font:800 20px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;display:flex;align-items:flex-end;"></div>
+      </div>
+      <div>
+        <div style="color:rgba(255,255,255,0.3);font:400 9px 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;margin-bottom:3px;">전월동기</div>
+        <div id="tt-prev" style="color:rgba(255,255,255,0.4);font:800 20px/1 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;display:flex;align-items:flex-end;"></div>
+      </div>
+    </div>`;
+  document.body.appendChild(tooltip);
+
+  let lastTTCur = null, lastTTPrev = null;
+  const SLOT_H = 20;
+
+  function buildDrum() {
+    const slot = document.createElement('span');
+    slot.className = 'sn-slot';
+    slot.style.cssText = `display:inline-block;overflow:hidden;height:${SLOT_H}px;vertical-align:bottom;`;
+    const drum = document.createElement('span');
+    drum.className = 'sn-drum';
+    drum.style.cssText = 'display:block;will-change:transform;';
+    for (let i = 0; i <= 9; i++) {
+      const d = document.createElement('span');
+      d.style.cssText = `display:block;line-height:${SLOT_H}px;text-align:left;`;
+      d.textContent = i;
+      drum.appendChild(d);
+    }
+    slot.appendChild(drum);
+    return slot;
+  }
+
+  function slotNumber(el, newText, newVal, oldVal) {
+    if (el._slotText === newText) return;
+    el._slotText = newText;
+
+    const numStr = String(Math.round(newVal));
+    const digits = numStr.split('').map(Number);
+    const existingSlots = el.querySelectorAll('.sn-slot');
+
+    if (!existingSlots.length || existingSlots.length !== digits.length) {
+      el.innerHTML = '';
+      digits.forEach(d => {
+        const slot = buildDrum();
+        slot.dataset.d = d;
+        slot.querySelector('.sn-drum').style.transform = `translateY(-${d * SLOT_H}px)`;
+        el.appendChild(slot);
+      });
+      const suf = document.createElement('span');
+      suf.style.cssText = `display:inline-block;vertical-align:bottom;line-height:${SLOT_H}px;`;
+      suf.textContent = '만';
+      el.appendChild(suf);
+      return;
+    }
+
+    digits.forEach((d, i) => {
+      const slot = existingSlots[i];
+      if (parseInt(slot.dataset.d) === d) return;
+      slot.dataset.d = d;
+      const drum = slot.querySelector('.sn-drum');
+      drum.style.transition = `transform 0.22s cubic-bezier(0.4,0,0.2,1)`;
+      drum.style.transform = `translateY(-${d * SLOT_H}px)`;
+    });
+  }
+
+  // ── 차트 모드 ──
+  let chartMode = 'weekly';
+
+  const MONTHLY_XS     = [80,187,294,401,508,615,722,829,936,1043,1150,1260];
+  // ── 월간 정적 데이터 (2025년 1월~12월) ──
+  const MONTHLY_LABELS_12 = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const MONTHLY_XS_12     = [80,187,294,401,508,615,722,829,936,1043,1150,1260];
+  const monthlyAnchors = [
+    {cur:630,prev:558},{cur:645,prev:570},{cur:658,prev:580},{cur:669,prev:588},
+    {cur:678,prev:594},{cur:685,prev:600},{cur:693,prev:608},{cur:700,prev:616},
+    {cur:709,prev:625},{cur:720,prev:636},{cur:734,prev:648},{cur:749,prev:660}
+  ];
+
+  // ── 연간 역사 MAU 데이터 (Jan 2018=idx0 ~ Apr 2026=idx99) ──
+  const MAU_YEAR_ANCHORS = [
+    {midx:0,  val:249},{midx:12,val:362},{midx:24,val:446},
+    {midx:36, val:523},{midx:48,val:589},{midx:60,val:639},
+    {midx:72, val:715},{midx:99,val:763},
+  ];
+  const MAU_TOTAL = 100;
+  const MAU_HISTORY = (function(){
+    const d=[];
+    for(let i=0;i<MAU_TOTAL;i++){
+      let a1=MAU_YEAR_ANCHORS[0],a2=MAU_YEAR_ANCHORS[MAU_YEAR_ANCHORS.length-1];
+      for(let j=0;j<MAU_YEAR_ANCHORS.length-1;j++){
+        if(i>=MAU_YEAR_ANCHORS[j].midx&&i<=MAU_YEAR_ANCHORS[j+1].midx){a1=MAU_YEAR_ANCHORS[j];a2=MAU_YEAR_ANCHORS[j+1];break;}
+      }
+      const t=(i-a1.midx)/(a2.midx-a1.midx);
+      d.push(Math.round(a1.val+(a2.val-a1.val)*t));
+    }
+    return d;
+  })();
+
+  function midxToYear(idx)  { return 2018+Math.floor(idx/12); }
+  function midxToMonth(idx) { return (idx%12)+1; }
+  function midxToLabel(idx) { return `${midxToYear(idx)}년 ${midxToMonth(idx)}월`; }
+
+  // 연간 뷰: Jan 2025(84)~Apr 2026(99) 초기, 오른쪽 끝(99) 고정
+  let yearlyRangeStart = 84; // Jan 2025
+  const yearlyRangeEnd = 99; // Apr 2026 (고정)
+  let yearlyYDyn = yFor;
+
+  const WEEKLY_CONFIG = {
+    title:'주간 UV 추이', subtitle:'기준: 2026년 4월 · 전월 동기 비교',
+    lbl1:'당월진행', val1:'763', lbl2:'전월동기', val2:'749', lbl3:'전월동기대비', val3:'▲14',
+    xs:[80,375,670,965,1260], labels:['1주차','2주차','3주차','4주차','5주차']
+  };
+  const MONTHLY_CONFIG = {
+    title:'월간 UV 추이', subtitle:'기준: 2025년 · 전년 동월 비교',
+    lbl1:'12월말', val1:'749', lbl2:'전년동월', val2:'660', lbl3:'전년동월대비', val3:'▲89',
+    xs:MONTHLY_XS_12, labels:MONTHLY_LABELS_12
+  };
+  const YEARLY_CONFIG = {
+    title:'카드앱 성장 지표', subtitle:'MAU / DAU · 2018 ~ 2025',
+    lbl1:'MAU 2025.6', val1:'732', lbl2:'DAU 2025.6', val2:'170', lbl3:'DAU/MAU', val3:'23%',
+    xs:[], labels:[]
+  };
+
+  function getConfig() {
+    if(chartMode==='yearly')  return YEARLY_CONFIG;
+    if(chartMode==='monthly') return MONTHLY_CONFIG;
+    return WEEKLY_CONFIG;
+  }
+
+  function renderXLabels(svg, cfg) {
+    const g = svg.querySelector('#xLabels');
+    g.innerHTML = '';
+    const ff = "'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif";
+    if (chartMode === 'yearly') {
+      const n = yearlyRangeEnd - yearlyRangeStart + 1;
+      for (let i = 0; i < n; i++) {
+        const di = yearlyRangeStart + i;
+        const mo = midxToMonth(di);
+        const show = (n > 30 && mo === 1) || (n <= 30 && n > 12 && (mo === 1 || mo === 7)) || n <= 12;
+        if (!show) continue;
+        const x = 80 + (n<=1?590:(i/(n-1))*(1260-80));
+        const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x',x); t.setAttribute('y','405'); t.setAttribute('text-anchor','middle');
+        t.setAttribute('fill','rgba(255,255,255,0.25)'); t.setAttribute('font-family',ff); t.setAttribute('font-size','11');
+        t.textContent = n>30 ? `${midxToYear(di)}` : n<=12 ? `${mo}월` : (mo===1?`${midxToYear(di)}`:`7월`);
+        g.appendChild(t);
+      }
+    } else {
+      cfg.xs.forEach((x,i) => {
+        const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+        t.setAttribute('x',x); t.setAttribute('y','405'); t.setAttribute('text-anchor','middle');
+        t.setAttribute('fill','rgba(255,255,255,0.25)'); t.setAttribute('font-family',ff); t.setAttribute('font-size','11');
+        t.textContent = cfg.labels[i];
+        g.appendChild(t);
+      });
+    }
+  }
+
+  function renderDots(svg, cfg) {
+    svg.querySelectorAll('.wdot-cur,.wdot-prev').forEach(d=>d.remove());
+    const ins = svg.querySelector('#activeDotCur');
+    if (chartMode === 'yearly') {
+      const n = yearlyRangeEnd - yearlyRangeStart + 1;
+      for (let i = 0; i < n; i++) {
+        const di = yearlyRangeStart + i;
+        const mo = midxToMonth(di);
+        if (n > 24 && mo !== 1) continue;
+        if (n > 12 && n <= 24 && mo !== 1 && mo !== 7) continue;
+        const x = 80 + (n<=1?590:(i/(n-1))*(1260-80));
+        const yCur  = yearlyYDyn(MAU_HISTORY[di]);
+        const yPrev = yearlyYDyn(di>=12?MAU_HISTORY[di-12]:MAU_HISTORY[0]);
+        makeDot(svg,ins,x,yCur,yPrev);
+      }
+    } else if (chartMode === 'monthly') {
+      MONTHLY_XS_12.forEach((x,i) => {
+        const yCur  = yFor(monthlyAnchors[i].cur);
+        const yPrev = yFor(monthlyAnchors[i].prev);
+        makeDot(svg,ins,x,yCur,yPrev);
+      });
+    } else {
+      cfg.xs.forEach((x,i) => {
+        const yCur  = yFor(anchors[Math.min(i,4)].cur);
+        const yPrev = yFor(anchors[Math.min(i,4)].prev);
+        makeDot(svg,ins,x,yCur,yPrev);
+      });
+    }
+  }
+
+  function makeDot(svg,ins,x,yCur,yPrev) {
+    ['cur','prev'].forEach(type => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      c.className.baseVal = `wdot-${type}`;
+      c.setAttribute('cx',x); c.setAttribute('cy',type==='cur'?yCur:yPrev);
+      c.setAttribute('r',type==='cur'?'5':'4');
+      c.setAttribute('fill',type==='cur'?'#50d278':'rgba(255,255,255,0)');
+      if(type==='prev'){c.setAttribute('stroke','rgba(255,255,255,0.3)');c.setAttribute('stroke-width','2');}
+      c.style.transition='r 0.2s ease';
+      svg.insertBefore(c,ins);
+    });
+  }
+
+  function applyConfig(cfg) {
+    document.getElementById('chartTitle').textContent   = cfg.title;
+    document.getElementById('chartSubtitle').textContent = cfg.subtitle;
+    document.getElementById('kpiLbl1').textContent = cfg.lbl1;
+    document.getElementById('kpiLbl2').textContent = cfg.lbl2;
+    document.getElementById('kpiLbl3').textContent = cfg.lbl3;
+    document.getElementById('kpiVal1').textContent = cfg.val1;
+    document.getElementById('kpiVal2').textContent = cfg.val2;
+    document.getElementById('kpiVal3').textContent = cfg.val3;
+  }
+
+  // ── 월간: 정적 12개월 선 ──
+  function buildMonthlyPts(noiseAmp) {
+    const cur = [], prev = [];
+    MONTHLY_XS_12.forEach((x,i) => {
+      const a = monthlyAnchors[i];
+      const env = i===0||i===11?0:Math.sin((i/11)*Math.PI);
+      const dir = i%2===0?1:-0.7;
+      cur.push({x, y: yFor(a.cur)  + env*5*dir*noiseAmp});
+      prev.push({x, y: yFor(a.prev) + env*4*dir*noiseAmp*-1});
+    });
+    return {cur, prev};
+  }
+
+  // ── 연간: 동적 범위 ──
+  function buildYearlyPts(noiseAmp) {
+    const start = yearlyRangeStart, end = yearlyRangeEnd;
+    const n = end - start + 1;
+    const curVals  = MAU_HISTORY.slice(start, end+1);
+    const prevVals = curVals.map((_,i)=>{ const di=start+i-12; return di>=0?MAU_HISTORY[di]:MAU_HISTORY[0]; });
+    const allVals  = [...curVals,...prevVals];
+    const topV = 850; // 최대 850 고정
+    const botV = Math.max(0, Math.min(...allVals) - 30);
+    yearlyYDyn = v => 20+(1-(v-botV)/(topV-botV))*360;
+    const cur=[],prev=[];
+    for(let i=0;i<n;i++){
+      const x=80+(n<=1?590:(i/(n-1))*(1260-80));
+      const env=Math.sin((i/Math.max(n-1,1))*Math.PI);
+      const dir=i%3===0?1:i%3===1?-0.6:0.3;
+      cur.push({x, y:yearlyYDyn(curVals[i])  +env*3*dir*noiseAmp});
+      prev.push({x, y:yearlyYDyn(prevVals[i])+env*2*(-dir)*noiseAmp});
+    }
+    return {cur,prev};
+  }
+
+  function refreshYearlyDynAxis(svg) {
+    const g=svg.querySelector('#dynamicYAxis'); g.innerHTML='';
+    const ff="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif";
+    const curVals=MAU_HISTORY.slice(yearlyRangeStart,yearlyRangeEnd+1);
+    const prevVals=curVals.map((_,i)=>{const di=yearlyRangeStart+i-12;return di>=0?MAU_HISTORY[di]:MAU_HISTORY[0];});
+    const topV=850;
+    const botV=Math.max(0,Math.min(...curVals,...prevVals)-30);
+    // 주간/월간과 동일한 고정 y 위치, 레이블만 동적
+    const fixedYs=[20,80,140,200,260,320,380];
+    fixedYs.forEach(y=>{
+      const frac=1-(y-20)/360;
+      const val=Math.round((botV+frac*(topV-botV))/10)*10;
+      const isTop=(y===20);
+      const line=document.createElementNS('http://www.w3.org/2000/svg','line');
+      line.setAttribute('x1','80');line.setAttribute('x2','1260');
+      line.setAttribute('y1',y);line.setAttribute('y2',y);
+      line.setAttribute('stroke',isTop?'rgba(255,255,255,0.06)':'rgba(255,255,255,0.05)');
+      line.setAttribute('stroke-width','1');
+      g.appendChild(line);
+      const txt=document.createElementNS('http://www.w3.org/2000/svg','text');
+      txt.setAttribute('x','68');txt.setAttribute('y',y+4);txt.setAttribute('text-anchor','end');
+      txt.setAttribute('fill','rgba(255,255,255,0.15)');
+      txt.setAttribute('font-family',ff);txt.setAttribute('font-size','10');
+      txt.textContent=`${val}만`;
+      g.appendChild(txt);
+    });
+  }
+
+  // ── 연간 정적 차트 (MAU + DAU, 2018~2025.6) ──
+  // [드래그 복원 메모] yearlyRangeStart/End + buildYearlyPts + refreshYearly 함수들이
+  // 아래에 남아있음. switchChartMode에서 yearly 분기에 drag 이벤트(initChart 내부
+  // panActive 블록) 재활성화 + yearlyLayer 대신 기존 chart path 사용하면 복원 가능.
+  const YEARLY_DATA = [
+    {year:'2018',   x:80,   mau:249, dau:64,  key:true,  appLabel:'App 2.0'},
+    {year:'2019',   x:249,  mau:362, dau:91,  key:false},
+    {year:'2020',   x:417,  mau:446, dau:112, key:true,  appLabel:'App 3.0'},
+    {year:'2021',   x:586,  mau:523, dau:132, key:false},
+    {year:'2022',   x:754,  mau:589, dau:143, key:false},
+    {year:'2023',   x:923,  mau:639, dau:150, key:false},
+    {year:'2024',   x:1091, mau:715, dau:165, key:false},
+    {year:'2025.6', x:1260, mau:732, dau:170, key:true},
+  ];
+  const yScaleYearly = v => 20 + (1 - v / 800) * 360;
+
+  function svgEl(tag)       { return document.createElementNS('http://www.w3.org/2000/svg', tag); }
+  function setA(el, attrs)  { Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v)); }
+  function mkLine(x1,y1,x2,y2,stroke,opts={}) {
+    const l=svgEl('line');
+    setA(l,{x1,y1:y1.toFixed?y1.toFixed(1):y1,x2,y2:y2.toFixed?y2.toFixed(1):y2,stroke,'stroke-width':opts.sw||1,...(opts.dash?{'stroke-dasharray':opts.dash}:{})});
+    return l;
+  }
+  function mkText(x,y,txt,opts={}) {
+    const t=svgEl('text');
+    setA(t,{x,y:y.toFixed?y.toFixed(1):y,'text-anchor':opts.anchor||'middle',
+      fill:opts.fill||'rgba(255,255,255,0.35)',
+      'font-family':"'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif",
+      'font-size':opts.size||'11','font-weight':opts.bold?'700':'400'});
+    t.textContent=txt; return t;
+  }
+
+  function renderYearlyChart(svg) {
+    const g = svg.querySelector('#yearlyLayer');
+    g.innerHTML = '';
+
+    const FF = "'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif";
+    const GREEN = '#50d278';
+
+    // 격자선
+    [200,400,600,800].forEach(v => {
+      const y = yScaleYearly(v);
+      g.appendChild(mkLine(80,y,1260,y,'rgba(255,255,255,0.04)'));
+    });
+
+    // 수직 점선 (key years)
+    YEARLY_DATA.filter(d=>d.key).forEach(d => {
+      g.appendChild(mkLine(d.x,20,d.x,400,'rgba(255,255,255,0.15)',{dash:'3,3'}));
+    });
+
+    // catmull-rom 경로 생성
+    function buildPath(pts) {
+      let d=`M${pts[0][0]},${pts[0][1].toFixed(1)}`;
+      for(let i=0;i<pts.length-1;i++){
+        const p0=pts[Math.max(0,i-1)],p1=pts[i],p2=pts[i+1],p3=pts[Math.min(pts.length-1,i+2)];
+        const cp1x=p1[0]+(p2[0]-p0[0])*0.25, cp1y=p1[1]+(p2[1]-p0[1])*0.25;
+        const cp2x=p2[0]-(p3[0]-p1[0])*0.25, cp2y=p2[1]-(p3[1]-p1[1])*0.25;
+        d+=` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2[0]},${p2[1].toFixed(1)}`;
+      }
+      return d;
+    }
+
+    // MAU 선
+    const mauPath=svgEl('path');
+    setA(mauPath,{d:buildPath(YEARLY_DATA.map(d=>[d.x,yScaleYearly(d.mau)])),fill:'none',stroke:'rgba(255,255,255,0.4)','stroke-width':'2'});
+    g.appendChild(mauPath);
+
+    // DAU 선
+    const dauPath=svgEl('path');
+    setA(dauPath,{d:buildPath(YEARLY_DATA.map(d=>[d.x,yScaleYearly(d.dau)])),fill:'none',stroke:'rgba(255,255,255,0.25)','stroke-width':'2'});
+    g.appendChild(dauPath);
+
+    // MAU 점 + 레이블
+    YEARLY_DATA.forEach((d,i) => {
+      const y=yScaleYearly(d.mau);
+      const isKey=d.key, r=isKey?7:5;
+      const c=svgEl('circle');
+      setA(c,{cx:d.x,cy:y.toFixed(1),r,fill:isKey?GREEN:'rgba(255,255,255,0)',stroke:isKey?GREEN:'rgba(255,255,255,0.35)','stroke-width':'2'});
+      g.appendChild(c);
+      const lbl=mkText(d.x,y-14,d.mau,{fill:isKey?GREEN:'rgba(255,255,255,0.45)',size:isKey?'15':'11',bold:isKey,anchor:'middle'});
+      g.appendChild(lbl);
+    });
+
+    // DAU 사각형 마커 + 레이블
+    YEARLY_DATA.forEach((d,i) => {
+      const y=yScaleYearly(d.dau);
+      const isKey=d.key, sz=isKey?11:8;
+      const rect=svgEl('rect');
+      setA(rect,{x:d.x-sz/2,y:(y-sz/2).toFixed(1),width:sz,height:sz,
+        fill:isKey?GREEN:'rgba(255,255,255,0)',stroke:isKey?GREEN:'rgba(255,255,255,0.35)','stroke-width':'2'});
+      g.appendChild(rect);
+      const lbl=mkText(d.x,y+20,d.dau,{fill:isKey?GREEN:'rgba(255,255,255,0.45)',size:isKey?'15':'11',bold:isKey,anchor:'middle'});
+      g.appendChild(lbl);
+    });
+
+    // X축 연도 레이블
+    YEARLY_DATA.forEach(d => {
+      g.appendChild(mkText(d.x,405,d.year,{fill:d.key?GREEN:'rgba(255,255,255,0.3)',size:d.key?'12':'11',bold:d.key,anchor:'middle'}));
+      if(d.appLabel) g.appendChild(mkText(d.x,418,d.appLabel,{fill:GREEN,size:'10',bold:true,anchor:'middle'}));
+    });
+
+    // MAU / DAU 레이블 (좌측)
+    const mauMid = YEARLY_DATA[3];
+    g.appendChild(mkText(55,yScaleYearly(mauMid.mau),'MAU',{fill:'rgba(255,255,255,0.3)',size:'14',bold:true,anchor:'end'}));
+    const dauMid = YEARLY_DATA[3];
+    g.appendChild(mkText(55,yScaleYearly(dauMid.dau),'DAU',{fill:'rgba(255,255,255,0.3)',size:'14',bold:true,anchor:'end'}));
+  }
+
+  function refreshYearly() {
+    const svg=detailOverlay.querySelector('#chartSvg');
+    buildYearlyPts(0); // yearlyYDyn 갱신
+    wPts=buildYearlyPts(0); dPts=buildYearlyPts(1);
+    morphProg=0; setMorph(0);
+    renderXLabels(svg,getConfig()); renderDots(svg,getConfig());
+    refreshYearlyDynAxis(svg);
+    lastSnap=-1;
+  }
+
+  function switchChartMode(mode) {
+    chartMode = mode;
+    if (mode === 'yearly') yearlyRangeStart = 84; // 탭 클릭 시 초기화
+    const cfg = getConfig();
+    const tabW = 'background:#fff;color:#0a0a0a;border:none;border-radius:6px;padding:5px 14px;font:600 12px/1 "SF Pro Display",-apple-system,sans-serif;cursor:pointer;transition:all 0.2s;';
+    const tabI = 'background:transparent;color:rgba(255,255,255,0.4);border:none;border-radius:6px;padding:5px 14px;font:600 12px/1 "SF Pro Display",-apple-system,sans-serif;cursor:pointer;transition:all 0.2s;';
+    document.getElementById('tabWeekly').style.cssText  = mode==='weekly'  ? tabW : tabI;
+    document.getElementById('tabMonthly').style.cssText = mode==='monthly' ? tabW : tabI;
+    document.getElementById('tabYearly').style.cssText  = mode==='yearly'  ? tabW : tabI;
+
+    applyConfig(cfg);
+
+    const svg = detailOverlay.querySelector('#chartSvg');
+    svg.querySelector('#activeDotCur').setAttribute('r','0');
+    svg.querySelector('#activeDotPrev').setAttribute('r','0');
+    crosshair.style.display = 'none';
+    tooltip.style.display = 'none';
+
+    const isYearly = mode === 'yearly';
+    svg.querySelector('#staticYAxis').style.display  = isYearly ? 'none' : '';
+    svg.querySelector('#dynamicYAxis').style.display = 'none';
+    svg.querySelector('#yearlyLayer').style.display  = isYearly ? '' : 'none';
+    // 연간: 메인 차트 path 비움, 일반 dot/xLabel 숨김
+    if (isYearly) {
+      svg.querySelector('#chartPathCur').setAttribute('d','');
+      svg.querySelector('#chartPathPrev').setAttribute('d','');
+      svg.querySelectorAll('.wdot-cur,.wdot-prev').forEach(d=>d.remove());
+      svg.querySelector('#xLabels').innerHTML='';
+      renderYearlyChart(svg);
+      svg.style.cursor = 'crosshair';
+      lastSnap = -1;
+      return;
+    }
+    svg.style.cursor = 'crosshair';
+
+    if (mode === 'weekly') {
+      wPts = buildPts(0); dPts = buildPts(1);
+    } else {
+      wPts = buildMonthlyPts(0); dPts = buildMonthlyPts(1);
+    }
+    renderXLabels(svg, cfg);
+    renderDots(svg, cfg);
+    morphProg = 0; setMorph(0);
+    lastSnap = -1;
+  }
+
+  // ── 차트 모핑 ──
+  function yFor(v) { return 20 + (850 - v) * 1.2; }
+
+  const ANCHOR_DAYS = [1, 8, 15, 22, 29];
+
+  // 앵커 사이 중간에서 최대, 앵커에서 0인 envelope
+  function noiseEnv(day) {
+    for (let i = 0; i < ANCHOR_DAYS.length-1; i++) {
+      if (day >= ANCHOR_DAYS[i] && day <= ANCHOR_DAYS[i+1]) {
+        const t = (day - ANCHOR_DAYS[i]) / (ANCHOR_DAYS[i+1] - ANCHOR_DAYS[i]);
+        return Math.sin(t * Math.PI);
+      }
+    }
+    return 0;
+  }
+
+  // 구간별 방향 (완만한 단일 호)
+  const segDir = [[1,-0.6],[- 0.5,0.7],[0.8,-0.4],[-0.6,0.5]];
+
+  function buildPts(noiseAmp) {
+    const cur = [], prev = [];
+    for (let day = 1; day <= 30; day++) {
+      const x = dayToSvgX(day);
+      const vCur  = interpDay(day, 'cur');
+      const vPrev = interpDay(day, 'prev');
+      const env = noiseEnv(day);
+      // 구간 인덱스
+      let si = 0;
+      for (let i=0;i<ANCHOR_DAYS.length-1;i++) if(day>=ANCHOR_DAYS[i]&&day<=ANCHOR_DAYS[i+1]) si=i;
+      const nC = env * 6 * segDir[si][0] * noiseAmp;
+      const nP = env * 5 * segDir[si][1] * noiseAmp;
+      cur.push({x, y: yFor(vCur)  + nC * 1.2});
+      prev.push({x, y: yFor(vPrev) + nP * 1.2});
+    }
+    return {cur, prev};
+  }
+
+  function catmull(pts) {
+    let d = `M${pts[0].x},${pts[0].y.toFixed(1)}`;
+    for (let i = 0; i < pts.length-1; i++) {
+      const p0 = pts[Math.max(0,i-1)], p1 = pts[i];
+      const p2 = pts[i+1], p3 = pts[Math.min(pts.length-1,i+2)];
+      const cp1x = p1.x + (p2.x-p0.x)*0.35;
+      const cp1y = p1.y + (p2.y-p0.y)*0.35;
+      const cp2x = p2.x - (p3.x-p1.x)*0.35;
+      const cp2y = p2.y - (p3.y-p1.y)*0.35;
+      d += ` C${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x},${p2.y.toFixed(1)}`;
+    }
+    return d;
+  }
+
+  function interpPts(a, b, t) {
+    return a.map((p,i) => ({x: p.x, y: p.y + (b[i].y - p.y)*t}));
+  }
+
+  let wPts = buildPts(0);
+  let dPts = buildPts(1);
+  let morphProg = 0, morphAnim = null;
+
+  function setMorph(t) {
+    morphProg = t;
+    const svg = detailOverlay.querySelector('#chartSvg');
+    if (!svg) return;
+    const eased = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    svg.querySelector('#chartPathCur').setAttribute('d',  catmull(interpPts(wPts.cur,  dPts.cur,  eased)));
+    svg.querySelector('#chartPathPrev').setAttribute('d', catmull(interpPts(wPts.prev, dPts.prev, eased)));
+  }
+
+  function animateMorph(target, dur) {
+    if (morphAnim) cancelAnimationFrame(morphAnim);
+    const from = morphProg, t0 = performance.now();
+    function step(now) {
+      const p = Math.min(1, (now-t0)/dur);
+      setMorph(from + (target-from)*p);
+      if (p < 1) morphAnim = requestAnimationFrame(step);
+    }
+    morphAnim = requestAnimationFrame(step);
+  }
+
+  function initChart() {
+    const svg = detailOverlay.querySelector('#chartSvg');
+    if (!svg) return;
+
+    // 초기 라벨/점 렌더링 (주간)
+    renderXLabels(svg, getConfig());
+    renderDots(svg, getConfig());
+    setMorph(0);
+    svg.appendChild(crosshair);
+
+    const activeDotCur  = svg.querySelector('#activeDotCur');
+    const activeDotPrev = svg.querySelector('#activeDotPrev');
+
+    let dotShowTimer = null;
+    svg.addEventListener('mouseenter', () => {
+      if (chartMode === 'yearly') return;
+      animateMorph(1, 250);
+      svg.querySelectorAll('.wdot-cur').forEach(d => d.setAttribute('r','0'));
+      svg.querySelectorAll('.wdot-prev').forEach(d => d.setAttribute('r','0'));
+      dotShowTimer = setTimeout(() => {
+        activeDotCur.setAttribute('r','5');
+        activeDotPrev.setAttribute('r','4');
+      }, 250);
+    });
+    svg.addEventListener('mouseleave', () => {
+      if (chartMode === 'yearly') return;
+      clearTimeout(dotShowTimer);
+      animateMorph(0, 200);
+      svg.querySelectorAll('.wdot-cur').forEach(d => d.setAttribute('r','5'));
+      svg.querySelectorAll('.wdot-prev').forEach(d => d.setAttribute('r','4'));
+      activeDotCur.setAttribute('r','0');
+      activeDotPrev.setAttribute('r','0');
+    });
+
+    function onMove(e) {
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const rect = svg.getBoundingClientRect();
+      const svgX = (clientX - rect.left) / rect.width * 1300;
+      const eased = morphProg < 0.5 ? 2*morphProg*morphProg : -1+(4-2*morphProg)*morphProg;
+      const pxPerSVG = rect.width / 1300;
+
+      let sx, curV, prevV, dateLabel, idx;
+
+      if (chartMode === 'yearly') {
+        // 가장 가까운 연도 스냅
+        let closest=0, minD=Infinity;
+        YEARLY_DATA.forEach((d,i)=>{ const dist=Math.abs(svgX-d.x); if(dist<minD){minD=dist;closest=i;} });
+        const yd = YEARLY_DATA[closest];
+        if (closest !== lastSnap) { tick(); lastSnap = closest; }
+        sx = yd.x;
+        // 연간 모드: activeDot을 MAU 점 위치로
+        const mauY = yScaleYearly(yd.mau);
+        const dauY = yScaleYearly(yd.dau);
+        activeDotCur.setAttribute('cx', sx); activeDotCur.setAttribute('cy', mauY.toFixed(1)); activeDotCur.setAttribute('r','6');
+        activeDotPrev.setAttribute('cx', sx); activeDotPrev.setAttribute('cy', dauY.toFixed(1)); activeDotPrev.setAttribute('r','5');
+        crosshair.setAttribute('x1',sx); crosshair.setAttribute('x2',sx); crosshair.style.display='';
+        tooltip.querySelector('#tt-date').textContent = yd.year;
+        slotNumber(tooltip.querySelector('#tt-cur'),  yd.mau+'만', yd.mau, lastTTCur);
+        slotNumber(tooltip.querySelector('#tt-prev'), yd.dau+'만', yd.dau, lastTTPrev);
+        lastTTCur=yd.mau; lastTTPrev=yd.dau;
+        const tipW=tooltip.offsetWidth||200;
+        const pxPerSVG=svg.getBoundingClientRect().width/1300;
+        let tx=svg.getBoundingClientRect().left+sx*pxPerSVG-tipW/2;
+        tx=Math.max(8,Math.min(tx,window.innerWidth-tipW-8));
+        tooltip.style.left=tx+'px'; tooltip.style.top=Math.max(8,svg.getBoundingClientRect().top+20*pxPerSVG-100)+'px';
+        tooltip.style.display='';
+        return;
+      } else if (chartMode === 'monthly') {
+        const visIdx = Math.round(Math.max(0,Math.min(11,(svgX-80)/(1260-80)*11)));
+        if (visIdx !== lastSnap) { tick(); lastSnap = visIdx; }
+        sx = MONTHLY_XS_12[visIdx];
+        curV  = monthlyAnchors[visIdx].cur;
+        prevV = monthlyAnchors[visIdx].prev;
+        dateLabel = `2025년 ${MONTHLY_LABELS_12[visIdx]}`;
+        idx = visIdx;
+      } else {
+        const day = svgXToDay(svgX);
+        if (day !== lastSnap) { tick(); lastSnap = day; }
+        sx = dayToSvgX(day);
+        curV  = Math.round(interpDay(day, 'cur'));
+        prevV = Math.round(interpDay(day, 'prev'));
+        dateLabel = `4월 ${day}일 (${weekLabel(day)})`;
+        idx = day - 1;
+      }
+
+      crosshair.setAttribute('x1', sx); crosshair.setAttribute('x2', sx);
+      crosshair.style.display = '';
+
+      const mYCur  = wPts.cur[idx]  ? wPts.cur[idx].y  + (dPts.cur[idx].y  - wPts.cur[idx].y)  * eased : 0;
+      const mYPrev = wPts.prev[idx] ? wPts.prev[idx].y + (dPts.prev[idx].y - wPts.prev[idx].y) * eased : 0;
+      activeDotCur.setAttribute('cx', sx);
+      activeDotCur.setAttribute('cy', mYCur);
+      activeDotPrev.setAttribute('cx', sx);
+      activeDotPrev.setAttribute('cy', mYPrev);
+
+      tooltip.querySelector('#tt-date').textContent = dateLabel;
+      slotNumber(tooltip.querySelector('#tt-cur'),  curV  + '만', curV,  lastTTCur);
+      slotNumber(tooltip.querySelector('#tt-prev'), prevV + '만', prevV, lastTTPrev);
+      lastTTCur = curV; lastTTPrev = prevV;
+
+      const tipW = tooltip.offsetWidth || 200;
+      let tx = rect.left + sx * pxPerSVG - tipW/2;
+      tx = Math.max(8, Math.min(tx, window.innerWidth - tipW - 8));
+      const ty = rect.top + 20 * pxPerSVG - 100;
+      tooltip.style.left = tx + 'px';
+      tooltip.style.top  = Math.max(8, ty) + 'px';
+      tooltip.style.display = '';
+    }
+
+    function onLeave() {
+      if (panDragMoved) return;
+      crosshair.style.display='none';
+      tooltip.style.display='none'; lastSnap=-1;
+    }
+
+    // ── 월간 드래그-패닝 ──
+    let panActive = false, panMoved = false;
+    let panDragMoved = false;
+    let panStartX = 0, panStartRangeStart = 0, panStartRangeEnd = 0;
+
+    // ── [비활성화됨] 연간 드래그: 오른쪽으로 당길수록 왼쪽 경계가 2018년으로 이동 ──
+    // 복원하려면: 'yearly_DISABLED' → 'yearly' 로 변경, buildYearlyPts/refreshYearly 재연결
+    svg.addEventListener('mousedown', e => {
+      if (chartMode !== 'yearly_DISABLED') return;
+      panActive = true; panMoved = false; panDragMoved = false;
+      panStartX = e.clientX;
+      panStartRangeStart = yearlyRangeStart;
+      svg.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', e => {
+      if (!panActive || chartMode !== 'yearly_DISABLED') return;
+      const dx = e.clientX - panStartX;
+      if (Math.abs(dx) > 5) { panMoved = true; panDragMoved = true; }
+      if (!panMoved) return;
+      const rect = svg.getBoundingClientRect();
+      // 오른쪽으로 당기면(dx>0) 왼쪽 경계가 뒤로 이동 → 더 많은 역사
+      const monthsPerPx = (yearlyRangeEnd - panStartRangeStart) / (rect.width * 0.85);
+      const delta = Math.round(-dx * monthsPerPx);
+      yearlyRangeStart = Math.max(0, Math.min(yearlyRangeEnd - 1, panStartRangeStart + delta));
+      crosshair.style.display = 'none'; tooltip.style.display = 'none';
+      activeDotCur.setAttribute('r','0'); activeDotPrev.setAttribute('r','0');
+      refreshYearly();
+    });
+    window.addEventListener('mouseup', () => {
+      if (!panActive) return;
+      panActive = false;
+      svg.style.cursor = chartMode === 'yearly' ? 'grab' : 'crosshair';
+      setTimeout(() => { panDragMoved = false; }, 50);
+    });
+
+    // ── 스크롤 줌 (연간) ──
+    svg.addEventListener('wheel', e => {
+      if (chartMode !== 'yearly_DISABLED') return;
+      e.preventDefault();
+      const span = yearlyRangeEnd - yearlyRangeStart;
+      const factor = e.deltaY > 0 ? 1.18 : 0.85;
+      const newSpan = Math.max(2, Math.min(MAU_TOTAL - 1, Math.round(span * factor)));
+      yearlyRangeStart = Math.max(0, yearlyRangeEnd - newSpan);
+      refreshYearly();
+    }, {passive: false});
+
+    svg.addEventListener('mousemove', e => { if (!panDragMoved) onMove(e); });
+    svg.addEventListener('mouseleave', onLeave);
+    svg.addEventListener('touchmove', onMove, {passive:true});
+    svg.addEventListener('touchend', onLeave);
+    svg.style.cursor='crosshair';
+  }
+
+  window._chartInitDone = false;
+  detailOverlay._initChart = function() {
+    if (!window._chartInitDone) { initChart(); window._chartInitDone=true; }
+  };
+  window.switchChartMode = switchChartMode;
+})();
+
+function showDetailPage() {
+  detailPageActive = true;
+  detailOverlay.style.display = 'block';
+  requestAnimationFrame(() => {
+    detailOverlay.style.opacity = '1';
+    if (detailOverlay._initChart) detailOverlay._initChart();
+  });
+}
+function hideDetailPage() {
+  detailOverlay.style.opacity = '0';
+  setTimeout(() => { detailOverlay.style.display = 'none'; detailPageActive = false; }, 400);
+}
+
+const camBtn = document.createElement('div');
+camBtn.style.cssText = 'position:fixed;bottom:12px;right:12px;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.2);cursor:pointer;z-index:100;display:flex;align-items:center;justify-content:center;transition:background 0.2s;';
+camBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>';
+camBtn.addEventListener('mouseenter', ()=> camBtn.style.background='rgba(255,255,255,0.15)');
+camBtn.addEventListener('mouseleave', ()=> camBtn.style.background='rgba(255,255,255,0.08)');
+document.body.appendChild(camBtn);
+
+let camStarted = false;
+let faceLandmarks = null; // face mesh landmarks
+
+(async function initHandTracking() {
+  try {
+    let camSize = 240;
+    const camWrap = document.createElement('div');
+    camWrap.style.cssText = 'position:fixed;top:50%;left:12px;transform:translateY(-50%);width:240px;height:180px;z-index:100;cursor:grab;display:none;';
+    const video = document.createElement('video');
+    video.style.cssText = 'width:100%;height:100%;border-radius:8px;border:1px solid rgba(255,255,255,0.15);transform:scaleX(-1);object-fit:cover;opacity:0.7;';
+    const camCanvas = document.createElement('canvas');
+    const _dpr = window.devicePixelRatio || 1;
+    camCanvas.width = 240 * _dpr; camCanvas.height = 180 * _dpr;
+    camCanvas.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border-radius:8px;pointer-events:none;';
+    const camCtx = camCanvas.getContext('2d');
+    camCtx.setTransform(_dpr, 0, 0, _dpr, 0, 0);
+
+    // Close button (top-right)
+    const closeBtn = document.createElement('div');
+    closeBtn.style.cssText = 'position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,0.5);cursor:pointer;z-index:102;display:flex;align-items:center;justify-content:center;transition:background 0.2s;';
+    closeBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="2" x2="10" y2="10"/><line x1="10" y1="2" x2="2" y2="10"/></svg>';
+    closeBtn.addEventListener('mouseenter', ()=> closeBtn.style.background='rgba(0,0,0,0.7)');
+    closeBtn.addEventListener('mouseleave', ()=> closeBtn.style.background='rgba(0,0,0,0.5)');
+    let camActive = false;
+    closeBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      camWrap.style.display = 'none';
+      camBtn.style.display = 'flex';
+      camActive = false;
+      camStarted = false;
+      // 카메라 스트림 완전 중지 → OS 카메라 표시 사라짐
+      if (cam) { try { cam.stop(); } catch(_){} cam = null; }
+      if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
+      handActive = false; fingerTips = []; fingerTipsRaw = [];
+      smoothTips = []; faceLandmarks = null;
+      mouseX = -999; mouseY = -999;
+    });
+
+    // Resize handle
+    const resizeHandle = document.createElement('div');
+    resizeHandle.style.cssText = 'position:absolute;bottom:0;right:0;width:20px;height:20px;cursor:nwse-resize;z-index:101;';
+    resizeHandle.innerHTML = '<svg width="20" height="20" viewBox="0 0 20 20"><line x1="14" y1="6" x2="6" y2="14" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><line x1="14" y1="10" x2="10" y2="14" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/><line x1="14" y1="14" x2="14" y2="14" stroke="rgba(255,255,255,0.5)" stroke-width="1.5"/></svg>';
+
+    camWrap.appendChild(video);
+    camWrap.appendChild(camCanvas);
+    camWrap.appendChild(closeBtn);
+    camWrap.appendChild(resizeHandle);
+    document.body.appendChild(camWrap);
+
+    // Camera button click → show cam view
+    let cam;
+    camBtn.addEventListener('click', async () => {
+      camWrap.style.display = 'block';
+      camBtn.style.display = 'none';
+      camActive = true;
+      if (!camStarted) {
+        camStarted = true;
+        cam = new Camera(video, {
+          onFrame: async () => { if (!camActive) return; await hands.send({image: video}); await faceMesh.send({image: video}); },
+          width: 320, height: 240
+        });
+        await cam.start();
+      }
+    });
+
+    function setCamSize(s) {
+      camSize = Math.max(160, Math.min(480, s));
+      const dpr = window.devicePixelRatio || 1;
+      camWrap.style.width = camSize + 'px';
+      camWrap.style.height = (camSize * 0.75) + 'px';
+      camCanvas.width = camSize * dpr;
+      camCanvas.height = camSize * 0.75 * dpr;
+      camCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    // Drag to move
+    let camDrag = false, camOX=0, camOY=0;
+    camWrap.addEventListener('mousedown', e => {
+      if (e.target === resizeHandle || resizeHandle.contains(e.target)) return;
+      e.stopPropagation();
+      camDrag = true;
+      camWrap.style.cursor = 'grabbing';
+      // Fix position before removing transform
+      const rect = camWrap.getBoundingClientRect();
+      camWrap.style.top = rect.top + 'px';
+      camWrap.style.left = rect.left + 'px';
+      camWrap.style.transform = 'none';
+      camOX = e.clientX - rect.left;
+      camOY = e.clientY - rect.top;
+    });
+    window.addEventListener('mousemove', e => {
+      if (!camDrag && !camResize) return;
+      if (camDrag) {
+        camWrap.style.left = (e.clientX - camOX) + 'px';
+        camWrap.style.top = (e.clientY - camOY) + 'px';
+      }
+      if (camResize) {
+        const rect = camWrap.getBoundingClientRect();
+        setCamSize(e.clientX - rect.left);
+      }
+    });
+    window.addEventListener('mouseup', () => {
+      if (camDrag) { camDrag = false; camWrap.style.cursor = 'grab'; }
+      camResize = false;
+    });
+
+    // Resize by handle drag
+    let camResize = false;
+    resizeHandle.addEventListener('mousedown', e => {
+      e.stopPropagation();
+      camResize = true;
+      camWrap.style.transform = 'none';
+    });
+
+    const hands = new Hands({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${f}`});
+    hands.setOptions({ maxNumHands:1, modelComplexity:1, minDetectionConfidence:0.75, minTrackingConfidence:0.5 });
+
+    // Face Mesh for AR effects
+    const faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}`});
+    faceMesh.setOptions({ maxNumFaces:3, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+    faceMesh.onResults(r => {
+      faceLandmarks = (r.multiFaceLandmarks && r.multiFaceLandmarks.length > 0) ? r.multiFaceLandmarks : null;
+    });
+
+    hands.onResults(results => {
+      if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        const lm = results.multiHandLandmarks[0];
+        const palm = lm[9]; // middle finger base ≈ palm center
+        const rawHX = (1 - palm.x) * W;
+        const rawHY = palm.y * H;
+        handX = handX < 0 ? rawHX : handX + (rawHX - handX) * 0.15;
+        handY = handY < 0 ? rawHY : handY + (rawHY - handY) * 0.15;
+        handActive = true;
+        // Track hand velocity
+        if (prevHandX > 0) {
+          handVX = (handX - prevHandX) * 0.5 + handVX * 0.5; // smooth
+          handVY = (handY - prevHandY) * 0.5 + handVY * 0.5;
+        }
+        prevHandX = handX; prevHandY = handY;
+        // fingertip landmarks: thumb=4, index=8, middle=12, ring=16, pinky=20
+        // Detect extended fingers
+        const wrist = lm[0];
+        const dist2 = (a,b) => (a.x-b.x)**2 + (a.y-b.y)**2;
+        const fingerDefs = [{tip:8,pip:6},{tip:12,pip:10},{tip:16,pip:14},{tip:20,pip:18}];
+        fingerTips = [];
+        fingerTipsRaw = [];
+        // Check 4 fingers (no thumb) — strict: tip must be significantly farther than PIP
+        for (const f of fingerDefs) {
+          const tipDist = dist2(lm[f.tip], wrist);
+          const pipDist = dist2(lm[f.pip], wrist);
+          if (tipDist > pipDist * 1.6) { // 60% farther = clearly extended
+            fingerTips.push({ x:(1-lm[f.tip].x)*W, y:lm[f.tip].y*H });
+            fingerTipsRaw.push({ x:lm[f.tip].x, y:lm[f.tip].y });
+          }
+        }
+        // Include thumb only when 3+ other fingers are extended (full spread)
+        if (fingerTips.length >= 3) {
+          const thumbExt = dist2(lm[4], wrist) > dist2(lm[3], wrist) * 1.4;
+          if (thumbExt) {
+            fingerTips.push({ x:(1-lm[4].x)*W, y:lm[4].y*H });
+            fingerTipsRaw.push({ x:lm[4].x, y:lm[4].y });
+          }
+        }
+        // calc spread: avg distance between all fingertip pairs
+        if (fingerTips.length >= 2) {
+          let totalDist = 0, pairs = 0;
+          for (let i=0; i<fingerTips.length; i++) {
+            for (let j=i+1; j<fingerTips.length; j++) {
+              const dx=fingerTips[i].x-fingerTips[j].x, dy=fingerTips[i].y-fingerTips[j].y;
+              totalDist += Math.sqrt(dx*dx+dy*dy);
+              pairs++;
+            }
+          }
+          const avgPairDist = totalDist / pairs;
+          fingerSpread = Math.min(1, Math.max(0, (avgPairDist - 60) / 200));
+        } else if (fingerTips.length === 1) {
+          fingerSpread = 0.5; // single finger = active
+        } else {
+          fingerSpread = 0; // no fingers = closed
+        }
+        // detect sudden open: was closed, now spread
+        if (fingerSpread > 0.5 && prevSpread < 0.15) burstFrame = 15;
+        // Chaos trigger: was swirling (energy built up) + fingers spread open
+        if (fingerTips.length >= 4 && swirlEnergy > 0.2) {
+          chaosActive = 120; // 2 seconds of chaos
+          swirlEnergy = 0; // consume energy
+        }
+        prevSpread = fingerSpread;
+
+        // Finger nod: index finger pointing at T1, nod forward twice
+        if (fingerTips.length === 1 && !detailPageActive) {
+          const tipX = (1 - (lm[8].x+lm[5].x)/2) * W, tipY = ((lm[8].y+lm[5].y)/2) * H;
+          let inT1 = false;
+          for (const seg of ['power','casual','light']) {
+            const zone = getSubZone(seg, 1);
+            if (zone && tipX >= zone.x && tipX <= zone.x+zone.w && tipY >= zone.y && tipY <= zone.y+zone.h) {
+              inT1 = true; break;
+            }
+          }
+          if (inT1) tapInZoneFrames++; else if (tapInZoneFrames > 0) tapInZoneFrames--;
+
+          if (tapInZoneFrames > 10) {
+            const rawY = lm[8].y;
+            tapTipYs.push(rawY);
+            if (tapTipYs.length > 15) tapTipYs.shift();
+
+            if (tapTipYs.length >= 10) {
+              // Calculate variance (how much the finger is wiggling)
+              const avg = tapTipYs.reduce((s,v) => s+v, 0) / tapTipYs.length;
+              const variance = tapTipYs.reduce((s,v) => s + (v-avg)**2, 0) / tapTipYs.length;
+              // Sustained shake: variance above threshold = intentional wiggle
+              // Normal tremor ~0.000001, intentional shake ~0.00005+
+              if (variance > 0.00001) {
+                tapTargetZone = 't1';
+                showDetailPage();
+                tapTipYs = []; tapInZoneFrames = 0;
+              }
+            }
+          }
+        } else if (!detailPageActive) {
+          if (tapInZoneFrames > 0) tapInZoneFrames--;
+          if (tapInZoneFrames <= 0) { tapTipYs = []; }
+        }
+
+        // Back gesture: palm swipe left while on detail page
+        if (detailPageActive && fingerTips.length >= 3 && handVX < -8) {
+          hideDetailPage();
+        }
+
+        // Track single finger for swirl detection
+        if (fingerTips.length === 1) {
+          fingerHistory.push({ x:fingerTips[0].x, y:fingerTips[0].y });
+          if (fingerHistory.length > 12) fingerHistory.shift();
+          // Detect rotation: sum cross products of consecutive displacement vectors
+          if (fingerHistory.length >= 5) {
+            let crossSum = 0;
+            for (let i=2; i<fingerHistory.length; i++) {
+              const ax=fingerHistory[i-1].x-fingerHistory[i-2].x, ay=fingerHistory[i-1].y-fingerHistory[i-2].y;
+              const bx=fingerHistory[i].x-fingerHistory[i-1].x, by=fingerHistory[i].y-fingerHistory[i-1].y;
+              crossSum += ax*by - ay*bx;
+            }
+            swirlForce = Math.max(-1, Math.min(1, crossSum / 100));
+            // Accumulate energy with sustained rotation (slower buildup)
+            swirlEnergy = Math.min(1, swirlEnergy + Math.abs(swirlForce) * 0.01);
+          }
+        } else {
+          fingerHistory = [];
+          swirlForce *= 0.97;
+          swirlEnergy *= 0.995; // very slow decay — chaos persists
+        }
+        // Smooth fingertip positions
+        // Heavy smoothing — double pass for stability
+        const lerp1 = 0.15; // primary smoothing (lower = smoother)
+        if (smoothTips.length === fingerTips.length) {
+          for (let i=0; i<fingerTips.length; i++) {
+            // Exponential moving average
+            smoothTips[i].x += (fingerTips[i].x - smoothTips[i].x) * lerp1;
+            smoothTips[i].y += (fingerTips[i].y - smoothTips[i].y) * lerp1;
+            // Snap suppression: ignore micro-jitter under 2px
+            if (Math.abs(fingerTips[i].x - smoothTips[i].x) < 2) smoothTips[i].x = smoothTips[i].x;
+            if (Math.abs(fingerTips[i].y - smoothTips[i].y) < 2) smoothTips[i].y = smoothTips[i].y;
+          }
+        } else {
+          smoothTips = fingerTips.map(ft => ({x:ft.x, y:ft.y}));
+        }
+        fingerTips = smoothTips.map(ft => ({x:ft.x, y:ft.y}));
+        handLostFrames = 0;
+
+        if (!drag.active && fingerSpread > 0.4) { mouseX = handX; mouseY = handY; }
+        else if (!drag.active && handActive) { mouseX = -999; mouseY = -999; }
+      } else {
+        handLostFrames++;
+        // Keep showing for a few frames to prevent flicker
+        if (handLostFrames > 5) {
+          handActive = false;
+          fingerTips = [];
+          fingerTipsRaw = [];
+          smoothTips = [];
+          handVX = 0; handVY = 0;
+          prevHandX = -999; prevHandY = -999;
+        }
+      }
+      // Draw camera overlay
+      camCtx.clearRect(0, 0, camSize, camSize*0.75);
+      const cw=camSize, ch=camSize*0.75;
+
+      // AR: Sunglasses + Beanie (draw first, below guides) — up to 3 faces
+      if (faceLandmarks) {
+       for (const fl of faceLandmarks) {
+        const fxAR = (i) => (1 - fl[i].x) * cw;
+        const fyAR = (i) => fl[i].y * ch;
+
+        const leOuter = {x:fxAR(33),y:fyAR(33)}, leInner = {x:fxAR(133),y:fyAR(133)};
+        const reOuter = {x:fxAR(362),y:fyAR(362)}, reInner = {x:fxAR(263),y:fyAR(263)};
+
+        const leCx = (leOuter.x + leInner.x)/2, leCy = (leOuter.y + leInner.y)/2;
+        const reCx = (reOuter.x + reInner.x)/2, reCy = (reOuter.y + reInner.y)/2;
+        const angle = Math.atan2(reCy - leCy, reCx - leCx);
+        const eyeDist = Math.sqrt((reCx-leCx)**2 + (reCy-leCy)**2);
+        const lensR = eyeDist * 0.42;
+        const gap = eyeDist * 0.06;
+
+        // Eyebrows first (below sunglasses)
+        const browY = (leCy + reCy)/2 - lensR*1.15;
+        camCtx.save();
+        camCtx.translate((leCx+reCx)/2, browY);
+        camCtx.rotate(angle);
+        camCtx.fillStyle = 'rgb(30,30,30)';
+        camCtx.beginPath();
+        camCtx.ellipse(-eyeDist/2, 0, lensR*0.85, lensR*0.18, 0, 0, Math.PI*2);
+        camCtx.fill();
+        camCtx.beginPath();
+        camCtx.ellipse(eyeDist/2, 0, lensR*0.85, lensR*0.18, 0, 0, Math.PI*2);
+        camCtx.fill();
+        camCtx.restore();
+
+        // Sunglasses on top
+        camCtx.save();
+        camCtx.translate((leCx+reCx)/2, (leCy+reCy)/2);
+        camCtx.rotate(angle);
+        camCtx.fillStyle = 'rgba(15,15,15,0.8)';
+        camCtx.strokeStyle = 'rgba(200,200,200,0.7)';
+        camCtx.lineWidth = 1.2;
+        camCtx.beginPath();
+        camCtx.ellipse(-eyeDist/2, lensR*0.1, lensR, lensR*0.9, 0, 0, Math.PI*2);
+        camCtx.fill(); camCtx.stroke();
+        camCtx.beginPath();
+        camCtx.ellipse(eyeDist/2, lensR*0.1, lensR, lensR*0.9, 0, 0, Math.PI*2);
+        camCtx.fill(); camCtx.stroke();
+        camCtx.beginPath();
+        camCtx.moveTo(-gap, 0);
+        camCtx.quadraticCurveTo(0, -lensR*0.25, gap, 0);
+        camCtx.stroke();
+        camCtx.restore();
+
+        // White mask (nose to chin)
+        const noseY = fyAR(4); // nose tip
+        const chinMaskY = fyAR(152);
+        const jawL = {x:fxAR(132), y:fyAR(132)};
+        const jawR = {x:fxAR(361), y:fyAR(361)};
+        const maskCx = (jawL.x + jawR.x) / 2;
+        const maskW = Math.abs(jawR.x - jawL.x) * 0.99;
+        const maskH = (chinMaskY - noseY + eyeDist * 0.2) * 0.9;
+        const maskTopY = noseY - eyeDist * 0.15;
+        const maskAngle = Math.atan2(jawR.y - jawL.y, jawR.x - jawL.x);
+
+        camCtx.save();
+        camCtx.translate(maskCx, maskTopY + maskH/2);
+        camCtx.rotate(maskAngle);
+        camCtx.fillStyle = 'rgba(240,240,240,0.92)';
+        camCtx.beginPath();
+        camCtx.moveTo(-maskW/2, maskH/2);
+        camCtx.quadraticCurveTo(-maskW/2*1.05, 0, -maskW*0.35, -maskH/2);
+        camCtx.quadraticCurveTo(0, -maskH/2-maskH*0.08, maskW*0.35, -maskH/2);
+        camCtx.quadraticCurveTo(maskW/2*1.05, 0, maskW/2, maskH/2);
+        camCtx.closePath();
+        camCtx.fill();
+        // Mask fold lines
+        camCtx.strokeStyle = 'rgba(200,200,200,0.5)';
+        camCtx.lineWidth = 0.6;
+        for (let i=1; i<=3; i++) {
+          const ly = -maskH/2 + maskH * i * 0.25;
+          const lw = maskW/2 * (1 - Math.abs(i-2)*0.1);
+          camCtx.beginPath();
+          camCtx.moveTo(-lw, ly);
+          camCtx.lineTo(lw, ly);
+          camCtx.stroke();
+        }
+        // Ear loops
+        camCtx.strokeStyle = 'rgba(220,220,220,0.7)';
+        camCtx.lineWidth = 1;
+        camCtx.beginPath();
+        camCtx.moveTo(-maskW/2, -maskH*0.2);
+        camCtx.quadraticCurveTo(-maskW/2-maskW*0.12, 0, -maskW/2, maskH*0.1);
+        camCtx.stroke();
+        camCtx.beginPath();
+        camCtx.moveTo(maskW/2, -maskH*0.2);
+        camCtx.quadraticCurveTo(maskW/2+maskW*0.12, 0, maskW/2, maskH*0.1);
+        camCtx.stroke();
+        camCtx.restore();
+
+        const foreheadY = fyAR(10);
+        const chinY = fyAR(152);
+        const faceH = chinY - foreheadY;
+        const hatLeftX = fxAR(54), hatRightX = fxAR(284);
+        const beanieW = Math.abs(hatRightX - hatLeftX) * 1.4;
+        const beanieH = faceH * 0.7;
+        const baseY = foreheadY - faceH * 0.02;
+        const hatCx = (hatLeftX + hatRightX) / 2;
+        const hatAngle = Math.atan2(fyAR(284)-fyAR(54), fxAR(284)-fxAR(54));
+
+        camCtx.save();
+        camCtx.translate(hatCx, baseY);
+        camCtx.rotate(hatAngle);
+        camCtx.scale(1, -1);
+        camCtx.fillStyle = 'rgb(40,40,40)';
+        camCtx.beginPath();
+        camCtx.moveTo(-beanieW/2, beanieH*0.1);
+        camCtx.lineTo(-beanieW/2, -beanieH*0.3);
+        camCtx.quadraticCurveTo(-beanieW/2, -beanieH*0.7, 0, -beanieH*0.8);
+        camCtx.quadraticCurveTo(beanieW/2, -beanieH*0.7, beanieW/2, -beanieH*0.3);
+        camCtx.lineTo(beanieW/2, beanieH*0.1);
+        camCtx.closePath();
+        camCtx.fill();
+        camCtx.fillStyle = 'rgb(55,55,55)';
+        camCtx.beginPath();
+        camCtx.roundRect(-beanieW/2, -beanieH*0.02, beanieW, beanieH*0.14, 2);
+        camCtx.fill();
+        // Text on cuff
+        camCtx.scale(1, -1);
+        camCtx.rotate(Math.PI);
+        camCtx.fillStyle = 'rgba(255,255,255,0.8)';
+        camCtx.font = '700 '+Math.round(beanieH*0.18)+'px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+        camCtx.textAlign = 'center';
+        camCtx.textBaseline = 'middle';
+        camCtx.fillText('현대카드', 0, -beanieH*0.35);
+        camCtx.restore();
+       } // end face loop
+      }
+
+      // Zone guide lines (on top of AR)
+      const segments = ['Power','Casual','Light'];
+      const pad=cw*0.04, gx=pad, gw=cw-pad*2, gh=(ch-pad*2-8)/3, gy=pad;
+      const fontSize = Math.round(cw*0.046);
+      // Build set of active cells from fingertip positions
+      const activeZones = new Set();
+      if (fingerTipsRaw.length) {
+        for (const ft of fingerTipsRaw) {
+          const fx = (1 - ft.x) * cw, fy = ft.y * ch;
+          for (let s=0; s<3; s++) {
+            const ty = gy + s*(gh+4);
+            if (fy >= ty && fy <= ty+gh && fx >= gx && fx <= gx+gw) {
+              const zW = gw/3;
+              const ti = Math.min(2, Math.floor((fx-gx)/zW));
+              activeZones.add(s+'-'+ti);
+            }
+          }
+        }
+      }
+
+      camCtx.save();
+      for (let s=0; s<3; s++) {
+        const ty = gy + s*(gh+4);
+        // segment border
+        camCtx.strokeStyle = 'rgba(255,255,255,0.45)';
+        camCtx.lineWidth = 1;
+        camCtx.strokeRect(gx, ty, gw, gh);
+        // segment label
+        camCtx.fillStyle = 'rgba(255,255,255,0.7)';
+        camCtx.font = '700 '+fontSize+'px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+        camCtx.textAlign = 'left'; camCtx.textBaseline = 'top';
+        camCtx.fillText(segments[s], gx+5, ty+3);
+        // type dividers
+        const zW = gw/3;
+        for (let i=0; i<3; i++) {
+          if (i>0) {
+            camCtx.beginPath();
+            camCtx.moveTo(gx+i*zW, ty+16);
+            camCtx.lineTo(gx+i*zW, ty+gh-4);
+            camCtx.strokeStyle = 'rgba(255,255,255,0.3)';
+            camCtx.lineWidth = 1;
+            camCtx.stroke();
+          }
+          const isActive = activeZones.has(s+'-'+i);
+          camCtx.fillStyle = isActive ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.45)';
+          camCtx.font = (isActive?'700 ':'500 ')+fontSize+'px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+          camCtx.textAlign = 'center'; camCtx.textBaseline = 'middle';
+          camCtx.fillText('T'+(i+1), gx+i*zW+zW/2, ty+gh/2+4);
+        }
+      }
+      camCtx.restore();
+
+      // Fingertip dots
+      if (fingerTipsRaw.length) {
+        for (const ft of fingerTipsRaw) {
+          const cx = (1 - ft.x) * cw, cy = ft.y * ch;
+          const glow = camCtx.createRadialGradient(cx, cy, 0, cx, cy, 12);
+          glow.addColorStop(0, 'rgba(100,240,200,0.8)');
+          glow.addColorStop(0.4, 'rgba(100,240,200,0.2)');
+          glow.addColorStop(1, 'rgba(100,240,200,0)');
+          camCtx.fillStyle = glow;
+          camCtx.beginPath(); camCtx.arc(cx, cy, 12, 0, Math.PI*2); camCtx.fill();
+          camCtx.fillStyle = 'rgba(100,240,200,1)';
+          camCtx.beginPath(); camCtx.arc(cx, cy, 2.5, 0, Math.PI*2); camCtx.fill();
+        }
+      }
+
+      // (AR drawn above, before guides)
+    });
+
+    // Camera starts on button click (see camBtn listener above)
+  } catch(e) { console.log('Hand tracking unavailable:', e); }
+})();
+
+// ═══ MAIN LOOP ═══
+// MAU 클릭 핫스팟
+const mauHotspot = document.createElement('div');
+mauHotspot.style.cssText = 'position:fixed;top:54px;left:28px;height:42px;cursor:pointer;z-index:5;';
+document.body.appendChild(mauHotspot);
+mauHotspot.addEventListener('click', () => { if (!detailPageActive) showDetailPage(); });
+
+function updateMauHotspot() { mauHotspot.style.width = ((W-56)/5) + 'px'; }
+
+resize(); updateMauHotspot();
+window.addEventListener('resize', () => { resize(); updateMauHotspot(); });
+initParticles();
+
+let frame=0;
+document.fonts.ready.then(()=>requestAnimationFrame(loop));
+
+function loop() {
+  frame++;
+  buildGrid(); applyRepulsion(); applyMouseForce(); applyDragForce();
+  // Hard zone enforcement: force ALL non-migrating particles inside their sub-zone
+  particles.forEach(p => {
+    if (p.migrating || p.fadingIn || p.segment === 'churn' || p.segment === 'new') return;
+    const z = getSubZone(p.segment, p.subType);
+    if (!z) return;
+    const wL = z.x + p.radius + 2, wR = z.x + z.w - p.radius - 2;
+    const wT = z.y + p.radius + 2, wB = z.y + z.h - p.radius - 2;
+    // Teleport back if outside
+    if (p.x < wL) { p.x = wL; p.vx = 0; }
+    if (p.x > wR) { p.x = wR; p.vx = 0; }
+    if (p.y < wT) { p.y = wT; p.vy = 0; }
+    if (p.y > wB) { p.y = wB; p.vy = 0; }
+    // Block velocity that would exit next frame
+    if (p.x + p.vx < wL) p.vx = 0;
+    if (p.x + p.vx > wR) p.vx = 0;
+    if (p.y + p.vy < wT) p.vy = 0;
+    if (p.y + p.vy > wB) p.vy = 0;
+  });
+  particles.forEach(p=>p.update(frame));
+  tryMigrations();
+  signalEvents=signalEvents.filter(e=>Date.now()-e.time<30000);
+
+  drawBG(); drawDashboard(); drawLegend(); drawGNB();
+  drawAquarium(frame); drawTanks(); drawAllPipes(frame);
+  drawSideZones(); drawConnLines();
+  particles.forEach(p=>p.draw());
+  drawSignalPanel(frame); drawActionPanel(frame);
+
+  canvas.style.cursor = drag.active?'grabbing':inAqua(mouseX,mouseY)?'grab':'default';
+  requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
