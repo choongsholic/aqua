@@ -480,19 +480,16 @@ class Particle {
   }
 
   recycleAsNew() {
-    // Recycle: fade in at random position in newZone, then migrate
-    // 35% → 미설치자, 65% → Light
-    this._goToUninstalled = Math.random() < 0.35;
-    this.segment = 'new'; this.subType = 1;
-    this.health = 'normal';
-    this.fading = false; this.churnTimer = -1;
-    this.fadeAlpha = 0;
-    this.fadeInTimer = 40 + Math.random()*60|0;
-    this.fadingIn = true;
-    this.x = newZone.x + 10 + Math.random()*(newZone.w-20);
-    this.y = newZone.y + 10 + Math.random()*(newZone.h-20);
+    // growth2: 이동 없이 바로 light/casual/power 중 하나에 배치
+    const segs = ['light','casual','power'];
+    const s = segs[Math.random()*segs.length|0];
+    this.segment = s; this.subType = 1;
+    this.health = assignHealth(s);
+    this.fading = false; this.fadingIn = false; this.migrating = false;
+    this.fadeAlpha = 1.0; this.churnTimer = -1;
+    const z = getSubZone(s, 1);
+    if (z) { this.x = z.x + Math.random()*z.w; this.y = z.y + Math.random()*z.h; }
     this.vx = 0; this.vy = 0;
-    this.migrating = false;
   }
   startNewMigration() {
     this.fadeAlpha = 1.0; this.fadingIn = false;
@@ -1115,11 +1112,7 @@ function drawAquarium(frame) {
     ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1; ctx.setLineDash([4,6]); ctx.stroke();
     ctx.setLineDash([]);
 
-    // Erase aquarium border where pipes connect
-    const eraseC = '#0a0a0a';
-    const phw = CFG.pipe.width/2 - 1;
-    if (pipes.new_in.cy) { ctx.fillStyle=eraseC; ctx.fillRect(a.x-2, pipes.new_in.cy-phw, 5, phw*2); }
-    if (pipes.churn_out.cy) { ctx.fillStyle=eraseC; ctx.fillRect(a.x+a.w-2, pipes.churn_out.cy-phw, 5, phw*2); }
+    // growth2: 아쿠아리움 테두리 구멍 없음 (신규유입/이탈 제거)
   }
 
   ctx.restore();
@@ -1193,28 +1186,7 @@ function drawTanks() {
     ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, r);
     ctx.strokeStyle=_hovRet?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.14)'; ctx.lineWidth=_hovRet?1.5:1; ctx.stroke();
 
-    if ((d.key==='light' || d.key==='casual') && pipes.lc && pipes.lc.cy) {
-      const py = (d.key==='light' ? pipes.lc.cy : pipes.cp && pipes.cp.cy ? pipes.cp.cy : pipes.lc.cy);
-      ctx.fillStyle=eraseC; ctx.fillRect(t.x+t.w-2, py-phw, 5, sideHoleH);
-    }
-    if ((d.key==='casual' || d.key==='power') && pipes.lc && pipes.lc.cy) {
-      const py = (d.key==='casual' ? pipes.lc.cy : pipes.cp && pipes.cp.cy ? pipes.cp.cy : pipes.lc.cy);
-      ctx.fillStyle=eraseC; ctx.fillRect(t.x-2, py-phw, 5, sideHoleH);
-    }
-    if (d.key==='light') {
-      const lhcx = aquarium._lightHoleCX || (t.x+t.w/2);
-      ctx.fillStyle=eraseC; ctx.fillRect(lhcx-phw, t.y-2, sideHoleH, 5);
-      if (pipes.new_in.cy) {
-        const npw = CFG.pipe.width/2;
-        ctx.fillStyle=eraseC; ctx.fillRect(t.x-2, pipes.new_in.cy-npw, 5, npw*2);
-      }
-      const lchcx = aquarium._lightChurnHoleCX || lhcx;
-      ctx.fillStyle=eraseC; ctx.fillRect(lchcx-phw, t.y+t.h-2, sideHoleH, 5);
-    }
-    if (d.key==='power' && pipes.churn_out.cy) {
-      const cpw = CFG.pipe.width/2;
-      ctx.fillStyle=eraseC; ctx.fillRect(t.x+t.w-2, pipes.churn_out.cy-cpw, 5, cpw*2);
-    }
+    // growth2: 모든 탱크 구멍 막힘
 
     drawTankStats(t, d);
     ctx.restore();
@@ -1241,19 +1213,7 @@ function drawTanks() {
     ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, r);
     ctx.fillStyle='rgba(255,255,255,0.003)'; ctx.fill();
 
-    if (aquarium._mauHoleCX && aquarium._mauHoleCX[d.key]) {
-      const holeCX = aquarium._mauHoleCX[d.key];
-      ctx.fillStyle = eraseC;
-      ctx.fillRect(holeCX - phw, t.y + t.h - 2, holeW, 5);
-    }
-    if (d.key === 'dormant' && pipes.di && pipes.di.cy) {
-      ctx.fillStyle = eraseC;
-      ctx.fillRect(t.x + t.w - 2, pipes.di.cy - phw, 5, holeW);
-    }
-    if (d.key === 'intermittent' && pipes.di && pipes.di.cy) {
-      ctx.fillStyle = eraseC;
-      ctx.fillRect(t.x - 2, pipes.di.cy - phw, 5, holeW);
-    }
+    // growth2: 모든 MAU 탱크 구멍 막힘
 
     drawTankStats(t, d);
     ctx.restore();
@@ -3474,14 +3434,14 @@ function loop() {
     if (p.y + p.vy > wB) p.vy = 0;
   });
   particles.forEach(p=>p.update(frame));
-  tryMigrations();
+  // tryMigrations(); — growth2: 세그 간 이동 비활성화
   signalEvents=signalEvents.filter(e=>Date.now()-e.time<30000);
 
   drawBG(); drawDashboard(); drawLegend(); drawGNB();
   drawAquarium(frame);
   if (aquaTab === 0) {
-    drawTanks(); drawAllPipes(frame);
-    drawSideZones(); drawConnLines();
+    drawTanks(); // drawAllPipes, drawSideZones 제거 (growth2)
+    drawConnLines();
     // 주차별 파티클 수 — target 쪽으로 lerp (부드러운 전환)
     _segDrawTargets = getWeekTargets(trackYear, trackMonth, segWeek);
     for (const k in _segDrawCurrent) {
