@@ -35,7 +35,7 @@ const HEALTH_KEYS = ['healthy','good','normal','caution','danger'];
 
 const HEALTH_DIST = {
   power:       [0.55, 0.25, 0.12, 0.06, 0.02],
-  casual:      [0.08, 0.28, 0.35, 0.22, 0.07],
+  casual:      [0.08, 0.36, 0.28, 0.21, 0.07],
   light:       [0.02, 0.06, 0.22, 0.40, 0.30],
   uninstalled: [0.01, 0.04, 0.20, 0.42, 0.33],
   dormant:     [0.01, 0.03, 0.18, 0.44, 0.34],
@@ -58,9 +58,18 @@ function lerpRGB(h1, h2, t, a) {
 // ═══ STYLE COLORS ═══
 const COLOR = {
   inflow:  '#50d278',          // 유입/상향이동 — 주간 UV 그린
-  outflow: '#0070F0',          // 이탈/하향이동
+  outflow: '#FF5050',          // 이탈/하향이동
   positive: '#50d278',         // KPI 델타 + (주간 UV 그린)
   negative: '#0070F0',         // KPI 델타 -
+};
+
+// ═══ LINE OPACITY ═══
+const LINE = {
+  ghost:    0.05,  // 배경 구분선 (헤더 하단, 격자)
+  subtle:   0.08,  // 컨테이너 테두리, 파이프 벽, 패널
+  default:  0.14,  // 탱크·아쿠아리움 기본 테두리
+  emphasis: 0.22,  // 보조 강조선 (슬라이드 패널 내부 등)
+  active:   0.75,  // 호버·선택 상태
 };
 
 const CFG = {
@@ -572,25 +581,30 @@ function initParticles() {
   });
 }
 
-// 주차별 파티클 표시 한계 (deterministic)
+// 주차별 파티클 표시 한계 — getSegData sub 값에 비례
 function getWeekTargets(year, month, week) {
-  const seed = year * 10000 + month * 100 + week;
-  const r = (i, min, max) => {
-    const v = ((seed * 1664525 + i * 22695477 + 1013904223) >>> 0) % (max - min + 1);
-    return min + v;
+  const data = getSegData(year, month, week);
+  const allDefs = [...data.defs, ...data.mauDefs];
+  const num = (key) => {
+    const d = allDefs.find(d => d.key === key);
+    return d ? parseInt(d.sub) : 0;
+  };
+  const lerp = (v, inMin, inMax, outMin, outMax) => {
+    const t = Math.max(0, Math.min(1, (v - inMin) / (inMax - inMin)));
+    return Math.round(outMin + t * (outMax - outMin));
   };
   return {
-    light:        r(1,  600, 1400),
-    casual:       r(2,  650, 1500),
-    power:        r(3,  350,  900),
-    uninstalled:  r(4,  200,  560),
-    dormant:      r(5,  200,  550),
-    intermittent: r(6,  400,  950),
+    light:        lerp(num('light'),        265, 298,  650, 1400),
+    casual:       lerp(num('casual'),       288, 318,  700, 1500),
+    power:        lerp(num('power'),        172, 195,  350,  900),
+    uninstalled:  lerp(num('uninstalled'),  106, 124,  200,  560),
+    dormant:      lerp(num('dormant'),      101, 124,  200,  550),
+    intermittent: lerp(num('intermittent'), 176, 206,  400,  950),
   };
 }
 let _segDrawTargets = getWeekTargets(2026, 4, 3);
 let _segDrawCurrent = {..._segDrawTargets};
-let _particleScalePulse = 1.0; // 주차 변경 시 1.0 → 1.6 → 1.0 펄스
+let _particleScalePulse = 1.0; // 주차 변경 시 1.0 → 2.0 → 1.0 펄스
 let _particlePulseT = 1.0;     // 0~1 진행값 (1이면 종료)
 
 // ═══ SPATIAL GRID ═══
@@ -875,7 +889,7 @@ function drawDashboard() {
   const kW=(W-56)/kpis.length;
   kpis.forEach((k,i)=>{
     const kx=28+i*kW;
-    if(i>0){ctx.beginPath();ctx.moveTo(kx,kY-14);ctx.lineTo(kx,kY+14);ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;ctx.stroke();}
+    if(i>0){ctx.beginPath();ctx.moveTo(kx,kY-14);ctx.lineTo(kx,kY+14);ctx.strokeStyle=`rgba(255,255,255,${LINE.subtle})`;ctx.lineWidth=1;ctx.stroke();}
     ctx.font='600 9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle='rgba(255,255,255,0.28)'; ctx.textAlign='left';
     const tx=i===0?kx:kx+14;
     ctx.fillText(k.l,tx,kY-8);
@@ -891,7 +905,7 @@ function drawDashboard() {
       ctx.fillText(k.s,tx+vw+8,kY+9);
     }
   });
-  ctx.beginPath();ctx.moveTo(28,headerH-2);ctx.lineTo(W-28,headerH-2);ctx.strokeStyle='rgba(255,255,255,0.05)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(28,headerH-2);ctx.lineTo(W-28,headerH-2);ctx.strokeStyle=`rgba(255,255,255,${LINE.ghost})`;ctx.lineWidth=1;ctx.stroke();
   ctx.restore();
 }
 
@@ -942,7 +956,7 @@ function genMonthData(year, month) {
     if (w >= filled) return null;
     if (seg === 'light')  return { up: r(w*9+1, 18, 28),  down: -r(w*9+2, 28, 42) };
     if (seg === 'casual') return { up: r(w*9+3, 13, 22),  down: -r(w*9+4,  9, 17) };
-    return                       { up: r(w*9+5,  0,  3),  down: -r(w*9+6,  2,  7) };
+    return                       { up: 0,                  down: -r(w*9+6,  2,  7) };
   });
 
   return [
@@ -993,7 +1007,7 @@ function getTrackDisplay() {
 function drawAquarium(frame) {
   const a=aquarium; ctx.save();
   ctx.beginPath(); ctx.roundRect(a.x,a.y,a.w,a.h,18);
-  ctx.strokeStyle=`rgba(255,255,255,${0.12+Math.sin(frame*0.008)*0.02})`; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.strokeStyle=`rgba(255,255,255,${LINE.default+Math.sin(frame*0.008)*0.02})`; ctx.lineWidth=1.5; ctx.stroke();
   ctx.beginPath(); ctx.roundRect(a.x,a.y,a.w,a.h,18);
   ctx.fillStyle='rgba(255,255,255,0.006)'; ctx.fill();
 
@@ -1084,7 +1098,7 @@ function drawAquarium(frame) {
       if (i > 0) {
         ctx.beginPath();
         ctx.moveTo(wkX, sNavY - wkH/2 + 3); ctx.lineTo(wkX, sNavY + wkH/2 - 3);
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1; ctx.stroke();
+        ctx.strokeStyle = `rgba(255,255,255,${LINE.subtle})`; ctx.lineWidth = 1; ctx.stroke();
         wkX += sepW + sepGap;
       }
       const lw = ctx.measureText(lbl).width;
@@ -1109,7 +1123,7 @@ function drawAquarium(frame) {
     // Separator line between tracks (midpoint of separator zone)
     const sepY = a.y + mauSectionH + trackSepGlobal/2 + 2;
     ctx.beginPath(); ctx.moveTo(a.x+16, sepY); ctx.lineTo(a.x+a.w-16, sepY);
-    ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1; ctx.setLineDash([4,6]); ctx.stroke();
+    ctx.strokeStyle=`rgba(255,255,255,${LINE.subtle})`; ctx.lineWidth=1; ctx.setLineDash([4,6]); ctx.stroke();
     ctx.setLineDash([]);
 
     // growth2: 아쿠아리움 테두리 구멍 없음 (신규유입/이탈 제거)
@@ -1122,8 +1136,10 @@ function drawAquarium(frame) {
 function drawTankStats(t, d) {
   const lx = t.x + 12;
   const posColor = 'rgba(80,210,120,0.95)';
-  const negColor = 'rgba(0,112,240,0.95)'; // COLOR.outflow
-  const indColor = d.positive ? posColor : negColor;
+  const negColor = 'rgba(255,80,80,0.95)'; // COLOR.outflow
+  // MAU 트랙은 감소가 좋음 → 색상 논리 반전
+  const isGood = d.invertSign ? !d.positive : d.positive;
+  const indColor = isGood ? posColor : negColor;
   const numFS = Math.min(28, Math.max(22, t.h * 0.17));
   const gap1 = 6;             // name → number gap
   const gap2 = numFS * 0.48 + 8;  // number → indicator gap
@@ -1166,13 +1182,42 @@ function drawTankStats(t, d) {
   ctx.fillText(d.changeText, lx, indY + gap3);
 }
 
+function getSegData(year, month, week) {
+  // 주차별 결정적 난수: 동일 year/month/week → 동일 값
+  function sr(i) {
+    const s = Math.sin(year * 1.3 + month * 17.7 + week * 53.9 + i * 127.1) * 43758.5453;
+    return s - Math.floor(s);
+  }
+  function ri(i, min, max) { return min + Math.round(sr(i) * (max - min)); }
+
+  const lightSub    = ri(1,  265, 298);  const lightD  = ri(2,  12, 28);
+  const casualSub   = ri(3,  288, 318);  const casualD = ri(4,   8, 23);
+  const powerSub    = ri(5,  172, 195);  const powerD  = ri(6,   3, 14);
+  const uninstSub   = ri(7,  106, 124);  const uninstD = ri(8,  14, 28);
+  const dormantSub  = ri(9,  101, 124);  const dormantD= ri(10, 14, 28);
+  const interSub    = ri(11, 176, 206);  const interD  = ri(12,  7, 19);
+
+  const fmt  = (v, pos) => `${pos?'+':'-'}${v}만`;
+  const fmtp = (v, base, pos) => `${pos?'+':'-'}${((v/base)*100).toFixed(1)}%`;
+  const ct   = (v, pos) => `전월 동기 대비 ${v}만 ${pos?'증가':'감소'}`;
+
+  return {
+    defs: [
+      {key:'light',  label:'Light',  sub:`${lightSub}만`,   sub2:'월 1~2회',    delta:fmt(lightD,false),  pct:fmtp(lightD,lightSub,false),   positive:false, changeText:ct(lightD,false)},
+      {key:'casual', label:'Casual', sub:`${casualSub}만`,  sub2:'월 3~7회',    delta:fmt(casualD,true),  pct:fmtp(casualD,casualSub,true),   positive:true,  changeText:ct(casualD,true)},
+      {key:'power',  label:'Power',  sub:`${powerSub}만`,   sub2:'월 8회 이상', delta:fmt(powerD,true),   pct:fmtp(powerD,powerSub,true),    positive:true,  changeText:ct(powerD,true)},
+    ],
+    mauDefs: [
+      {key:'uninstalled',  label:'미설치자',   sub:`${uninstSub}만`,  sub2:'신규 발급 미로그인', delta:fmt(uninstD,false),  pct:fmtp(uninstD,uninstSub,false),   positive:false, invertSign:true, changeText:ct(uninstD,false)},
+      {key:'dormant',      label:'장기 미이용', sub:`${dormantSub}만`, sub2:'3개월 초과',         delta:fmt(dormantD,true),  pct:fmtp(dormantD,dormantSub,true),   positive:true,  invertSign:true, changeText:ct(dormantD,true)},
+      {key:'intermittent', label:'간헐 이용',   sub:`${interSub}만`,   sub2:'3개월 내 비연속',    delta:fmt(interD,false),   pct:fmtp(interD,interSub,false),    positive:false, invertSign:true, changeText:ct(interD,false)},
+    ],
+  };
+}
+
 function drawTanks() {
+  const { defs, mauDefs } = getSegData(trackYear, trackMonth, segWeek);
   // ─ Retention Track tanks ─
-  const defs=[
-    {key:'light',  label:'Light',  sub:'280만', sub2:'월 1~2회',    delta:'+20만', pct:'+3.8%', positive:true,  changeText:'전월 동기 대비 20만 증가'},
-    {key:'casual', label:'Casual', sub:'300만', sub2:'월 3~7회',    delta:'+15만', pct:'+2.1%', positive:true,  changeText:'전월 동기 대비 15만 증가'},
-    {key:'power',  label:'Power',  sub:'180만', sub2:'월 8회 이상', delta:'-8만',  pct:'-1.2%', positive:false, changeText:'전월 동기 대비 8만 하락'},
-  ];
   const sideHoleH = CFG.pipe.width;
   defs.forEach(d => {
     const t=tanks[d.key];
@@ -1184,7 +1229,7 @@ function drawTanks() {
 
     const _hovRet = mouseX>=t.x&&mouseX<=t.x+t.w&&mouseY>=t.y&&mouseY<=t.y+t.h;
     ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, r);
-    ctx.strokeStyle=_hovRet?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.14)'; ctx.lineWidth=_hovRet?1.5:1; ctx.stroke();
+    ctx.strokeStyle=_hovRet?`rgba(255,255,255,${LINE.active})`:`rgba(255,255,255,${LINE.default})`; ctx.lineWidth=_hovRet?1.5:1; ctx.stroke();
 
     // growth2: 모든 탱크 구멍 막힘
 
@@ -1193,11 +1238,6 @@ function drawTanks() {
   });
 
   // ─ MAU Track tanks ─
-  const mauDefs=[
-    {key:'uninstalled',  label:'미설치자',   sub:'113만', sub2:'신규 발급 미로그인', delta:'+20만', pct:'+3.8%', positive:true,  changeText:'전월 동기 대비 2만 증가'},
-    {key:'dormant',      label:'장기 미이용', sub:'110만', sub2:'3개월 초과',         delta:'-20만', pct:'-3.8%', positive:false, changeText:'전월 동기 대비 2만 하락'},
-    {key:'intermittent', label:'간헐 이용',   sub:'190만', sub2:'3개월 내 비연속',    delta:'+12만', pct:'+2.3%', positive:true,  changeText:'전월 동기 대비 4만 증가'},
-  ];
   mauDefs.forEach(d => {
     const t=mauTanks[d.key];
     if (!t) return;
@@ -1209,7 +1249,7 @@ function drawTanks() {
 
     const _hovMau = mouseX>=t.x&&mouseX<=t.x+t.w&&mouseY>=t.y&&mouseY<=t.y+t.h;
     ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, r);
-    ctx.strokeStyle=_hovMau?'rgba(255,255,255,0.8)':'rgba(255,255,255,0.10)'; ctx.lineWidth=_hovMau?1.5:1; ctx.stroke();
+    ctx.strokeStyle=_hovMau?`rgba(255,255,255,${LINE.active})`:`rgba(255,255,255,${LINE.default})`; ctx.lineWidth=_hovMau?1.5:1; ctx.stroke();
     ctx.beginPath(); ctx.roundRect(t.x, t.y, t.w, t.h, r);
     ctx.fillStyle='rgba(255,255,255,0.003)'; ctx.fill();
 
@@ -1224,7 +1264,7 @@ function drawTanks() {
 function drawVPipe(cx,y1,y2,color,frame,dir) {
   const hw=CFG.pipe.width/2;
   ctx.save();
-  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+  ctx.strokeStyle=`rgba(255,255,255,${LINE.subtle})`; ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(cx-hw,y1);ctx.lineTo(cx-hw,y2);ctx.stroke();
   ctx.beginPath();ctx.moveTo(cx+hw,y1);ctx.lineTo(cx+hw,y2);ctx.stroke();
   // Chevrons
@@ -1242,7 +1282,7 @@ function drawHPipe(cy,x1,x2,color,frame,dir) {
   const hw=CFG.pipe.width/2;
   ctx.save();
   ctx.fillStyle='rgba(255,255,255,0.01)';ctx.beginPath();ctx.roundRect(x1,cy-hw,x2-x1,CFG.pipe.width,3);ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,0.06)';ctx.lineWidth=1;
+  ctx.strokeStyle=`rgba(255,255,255,${LINE.subtle})`;ctx.lineWidth=1;
   ctx.beginPath();ctx.moveTo(x1,cy-hw);ctx.lineTo(x2,cy-hw);ctx.stroke();
   ctx.beginPath();ctx.moveTo(x1,cy+hw);ctx.lineTo(x2,cy+hw);ctx.stroke();
   for(let i=0;i<3;i++){
@@ -1286,7 +1326,7 @@ function drawSideZones() {
   ctx.save();
   // 신규
   ctx.beginPath(); ctx.roundRect(newZone.x,newZone.y,newZone.w,newZone.h,8);
-  ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.strokeStyle=`rgba(255,255,255,${LINE.subtle})`; ctx.lineWidth=1; ctx.stroke();
   ctx.font='bold 11px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif'; ctx.fillStyle='rgba(255,255,255,0.35)';
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillText('신규 유입', newZone.x+newZone.w/2, newZone.y+newZone.h/2);
@@ -1310,7 +1350,7 @@ function drawSideZones() {
 // ═══ DRAWING: Signal Panel ═══
 function drawSignalPanel(frame) {
   const sp=signalPanel; ctx.save();
-  ctx.beginPath();ctx.roundRect(sp.x,sp.y,sp.w,sp.h,12);ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.roundRect(sp.x,sp.y,sp.w,sp.h,12);ctx.strokeStyle=`rgba(255,255,255,${LINE.default})`;ctx.lineWidth=1;ctx.stroke();
   ctx.font='bold 11px "SF Pro Display",-apple-system,BlinkMacSystemFont,\'Apple SD Gothic Neo\',sans-serif';
   ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.textAlign='left'; ctx.textBaseline='top';
   ctx.fillText('이상 징후 감지', sp.x+14, sp.y+12);
@@ -1320,11 +1360,11 @@ function drawSignalPanel(frame) {
     { header:'MAU TRACK', items:[
       {l:'미설치자',   v:'0'},
       {l:'장기 미이용', v:'1만'},
-      {l:'간헐 이용',  v:'2만'},
+      {l:'간헐 이용',  v:'0'},
     ]},
     { header:'RETENTION TRACK', items:[
-      {l:'Light',  v:'3만'},
-      {l:'Casual', v:'2만'},
+      {l:'Light',  v:'2만'},
+      {l:'Casual', v:'0'},
       {l:'Power',  v:'0'},
     ]},
   ];
@@ -1365,7 +1405,7 @@ function drawSignalPanel(frame) {
       ry += 6;
       ctx.save();
       ctx.setLineDash([2, 3]);
-      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+      ctx.strokeStyle = `rgba(255,255,255,${LINE.subtle})`;
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(lx, ry); ctx.lineTo(rx, ry); ctx.stroke();
       ctx.setLineDash([]);
@@ -1510,7 +1550,7 @@ function drawActionPanel(frame) {
   ctx.restore(); ctx.save();
 
   // Border
-  ctx.beginPath();ctx.roundRect(ap.x,ap.y,ap.w,ap.h,12);ctx.strokeStyle='rgba(255,255,255,0.07)';ctx.lineWidth=1;ctx.stroke();
+  ctx.beginPath();ctx.roundRect(ap.x,ap.y,ap.w,ap.h,12);ctx.strokeStyle=`rgba(255,255,255,${LINE.subtle})`;ctx.lineWidth=1;ctx.stroke();
 
   // Section title (fixed, not sliding)
   ctx.font='bold 10px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
@@ -1531,7 +1571,7 @@ function drawActionPanel(frame) {
   ctx.beginPath();ctx.setLineDash([2,3]);
   ctx.moveTo(signalPanel.x+signalPanel.w/2,signalPanel.y+signalPanel.h);
   ctx.lineTo(ap.x+ap.w/2,ap.y);
-  ctx.strokeStyle='rgba(255,255,255,0.04)';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle=`rgba(255,255,255,${LINE.ghost})`;ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
   ctx.restore();
 }
 
@@ -1614,7 +1654,7 @@ function drawMoveTracking() {
 
     ctx.save();
     ctx.beginPath(); ctx.roundRect(contentX, sy, contentW, sH, 10);
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${LINE.default})`; ctx.lineWidth = 1; ctx.stroke();
 
     const hY = sy + 18;
 
@@ -1652,14 +1692,14 @@ function drawMoveTracking() {
       const gy = zeroY - m * scale * (maxV / 2);
       if (gy >= chartTop && gy <= chartTop + chartH) {
         ctx.beginPath(); ctx.moveTo(chartX, gy); ctx.lineTo(chartX + chartW, gy);
-        ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.stroke();
+        ctx.strokeStyle = `rgba(255,255,255,${LINE.ghost})`; ctx.stroke();
       }
     });
     ctx.setLineDash([]);
 
     // Zero line
     ctx.beginPath(); ctx.moveTo(chartX, zeroY); ctx.lineTo(chartX + chartW, zeroY);
-    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${LINE.emphasis})`; ctx.lineWidth = 1; ctx.stroke();
 
     // Y-axis label
     ctx.font = '9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
@@ -1706,7 +1746,7 @@ function drawMoveTracking() {
     if (pts.length > 1) {
       ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-      ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = `rgba(255,255,255,${LINE.active})`; ctx.lineWidth = 1.5; ctx.stroke();
       pts.forEach(p => {
         ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fill();
@@ -1714,7 +1754,7 @@ function drawMoveTracking() {
     }
 
     // Store geometry for hover detection
-    trackGeom.push({ si, sy, sH, chartX, chartW, chartTop, chartH, zeroY, weekW, scale });
+    trackGeom.push({ si, sy, sH, chartX, chartW, chartTop, chartH, zeroY, weekW, scale, seg: td.seg });
 
     ctx.restore();
   });
@@ -1728,7 +1768,7 @@ function drawMoveTracking() {
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(wx, g.chartTop); ctx.lineTo(wx, g.chartTop + g.chartH);
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${LINE.emphasis})`; ctx.lineWidth = 1; ctx.stroke();
     ctx.restore();
 
     // Active week label highlight
@@ -1748,14 +1788,15 @@ function drawMoveTracking() {
     ctx.restore();
 
     // Tooltip box
-    const tW = 190, tH = 116, tPad = 16;
+    const isPower = g.seg === 'Power';
+    const tW = 190, tH = isPower ? 76 : 116, tPad = 16;
     let tx = wx + 18, ty = g.sy + 10;
     if (tx + tW > g.chartX + g.chartW - 4) tx = wx - tW - 18;
 
     ctx.save();
     ctx.beginPath(); ctx.roundRect(tx, ty, tW, tH, 10);
     ctx.fillStyle = 'rgba(18,18,18,0.94)'; ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${LINE.subtle})`; ctx.lineWidth = 1; ctx.stroke();
 
     ctx.font = '600 11px "SF Pro Display",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
@@ -1765,23 +1806,33 @@ function drawMoveTracking() {
     const col1X = tx + tPad, col2X = tx + tW / 2;
     ctx.font = '400 9px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.fillText('상향 이동', col1X, ty + tPad + 24);
-    ctx.fillText('하향 이동', col2X, ty + tPad + 24);
+    ctx.fillText(isPower ? '하향 이동' : '상향 이동', col1X, ty + tPad + 24);
+    if (!isPower) ctx.fillText('하향 이동', col2X, ty + tPad + 24);
 
     ctx.font = '700 15px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
-    ctx.fillStyle = COLOR.inflow;
-    ctx.fillText(up > 0 ? `+${up}만` : `${up}만`, col1X, ty + tPad + 38);
-    ctx.fillStyle = COLOR.outflow;
-    ctx.fillText(`${down}만`, col2X, ty + tPad + 38);
+    if (isPower) {
+      ctx.fillStyle = COLOR.outflow;
+      ctx.fillText(`${down}만`, col1X, ty + tPad + 38);
+    } else {
+      ctx.fillStyle = COLOR.inflow;
+      ctx.fillText(up > 0 ? `+${up}만` : `${up}만`, col1X, ty + tPad + 38);
+    }
+    if (!isPower) {
+      ctx.fillStyle = COLOR.outflow;
+      ctx.fillText(`${down}만`, col2X, ty + tPad + 38);
 
-    ctx.beginPath();
-    ctx.moveTo(tx + tPad, ty + tPad + 66); ctx.lineTo(tx + tW - tPad, ty + tPad + 66);
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(tx + tPad, ty + tPad + 66); ctx.lineTo(tx + tW - tPad, ty + tPad + 66);
+      ctx.strokeStyle = `rgba(255,255,255,${LINE.subtle})`; ctx.stroke();
 
-    ctx.font = '700 14px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
-    ctx.fillStyle = net >= 0 ? COLOR.positive : COLOR.negative;
-    ctx.textAlign = 'left';
-    ctx.fillText(`순변화  ${net >= 0 ? '+' : ''}${net}만`, tx + tPad, ty + tPad + 78);
+      ctx.font = '700 14px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.fillText('순변화', tx + tPad, ty + tPad + 78);
+      const netLabelW = ctx.measureText('순변화  ').width;
+      ctx.fillStyle = net >= 0 ? COLOR.inflow : COLOR.outflow;
+      ctx.fillText(`${net >= 0 ? '+' : ''}${net}만`, tx + tPad + netLabelW, ty + tPad + 78);
+    }
     ctx.restore();
   }
 
@@ -1797,17 +1848,17 @@ function drawMoveTracking() {
       if (!w) {
         // future week — show default
         const latestWi = td.weeks.reduce((acc, w2, i) => w2 !== null ? i : acc, 0);
-        drawTrackTooltip(g, latestWi, td.weeks[latestWi], 1.6);
+        drawTrackTooltip(g, latestWi, td.weeks[latestWi], 2.0);
         return;
       }
       const snapKey = gi * 10 + wi;
       if (snapKey !== _lastTrackSnap) { tickSound(); _lastTrackSnap = snapKey; _trackDotScale = 1.0; }
-      _trackDotTarget = 1.6;
+      _trackDotTarget = 2.0;
       drawTrackTooltip(g, wi, w, _trackDotScale);
     } else {
       const latestWi = td.weeks.reduce((acc, w2, i) => w2 !== null ? i : acc, 0);
       const w = td.weeks[latestWi];
-      if (w) drawTrackTooltip(g, latestWi, w, 1.6);
+      if (w) drawTrackTooltip(g, latestWi, w, 2.0);
     }
   });
   // Lerp dot scale once per frame
@@ -1911,20 +1962,20 @@ detailOverlay.innerHTML = `
     <svg id="chartSvg" viewBox="0 0 1300 420" style="width:100%;display:block;overflow:hidden;">
       <defs><clipPath id="chartClip"><rect x="0" y="0" width="1262" height="420"/></clipPath></defs>
       <g id="staticYAxis">
-        <line x1="80" y1="20"  x2="1260" y2="20"  stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
+        <line x1="80" y1="20"  x2="1260" y2="20"  stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
         <line x1="80" y1="80"  x2="1260" y2="80"  stroke="rgba(80,210,120,0.18)" stroke-width="1" stroke-dasharray="4,4"/>
-        <line x1="80" y1="140" x2="1260" y2="140" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-        <line x1="80" y1="200" x2="1260" y2="200" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-        <line x1="80" y1="260" x2="1260" y2="260" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-        <line x1="80" y1="320" x2="1260" y2="320" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
-        <line x1="80" y1="380" x2="1260" y2="380" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>
-        <text x="68" y="24"  text-anchor="end" fill="rgba(255,255,255,0.12)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">850만</text>
+        <line x1="80" y1="140" x2="1260" y2="140" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+        <line x1="80" y1="200" x2="1260" y2="200" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+        <line x1="80" y1="260" x2="1260" y2="260" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+        <line x1="80" y1="320" x2="1260" y2="320" stroke="rgba(255,255,255,0.07)" stroke-width="1"/>
+        <line x1="80" y1="380" x2="1260" y2="380" stroke="rgba(255,255,255,0.10)" stroke-width="1"/>
+        <text x="68" y="24"  text-anchor="end" fill="rgba(255,255,255,0.25)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">850만</text>
         <text x="68" y="84"  text-anchor="end" fill="rgba(80,210,120,0.7)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">목표→ 800만</text>
-        <text x="68" y="144" text-anchor="end" fill="rgba(255,255,255,0.18)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">750만</text>
-        <text x="68" y="204" text-anchor="end" fill="rgba(255,255,255,0.10)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">700만</text>
-        <text x="68" y="264" text-anchor="end" fill="rgba(255,255,255,0.18)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">650만</text>
-        <text x="68" y="324" text-anchor="end" fill="rgba(255,255,255,0.10)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">600만</text>
-        <text x="68" y="384" text-anchor="end" fill="rgba(255,255,255,0.18)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">550만</text>
+        <text x="68" y="144" text-anchor="end" fill="rgba(255,255,255,0.25)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">750만</text>
+        <text x="68" y="204" text-anchor="end" fill="rgba(255,255,255,0.25)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">700만</text>
+        <text x="68" y="264" text-anchor="end" fill="rgba(255,255,255,0.25)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">650만</text>
+        <text x="68" y="324" text-anchor="end" fill="rgba(255,255,255,0.25)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">600만</text>
+        <text x="68" y="384" text-anchor="end" fill="rgba(255,255,255,0.25)" font-family="'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif" font-size="10">550만</text>
       </g>
       <g id="dynamicYAxis"></g>
       <path id="chartPathPrev" fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="2" stroke-dasharray="4,3" clip-path="url(#chartClip)"/>
@@ -2496,6 +2547,10 @@ function hideDormantPanel() { dormantPanel.style.transform = 'translateX(100%)';
       g.appendChild(c);
       const lbl=mkText(d.x,y-14,d.mau,{fill:isKey?GREEN:'rgba(255,255,255,0.45)',size:isKey?'15':'11',bold:isKey,anchor:'middle'});
       g.appendChild(lbl);
+      // 첫 번째 키 포인트 왼쪽에 MAU 레이블
+      if (i===0 && isKey) {
+        g.appendChild(mkText(d.x-20, y-14, 'MAU', {fill:'rgba(255,255,255,0.3)', size:'11', bold:true, anchor:'end'}));
+      }
     });
 
     // DAU 사각형 마커 + 레이블
@@ -2508,6 +2563,10 @@ function hideDormantPanel() { dormantPanel.style.transform = 'translateX(100%)';
       g.appendChild(rect);
       const lbl=mkText(d.x,y+20,d.dau,{fill:isKey?GREEN:'rgba(255,255,255,0.45)',size:isKey?'15':'11',bold:isKey,anchor:'middle'});
       g.appendChild(lbl);
+      // 첫 번째 키 포인트 왼쪽에 DAU 레이블
+      if (i===0 && isKey) {
+        g.appendChild(mkText(d.x-20, y+20, 'DAU', {fill:'rgba(255,255,255,0.3)', size:'11', bold:true, anchor:'end'}));
+      }
     });
 
     // X축 연도 레이블
@@ -2515,12 +2574,6 @@ function hideDormantPanel() { dormantPanel.style.transform = 'translateX(100%)';
       g.appendChild(mkText(d.x,405,d.year,{fill:d.key?GREEN:'rgba(255,255,255,0.3)',size:d.key?'12':'11',bold:d.key,anchor:'middle'}));
       if(d.appLabel) g.appendChild(mkText(d.x,418,d.appLabel,{fill:GREEN,size:'10',bold:true,anchor:'middle'}));
     });
-
-    // MAU / DAU 레이블 (좌측)
-    const mauMid = YEARLY_DATA[3];
-    g.appendChild(mkText(55,yScaleYearly(mauMid.mau),'MAU',{fill:'rgba(255,255,255,0.3)',size:'14',bold:true,anchor:'end'}));
-    const dauMid = YEARLY_DATA[3];
-    g.appendChild(mkText(55,yScaleYearly(dauMid.dau),'DAU',{fill:'rgba(255,255,255,0.3)',size:'14',bold:true,anchor:'end'}));
   }
 
   function refreshYearly() {
@@ -2972,7 +3025,7 @@ let faceLandmarks = null; // face mesh landmarks
 
     // Face Mesh for AR effects
     const faceMesh = new FaceMesh({locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/${f}`});
-    faceMesh.setOptions({ maxNumFaces:3, refineLandmarks:true, minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
+    faceMesh.setOptions({ maxNumFaces:1, refineLandmarks:true, minDetectionConfidence:0.75, minTrackingConfidence:0.6 });
     faceMesh.onResults(r => {
       faceLandmarks = (r.multiFaceLandmarks && r.multiFaceLandmarks.length > 0) ? r.multiFaceLandmarks : null;
     });
@@ -3447,7 +3500,7 @@ function loop() {
     for (const k in _segDrawCurrent) {
       _segDrawCurrent[k] += (_segDrawTargets[k] - _segDrawCurrent[k]) * 0.07;
     }
-    // 주차 변경 펄스: 1.6 → 1.0 ease
+    // 주차 변경 펄스: 2.0 → 1.0 ease
     if (_particlePulseT < 1.0) {
       _particlePulseT = Math.min(1.0, _particlePulseT + 0.045);
       _particleScalePulse = 1.0 + 0.6 * Math.sin(Math.PI * _particlePulseT);
