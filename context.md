@@ -8,6 +8,7 @@
 - `dp-aqua_growth.html` — 메인 대시보드 파일 (원본)
 - `dp-aqua_growth2.html` — 신규유입/이탈 제거 + 세그 간 이동 없는 정적 버전
 - `dp-aqua-guide.md` — 구현 가이드 (전체 스펙 정리)
+- `gm_dashboard.html` — 업무망 배포용 실전 대시보드 (파티클 제거, 로컬 폰트 적용)
 
 ---
 
@@ -55,6 +56,24 @@
 - 파란색(하락/이탈): `rgba(0,112,240,0.95)` — `COLOR.outflow`
 - 경고 빨강: `rgba(255,80,80,0.9)`
 - 폰트: `'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif`
+
+---
+
+---
+
+## gm_dashboard.html 작업 현황
+
+### 완료
+- 파티클 시뮬레이션 전체 제거 (Particle 클래스, buildGrid, applyRepulsion, applyMouseForce, tryMigrations 등)
+- 로컬 폰트 적용: `Fonts/SF-Pro-Display-Medium.otf`, `Fonts/SF-Pro-Display-Bold.otf`, `Fonts/YouandiNewKrTitle-Bold.ttf`
+  - weight 400/500 → Medium, weight 600/700/800 → Bold, YouandiNewKr → ttf 로컬
+- CDN 폰트(현대카드 서버) → 로컬 파일로 전환
+- 업무망 윈도우 환경 대응 완료
+
+### 폰트 규칙
+- 일반/얇은 텍스트 → SF Pro Display Medium
+- 굵은 텍스트 → SF Pro Display Bold
+- 로고/주요 지표 (명시적 요청 시) → YouandiNewKrTitle-Bold
 
 ---
 

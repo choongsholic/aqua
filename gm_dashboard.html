@@ -8,7 +8,12 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/face_mesh.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
 <style>
-@font-face { font-family:'YouandiNewKr'; font-weight:700; font-style:normal; src:url('https://img.hyundaicard.com/docfiles/resources/pc/fonts/YouandiNewKrTitle-Bold.woff2') format('woff2'), url('https://img.hyundaicard.com/docfiles/resources/pc/fonts/YouandiNewKrTitle-Bold.woff') format('woff'); font-display:swap; }
+@font-face { font-family:'YouandiNewKr'; font-weight:700; font-style:normal; src:url('Fonts/YouandiNewKrTitle-Bold.ttf') format('truetype'); font-display:swap; }
+@font-face { font-family:'SF Pro Display'; font-weight:400; font-style:normal; src:url('Fonts/SF-Pro-Display-Medium.otf') format('opentype'); font-display:swap; }
+@font-face { font-family:'SF Pro Display'; font-weight:500; font-style:normal; src:url('Fonts/SF-Pro-Display-Medium.otf') format('opentype'); font-display:swap; }
+@font-face { font-family:'SF Pro Display'; font-weight:600; font-style:normal; src:url('Fonts/SF-Pro-Display-Bold.otf') format('opentype'); font-display:swap; }
+@font-face { font-family:'SF Pro Display'; font-weight:700; font-style:normal; src:url('Fonts/SF-Pro-Display-Bold.otf') format('opentype'); font-display:swap; }
+@font-face { font-family:'SF Pro Display'; font-weight:800; font-style:normal; src:url('Fonts/SF-Pro-Display-Bold.otf') format('opentype'); font-display:swap; }
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#0a0a0a; overflow:hidden; cursor:default; font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Spoqa Han Sans Neo','Malgun Gothic',sans-serif; }
 body.tank-hover, body.tank-hover * { cursor:pointer !important; }
@@ -210,13 +215,6 @@ function computeLayout() {
   pipes.lc_up   = { cx:0, topY:0, botY:0 };
   pipes.cl_down = { cx:0, topY:0, botY:0 };
 
-  // Reposition particles
-  if (particles.length) particles.forEach(p => {
-    if (!p.migrating && p.segment !== 'churn') {
-      const z = getSubZone(p.segment, p.subType);
-      if (z) { p.x = clamp(p.x, z.x+p.radius, z.x+z.w-p.radius); p.y = clamp(p.y, z.y+p.radius, z.y+z.h-p.radius); }
-    }
-  });
 }
 
 function clamp(v,mn,mx) { return Math.max(mn, Math.min(mx, v)); }
@@ -228,420 +226,11 @@ function getSubZone(seg, sub) {
   return { x:t.x, y:t.y+ipY, w:t.w, h:t.h-ipY*2, tankRef:t };
 }
 
-// ═══ PARTICLE ═══
-class Particle {
-  constructor(seg, sub) {
-    this.segment = seg;
-    this.subType = sub;
-    this.health = assignHealth(seg);
-    this.radius = 1.8;
-    this.baseOpacity = 0.3 + Math.random()*0.5;
-    this.phase = Math.random()*Math.PI*2;
-    this.vx = (Math.random()-0.5)*0.15;
-    this.vy = (Math.random()-0.5)*0.15;
-    const z = getSubZone(seg, sub);
-    if (z) { this.x = z.x+Math.random()*z.w; this.y = z.y+Math.random()*z.h; }
-    else { this.x = W/2; this.y = H/2; }
+// ═══ PARTICLE (제거됨) ═══
 
-    this.migrating = false;
-    this.migProgress = 0; this.migSpeed = 0;
-    this.migFrom = null; this.migTo = null;
-    this.waypoints = []; this.totalPathLen = 0;
-    this.trail = [];
 
-    // 이탈 state
-    this.fading = false;
-    this.fadeAlpha = 1.0;
-    this.churnTimer = -1;
-    this.fadingIn = false; this.fadeInTimer = 0;
-    this.scattered = 0;
-  }
-
-  getColor(alpha) {
-    const a = this.fading ? alpha * this.fadeAlpha : alpha;
-    if (this.migrating && this.migTo === 'churn') return lerpRGB(this.health, 'danger', Math.min(this.migProgress*2,1), a);
-    if (this.migrating && this.migFrom === 'churn') return lerpRGB('danger', this.health, this.migProgress, a);
-    if (this.segment === 'churn') return hColor('danger', a);
-    return hColor(this.health, a);
-  }
-
-  update(frame) {
-    // 신규유입 fade-in
-    if (this.fadingIn) {
-      this.fadeAlpha = Math.min(1, this.fadeAlpha + 0.025);
-      this.fadeInTimer--;
-      if (this.fadeInTimer <= 0 && this.fadeAlpha >= 1) {
-        this.startNewMigration();
-      }
-      return;
-    }
-    // 이탈 fade
-    if (this.fading) {
-      this.fadeAlpha -= 0.008;
-      if (this.fadeAlpha <= 0) { this.recycleAsNew(); return; }
-    }
-    // 이탈 return timer
-    // 이탈 복귀 비활성화 — churn 존에서 빠져나오지 않음
-    // if (this.segment === 'churn' && !this.migrating && !this.fading && this.churnTimer > 0) {
-    //   this.churnTimer--;
-    //   if (this.churnTimer <= 0) this.returnFromChurn();
-    // }
-    if (this.migrating) { this.updateMigration(); return; }
-
-    // Determine zone
-    let z;
-    if (this.segment === 'churn') {
-      z = { x:churnZone.x+4, y:churnZone.y+4, w:churnZone.w-8, h:churnZone.h-8 };
-    } else {
-      z = getSubZone(this.segment, this.subType);
-    }
-    if (!z) return;
-
-    // Organic noise — gentle drift
-    const nx = Math.sin(this.phase+frame*0.005)*Math.cos(this.y*0.004+frame*0.002)*CFG.physics.noise;
-    const ny = Math.cos(this.phase+frame*0.004)*Math.sin(this.x*0.004+frame*0.002)*CFG.physics.noise;
-    this.vx += nx; this.vy += ny;
-
-    // Cohesion + swirl — elliptical pull with vortex rotation
-    const cx = z.x+z.w/2, cy = z.y+z.h/2;
-    const dx = cx - this.x, dy = cy - this.y;
-    const normDx = dx / (z.w*0.3), normDy = dy / (z.h*0.25);
-    const dist = Math.sqrt(normDx*normDx + normDy*normDy);
-    const cohesion = Math.min(dist * 0.0008, 0.008);
-    // Radial pull (toward center)
-    this.vx += dx * cohesion * 0.8;
-    this.vy += dy * cohesion * 1.5;
-    // Tangential swirl (perpendicular to center direction, creates rotation)
-    const swirl = Math.min(dist * 0.00008, 0.0015);
-    this.vx += -dy * swirl;
-    this.vy += dx * swirl * 0.6;
-
-    if (this.scattered>0) this.scattered--;
-    const curMax = this.scattered>0 ? CFG.physics.maxSpeedScatter : CFG.physics.maxSpeed;
-    const curDamp = this.scattered>0 ? 0.985 : CFG.physics.damping;
-    this.vx *= curDamp; this.vy *= curDamp;
-    const spd = Math.sqrt(this.vx*this.vx+this.vy*this.vy);
-    if (spd > curMax) { this.vx=(this.vx/spd)*curMax; this.vy=(this.vy/spd)*curMax; }
-
-    this.x += this.vx; this.y += this.vy;
-
-    const m = 5, k = CFG.physics.boundary;
-    const t = z.tankRef;
-
-    if (t) {
-      const wallL = z.x + this.radius + 2;
-      const wallR = z.x + z.w - this.radius - 2;
-
-      // ABSOLUTE sub-zone walls — position forced, velocity killed
-      this.x = Math.max(wallL, Math.min(wallR, this.x));
-      if (this.x <= wallL + 1) this.vx = Math.abs(this.vx) * 0.2;
-      if (this.x >= wallR - 1) this.vx = -Math.abs(this.vx) * 0.2;
-    } else {
-      if (this.x < z.x+m) this.vx += (z.x+m-this.x)*k;
-      if (this.x > z.x+z.w-m) this.vx += (z.x+z.w-m-this.x)*k;
-      this.x = clamp(this.x, z.x+this.radius, z.x+z.w-this.radius);
-    }
-
-    // Top/bottom — hard walls
-    const wallT = z.y + this.radius + 3;
-    const wallB = z.y + z.h - this.radius - 3;
-    if (this.y <= wallT) { this.y = wallT; if (this.vy < 0) this.vy = 0; }
-    if (this.y >= wallB) { this.y = wallB; if (this.vy > 0) this.vy = 0; }
-  }
-
-  startMigration(toSeg, toSub) {
-    this.migrating = true; this.migProgress = 0;
-    this.migSpeed = CFG.migration.speed + Math.random()*0.001;
-    this.migFrom = this.segment; this.migTo = toSeg;
-    this.trail = [];
-    if (toSub) this.subType = toSub;
-
-    const wp = [{x:this.x, y:this.y}];
-    const from = this.segment, to = toSeg;
-
-    const retSegs = ['power','casual','light'];
-    if (to === 'churn') {
-      // 하단 구멍으로 집결 → ↓ 수직 → → 수평 우측 → ↑ 우측벽 → → 파이프 → churnZone
-      const holeCX  = aquarium._lightChurnHoleCX || (tanks.light.x + tanks.light.w / 2);
-      const holeY   = tanks.light.y + tanks.light.h - 2;
-      const bottomY = (tanks.light.y + tanks.light.h + aquarium.y + aquarium.h) / 2;
-      const rightX  = aquarium.x + aquarium.w - 6;
-      const pipeY   = pipes.churn_out.cy;
-      const destX = churnZone.x + 4 + Math.random() * (churnZone.w - 8);
-      const destY = churnZone.y + 4 + Math.random() * (churnZone.h - 8);
-      wp.push({x: holeCX,  y: holeY});    // → 탱크 하단 구멍으로 수평 이동
-      wp.push({x: holeCX,  y: bottomY});  // ↓ 구멍에서 수직 하강
-      wp.push({x: rightX,  y: bottomY});  // → 채널 따라 우측 이동
-      wp.push({x: rightX,  y: pipeY});    // ↑ 우측 벽 수직 상승
-      wp.push({x: pipes.churn_out.rightX - 2, y: pipeY}); // → 파이프 통과
-      wp.push({x: destX,   y: destY});    // churnZone 도착
-    } else if (retSegs.includes(from) && retSegs.includes(to)) {
-      // Side pipe passage: travel through the inter-tank pipe
-      const fromT = tanks[from];
-      const toT   = tanks[to];
-      // Use the relevant pipe's cy as passage height
-      const pipe = (from==='light'&&to==='casual')||(from==='casual'&&to==='light') ? pipes.lc : pipes.cp;
-      const passY = pipe ? pipe.cy : fromT.y + fromT.h/2;
-      const dz = getSubZone(to, 1);
-      wp.push({x:this.x, y:passY});
-      if (toT.x > fromT.x) {
-        wp.push({x:fromT.x+fromT.w-2, y:passY});
-        wp.push({x:toT.x+2,           y:passY});
-      } else {
-        wp.push({x:fromT.x+2,         y:passY});
-        wp.push({x:toT.x+toT.w-2,     y:passY});
-      }
-      if (dz) wp.push({x:dz.x+dz.w/2, y:dz.y+dz.h/2});
-    } else if ((from==='uninstalled'||from==='dormant'||from==='intermittent') && to==='light') {
-      // MAU → Retention: ↓ 하단 구멍 → ↓ 분리대까지 수직 하강 → ← 수평 좌측 → ↓ Light 상단 구멍 진입
-      const fromT = mauTanks[from];
-      const dz = getSubZone('light', 1);
-      if (fromT && dz) {
-        const holeCX = (aquarium._mauHoleCX && aquarium._mauHoleCX[from]) || (fromT.x + fromT.w/2);
-        const lightHoleCX = aquarium._lightHoleCX || (tanks.light.x + tanks.light.w/2);
-        const sepY = fromT.y + fromT.h + trackSepGlobal * 0.5; // 분리대 센터
-        wp.push({x:holeCX,      y:fromT.y + fromT.h - 2}); // → 하단 구멍으로
-        wp.push({x:holeCX,      y:sepY});                   // ↓ 분리대까지 수직 하강
-        wp.push({x:lightHoleCX, y:sepY});                   // ← 수평 좌측 이동
-        wp.push({x:lightHoleCX, y:tanks.light.y + 2});      // ↓ Light 상단 구멍 진입
-        wp.push({x:dz.x + dz.w/2, y:dz.y + dz.h/2});       // 탱크 내부 안착
-      }
-    } else if ((from==='dormant'&&to==='intermittent')||(from==='intermittent'&&to==='dormant')) {
-      // MAU inter-tank: through pipes.di side passage
-      const fromT = mauTanks[from];
-      const toT   = mauTanks[to];
-      const passY = pipes.di ? pipes.di.cy : fromT.y + fromT.h/2;
-      wp.push({x:this.x, y:passY});
-      if (toT.x > fromT.x) {
-        wp.push({x:fromT.x + fromT.w - 2, y:passY});
-        wp.push({x:toT.x + 2,             y:passY});
-      } else {
-        wp.push({x:fromT.x + 2,           y:passY});
-        wp.push({x:toT.x + toT.w - 2,     y:passY});
-      }
-      const dz = getSubZone(to, 1);
-      if (dz) wp.push({x:dz.x + dz.w/2, y:dz.y + dz.h/2});
-    }
-
-    this.waypoints = wp;
-    this.totalPathLen = 0;
-    for (let i=1;i<wp.length;i++) { const dx=wp[i].x-wp[i-1].x, dy=wp[i].y-wp[i-1].y; this.totalPathLen += Math.sqrt(dx*dx+dy*dy); }
-  }
-
-  updateMigration() {
-    this.migProgress += this.migSpeed;
-    if (this.migProgress > 1) this.migProgress = 1;
-    this.trail.push({x:this.x, y:this.y}); if (this.trail.length > 20) this.trail.shift();
-
-    const td = this.migProgress * this.totalPathLen;
-    let acc = 0;
-    for (let i=1;i<this.waypoints.length;i++) {
-      const dx=this.waypoints[i].x-this.waypoints[i-1].x, dy=this.waypoints[i].y-this.waypoints[i-1].y;
-      const sl = Math.sqrt(dx*dx+dy*dy);
-      if (acc+sl >= td || i===this.waypoints.length-1) {
-        const t = sl>0 ? Math.min((td-acc)/sl,1) : 1;
-        this.x = this.waypoints[i-1].x+dx*t; this.y = this.waypoints[i-1].y+dy*t; break;
-      }
-      acc += sl;
-    }
-
-    if (this.migProgress >= 1) {
-      this.migrating = false; this.trail = [];
-      this.vx = (Math.random()-0.5)*0.1; this.vy = (Math.random()-0.5)*0.1;
-
-      if (this.migTo === 'churn') {
-        this.segment = 'churn'; this.health = 'danger';
-        if (Math.random() < 0.6) { this.fading = true; this.fadeAlpha = 1.0; }
-        else { this.churnTimer = 80 + Math.random()*120|0; }
-      } else {
-        this.segment = this.migTo;
-        this.health = assignHealth(this.migTo);
-        // Force position inside correct sub-zone
-        const dz = getSubZone(this.segment, this.subType);
-        if (dz) {
-          this.x = clamp(this.x, dz.x + this.radius + 5, dz.x + dz.w - this.radius - 5);
-          this.y = clamp(this.y, dz.y + this.radius + 5, dz.y + dz.h - this.radius - 5);
-        }
-      }
-
-      if ((this.migFrom==='power'&&this.migTo==='casual')||(this.migFrom==='casual'&&this.migTo==='light')||this.migTo==='churn') {
-        signalEvents.push({from:this.migFrom, to:this.migTo, time:Date.now()});
-      }
-    }
-  }
-
-  returnFromChurn() {
-    // Return from 이탈 → new_in pipe → Light (leftmost tank)
-    this.migrating = true; this.migProgress = 0;
-    this.migSpeed = CFG.migration.speed;
-    this.migFrom = 'churn'; this.migTo = 'light';
-    this.subType = 1;
-    this.health = assignHealth('light');
-    this.trail = []; this.fading = false; this.fadeAlpha = 1.0;
-    const dz = getSubZone('light', 1);
-    const dt = tanks.light;
-    const pipeY = pipes.new_in.cy;
-    const wp = [
-      {x:this.x, y:this.y},
-      {x:newZone.x + newZone.w/2, y:pipeY},
-      {x:pipes.new_in.leftX + 2, y:pipeY},
-      {x:pipes.new_in.rightX + 5, y:pipeY},
-      {x:dz.x + dz.w/2, y:dz.y + dz.h/2},
-    ];
-    this.waypoints = wp; this.totalPathLen = 0;
-    for (let i=1;i<wp.length;i++) { const dx=wp[i].x-wp[i-1].x,dy=wp[i].y-wp[i-1].y; this.totalPathLen+=Math.sqrt(dx*dx+dy*dy); }
-  }
-
-  recycleAsNew() {
-    // growth2: 이동 없이 바로 light/casual/power 중 하나에 배치
-    const segs = ['light','casual','power'];
-    const s = segs[Math.random()*segs.length|0];
-    this.segment = s; this.subType = 1;
-    this.health = assignHealth(s);
-    this.fading = false; this.fadingIn = false; this.migrating = false;
-    this.fadeAlpha = 1.0; this.churnTimer = -1;
-    const z = getSubZone(s, 1);
-    if (z) { this.x = z.x + Math.random()*z.w; this.y = z.y + Math.random()*z.h; }
-    this.vx = 0; this.vy = 0;
-  }
-  startNewMigration() {
-    this.fadeAlpha = 1.0; this.fadingIn = false;
-    this.migrating = true; this.migProgress = 0;
-    this.migSpeed = CFG.migration.speed + Math.random()*0.001;
-    this.migFrom = 'new';
-    this.trail = [];
-
-    if (this._goToUninstalled) {
-      // 신규 → 미설치자: 좌측 통로 센터 → ↑ 수직 상승 → → 분리대 수평 우측 → ↑ 미설치자 하단 구멍 진입
-      this.segment = 'uninstalled';
-      this.migTo = 'uninstalled';
-      const ut = mauTanks.uninstalled;
-      const holeCX = (aquarium._mauHoleCX && aquarium._mauHoleCX.uninstalled) || (ut.x + ut.w/2);
-      const corridorX = (aquarium.x + tanks.light.x) / 2; // Light 좌측 ↔ 아쿠아 좌벽 사이 센터
-      const sepY = ut.y + ut.h + trackSepGlobal * 0.5;    // MAU↔Retention 분리대 센터
-      const wp = [
-        {x:this.x,    y:this.y},                  // 출발
-        {x:corridorX, y:this.y},                  // → 통로 X로 수평 이동
-        {x:corridorX, y:sepY},                    // ↑ 통로 따라 수직 상승
-        {x:holeCX,    y:sepY},                    // → 분리대 따라 수평 우측
-        {x:holeCX,    y:ut.y + ut.h - 2},         // ↑ 미설치자 하단 구멍 진입
-        {x:ut.x + ut.w/2, y:ut.y + ut.h/2},      // 탱크 내부 안착
-      ];
-      this.waypoints = wp; this.totalPathLen = 0;
-      for (let i=1;i<wp.length;i++) { const dx=wp[i].x-wp[i-1].x,dy=wp[i].y-wp[i-1].y; this.totalPathLen+=Math.sqrt(dx*dx+dy*dy); }
-    } else {
-      // 신규 → Light: 기존 new_in 파이프 경로
-      this.segment = 'light';
-      this.migTo = 'light';
-      const pin = pipes.new_in;
-      const dz = getSubZone('light', 1);
-      const wp = [
-        {x:this.x, y:this.y},
-        {x:this.x, y:pin.cy},
-        {x:pin.leftX+2, y:pin.cy},
-        {x:pin.rightX+5, y:pin.cy},
-        {x:dz.x+dz.w/2, y:pin.cy},
-        {x:dz.x+dz.w/2, y:dz.y+dz.h/2},
-      ];
-      this.waypoints = wp; this.totalPathLen = 0;
-      for (let i=1;i<wp.length;i++) { const dx=wp[i].x-wp[i-1].x,dy=wp[i].y-wp[i-1].y; this.totalPathLen+=Math.sqrt(dx*dx+dy*dy); }
-    }
-  }
-
-  isMauTrack() {
-    return this.segment === 'uninstalled' || this.segment === 'dormant' || this.segment === 'intermittent';
-  }
-
-  draw() {
-    if (this.fadeAlpha <= 0) return;
-    const alpha = this.migrating ? 0.5 : this.baseOpacity;
-    const sr = this.radius * _particleScalePulse; // 주차 변경 시 스케일 펄스
-    if (this.isMauTrack()) {
-      // Outline bubble — white, no health color
-      const a = this.fading ? alpha * this.fadeAlpha * 0.64 : alpha * 0.64;
-      ctx.beginPath(); ctx.arc(this.x, this.y, sr + 0.5, 0, Math.PI*2);
-      ctx.strokeStyle = `rgba(255,255,255,${a})`;
-      ctx.lineWidth = 0.9;
-      ctx.stroke();
-    } else {
-      ctx.beginPath(); ctx.arc(this.x, this.y, sr, 0, Math.PI*2);
-      ctx.fillStyle = this.getColor(alpha); ctx.fill();
-    }
-  }
-}
-
-// ═══ INIT ═══
-let particles = [], signalEvents = [];
-
-function initParticles() {
-  particles = [];
-  // Retention Track (filled dots): Light 280만 / Casual 300만 / Power 180만
-  [{seg:'light',n:1400},{seg:'casual',n:1500},{seg:'power',n:900}].forEach(d => {
-    for (let j=0;j<d.n;j++) { const p = new Particle(d.seg, 1); p._segIdx = j; particles.push(p); }
-  });
-  // MAU Track (outline bubbles): 미설치자 113만 / 장기미이용 110만 / 간헐이용 190만
-  [{seg:'uninstalled',n:560},{seg:'dormant',n:550},{seg:'intermittent',n:950}].forEach(d => {
-    for (let j=0;j<d.n;j++) { const p = new Particle(d.seg, 1); p._segIdx = j; particles.push(p); }
-  });
-}
-
-// 주차별 파티클 표시 한계 — getSegData sub 값에 비례
-function getWeekTargets(year, month, week) {
-  const data = getSegData(year, month, week);
-  const allDefs = [...data.defs, ...data.mauDefs];
-  const num = (key) => {
-    const d = allDefs.find(d => d.key === key);
-    return d ? parseInt(d.sub) : 0;
-  };
-  const lerp = (v, inMin, inMax, outMin, outMax) => {
-    const t = Math.max(0, Math.min(1, (v - inMin) / (inMax - inMin)));
-    return Math.round(outMin + t * (outMax - outMin));
-  };
-  return {
-    light:        lerp(num('light'),        265, 298,  650, 1400),
-    casual:       lerp(num('casual'),       288, 318,  700, 1500),
-    power:        lerp(num('power'),        172, 195,  350,  900),
-    uninstalled:  lerp(num('uninstalled'),  106, 124,  200,  560),
-    dormant:      lerp(num('dormant'),      101, 124,  200,  550),
-    intermittent: lerp(num('intermittent'), 176, 206,  400,  950),
-  };
-}
-let _segDrawTargets = getWeekTargets(2026, 4, 3);
-let _segDrawCurrent = {..._segDrawTargets};
-let _particleScalePulse = 1.0; // 주차 변경 시 1.0 → 2.0 → 1.0 펄스
-let _particlePulseT = 1.0;     // 0~1 진행값 (1이면 종료)
-
-// ═══ SPATIAL GRID ═══
-const GC = 20; let grid = {};
-function buildGrid() {
-  grid = {};
-  for (const p of particles) { if (p.migrating||p.fadeAlpha<=0) continue; const k=`${p.x/GC|0},${p.y/GC|0}`; (grid[k]||(grid[k]=[])).push(p); }
-}
-function applyRepulsion() {
-  for (const p of particles) {
-    if (p.migrating) continue;
-    const gx=p.x/GC|0, gy=p.y/GC|0;
-    let avgVx=0, avgVy=0, nCount=0;
-    for (let dx=-1;dx<=1;dx++) for (let dy=-1;dy<=1;dy++) {
-      const nb=grid[`${gx+dx},${gy+dy}`]; if(!nb) continue;
-      for (const q of nb) {
-        if (q===p||q.migrating) continue;
-        // Skip repulsion across sub-zone walls
-        if (p.segment===q.segment && p.subType!==q.subType) continue;
-        const ex=p.x-q.x, ey=p.y-q.y, dSq=ex*ex+ey*ey;
-        // Separation
-        const md=(p.radius+q.radius)*CFG.physics.repDist/4;
-        if (dSq<md*md&&dSq>0.1) { const d=Math.sqrt(dSq), f=(md-d)/md*CFG.physics.repulsion; p.vx+=(ex/d)*f; p.vy+=(ey/d)*f; }
-        // Alignment — match neighbors' velocity
-        if (dSq<400) { avgVx+=q.vx; avgVy+=q.vy; nCount++; }
-      }
-    }
-    if (nCount>0) {
-      p.vx += (avgVx/nCount - p.vx) * 0.02;
-      p.vy += (avgVy/nCount - p.vy) * 0.02;
-    }
-  }
-}
+// ═══ SIGNAL EVENTS ═══
+let signalEvents = [];
 
 // ═══ GLOBAL AUDIO TICK ═══
 let _audioCtx = null;
@@ -667,28 +256,18 @@ function tickSound() {
   } catch(e){}
 }
 
-// ═══ MOUSE + DRAG ═══
-let mouseX=-999, mouseY=-999, mouseDown=false;
-let drag = {active:false, lx:0, ly:0, vx:0, vy:0, sx:0, sy:0};
+// ═══ MOUSE ═══
+let mouseX=-999, mouseY=-999;
 
 function inAqua(x,y) { return x>=aquarium.x&&x<=aquarium.x+aquarium.w&&y>=aquarium.y&&y<=aquarium.y+aquarium.h; }
 
-canvas.addEventListener('mousemove', e => {
-  if (handActive) return;
-  mouseX=e.clientX; mouseY=e.clientY;
-});
 let _hoveredTankKey = null;
 window.addEventListener('mousemove', e => {
   if (handActive) return;
   mouseX=e.clientX; mouseY=e.clientY;
-  // 탱크 호버 커서 + 효과음 (window 레벨)
   if (aquaTab === 0) {
-    const _mx=e.clientX, _my=e.clientY;
-    const _allTankEntries = [
-      ...Object.entries(tanks),
-      ...Object.entries(mauTanks)
-    ];
-    const _found = _allTankEntries.find(([,t])=>t&&t.x!=null&&_mx>=t.x&&_mx<=t.x+t.w&&_my>=t.y&&_my<=t.y+t.h);
+    const _allTankEntries = [...Object.entries(tanks), ...Object.entries(mauTanks)];
+    const _found = _allTankEntries.find(([,t])=>t&&t.x!=null&&mouseX>=t.x&&mouseX<=t.x+t.w&&mouseY>=t.y&&mouseY<=t.y+t.h);
     const _key = _found ? _found[0] : null;
     document.body.classList.toggle('tank-hover', !!_key);
     if (_key && _key !== _hoveredTankKey) tickSound();
@@ -697,173 +276,8 @@ window.addEventListener('mousemove', e => {
     document.body.classList.remove('tank-hover');
     _hoveredTankKey = null;
   }
-  if (drag.active) { drag.vx=e.clientX-drag.lx; drag.vy=e.clientY-drag.ly; drag.lx=e.clientX; drag.ly=e.clientY; drag.sx+=drag.vx*0.35; drag.sy+=drag.vy*0.35; }
 });
-canvas.addEventListener('mouseleave', ()=>{ mouseX=-999; mouseY=-999; drag.active=false; });
-canvas.addEventListener('mousedown', e => {
-  mouseDown=true;
-  if (inAqua(e.clientX,e.clientY)) { drag.active=true; drag.lx=e.clientX; drag.ly=e.clientY; drag.vx=0; drag.vy=0; drag.sx=0; drag.sy=0; }
-});
-canvas.addEventListener('mouseup', ()=>{ mouseDown=false; drag.active=false; });
-
-function applyMouseForce() {
-  if (mouseX<0||drag.active) return;
-
-  // Hand mode: only react when fingers are clearly spread
-  if (handActive && fingerTips.length && fingerSpread > 0.4) {
-    // Burst: sudden open → explosive scatter in random directions
-    if (burstFrame > 0) {
-      burstFrame--;
-      const rad = 250;
-      const str = 5.0;
-      for (const p of particles) {
-        if (p.migrating) continue;
-        const dx=p.x-handX, dy=p.y-handY, dSq=dx*dx+dy*dy;
-        if (dSq<rad*rad && dSq>1) {
-          const angle = Math.random() * Math.PI * 2;
-          const d=Math.sqrt(dSq), f=(1-d/rad)*str;
-          p.vx += Math.cos(angle)*f;
-          p.vy += Math.sin(angle)*f;
-          p.scattered=30;
-        }
-      }
-    }
-    // Palm swipe: push particles in hand movement direction
-    const handSpeed = Math.sqrt(handVX*handVX + handVY*handVY);
-    if (handSpeed > 3) {
-      const pushRad = 200;
-      const pushStr = Math.min(handSpeed * 0.15, 5);
-      const nx = handVX/handSpeed, ny = handVY/handSpeed;
-      for (const p of particles) {
-        if (p.migrating) continue;
-        const dx=p.x-handX, dy=p.y-handY, dSq=dx*dx+dy*dy;
-        if (dSq < pushRad*pushRad && dSq > 1) {
-          const d = Math.sqrt(dSq), f = (1-d/pushRad) * pushStr;
-          p.vx += nx * f;
-          p.vy += ny * f;
-          p.scattered = 20;
-        }
-      }
-    }
-
-    // Swirl: single finger circular motion → each subzone swirls (donut)
-    if (fingerTips.length === 1 && Math.abs(swirlForce) > 0.05) {
-      const str = swirlForce * 3.0;
-      for (const p of particles) {
-        if (p.migrating) continue;
-        const z = getSubZone(p.segment, p.subType);
-        if (!z) continue;
-        const cx = z.x + z.w/2, cy = z.y + z.h/2;
-        const dx = p.x - cx, dy = p.y - cy;
-        const d = Math.sqrt(dx*dx + dy*dy);
-        if (d > 1) {
-          p.vx += (-dy/d) * str;
-          p.vy += (dx/d) * str;
-          p.scattered = 15;
-        }
-      }
-    }
-
-    // Chaos: triggered by swirl + spread fingers (단일 손가락 포인팅 중엔 스킵)
-    if (chaosActive > 0 && fingerTips.length >= 2) {
-      chaosActive--;
-      const intensity = chaosActive / 120; // fades out
-      const chaos = intensity * 8.0;
-      for (const p of particles) {
-        if (p.migrating) continue;
-        const z = getSubZone(p.segment, p.subType);
-        if (!z) continue;
-        const cx = z.x + z.w/2, cy = z.y + z.h/2;
-        const dx = p.x - cx, dy = p.y - cy;
-        const d = Math.sqrt(dx*dx + dy*dy);
-        if (d > 1) {
-          const angle = Math.random() * Math.PI * 2;
-          p.vx += Math.cos(angle) * chaos * (1 + Math.random());
-          p.vy += Math.sin(angle) * chaos * (1 + Math.random());
-          if (Math.random() < 0.3) {
-            p.vx += (dx/d) * chaos * 2;
-            p.vy += (dy/d) * chaos * 2;
-          }
-          if (Math.random() < 0.1) {
-            p.vx *= -(0.5 + Math.random());
-            p.vy *= -(0.5 + Math.random());
-          }
-          p.scattered = 40;
-        }
-      }
-    }
-
-    // Normal spread repulsion from fingertips
-    const rad = 80 + fingerSpread * 140;
-    const str = (fingerSpread - 0.4) * 6.0;
-    for (const p of particles) {
-      if (p.migrating) continue;
-      for (const ft of fingerTips) {
-        const dx=p.x-ft.x, dy=p.y-ft.y, dSq=dx*dx+dy*dy;
-        if (dSq<rad*rad && dSq>1) {
-          const d=Math.sqrt(dSq), f=(1-d/rad)*str;
-          p.vx+=(dx/d)*f+(Math.random()-0.5)*f*0.5;
-          p.vy+=(dy/d)*f+(Math.random()-0.5)*f*0.5;
-          p.scattered=30;
-        }
-      }
-    }
-    return;
-  }
-  if (handActive) return; // closed hand = completely ignore
-
-  // Normal mouse mode
-  const rad=mouseDown?180:CFG.physics.mouseR, str=mouseDown?CFG.physics.mouseFC:CFG.physics.mouseF;
-  for (const p of particles) {
-    if(p.migrating) continue;
-    const dx=p.x-mouseX,dy=p.y-mouseY,dSq=dx*dx+dy*dy;
-    if(dSq<rad*rad&&dSq>1){
-      const d=Math.sqrt(dSq),f=(1-d/rad)*str;
-      p.vx+=(dx/d)*f+(Math.random()-0.5)*f*0.8;
-      p.vy+=(dy/d)*f+(Math.random()-0.5)*f*0.8;
-      p.scattered=30;
-    }
-  }
-}
-function applyDragForce() {
-  drag.sx*=0.92; drag.sy*=0.92;
-  if (Math.abs(drag.sx)<0.01&&Math.abs(drag.sy)<0.01) return;
-  particles.forEach(p => { if(!p.migrating) { p.vx+=drag.sx*0.007; p.vy+=drag.sy*0.007; } });
-}
-
-// ═══ MIGRATION ═══
-function tryMigrations() {
-  const seg={power:[],casual:[],light:[],uninstalled:[],dormant:[],intermittent:[]};
-  particles.forEach(p => { if(!p.migrating&&seg[p.segment]) seg[p.segment].push(p); });
-  const R=CFG.migration.rates;
-  function pick(a){return a[Math.random()*a.length|0];}
-
-  // Segment migrations — Up: healthy/good only, Down: caution/danger only
-  const upPool = arr => arr.filter(p=>p.health==='healthy'||p.health==='good');
-  const downPool = arr => arr.filter(p=>p.health==='caution'||p.health==='danger');
-
-  const lightUp=upPool(seg.light), casualUp=upPool(seg.casual);
-  const powerDown=downPool(seg.power), casualDown=downPool(seg.casual);
-
-  if (Math.random()<R.light_casual&&lightUp.length>5) pick(lightUp).startMigration('casual');
-  if (Math.random()<R.casual_power&&casualUp.length>5) pick(casualUp).startMigration('power');
-  if (Math.random()<R.power_casual&&powerDown.length>3) pick(powerDown).startMigration('casual');
-  if (Math.random()<R.casual_light&&casualDown.length>5) pick(casualDown).startMigration('light');
-
-  // Churn — Light가 주요 이탈 경로, Casual/Power는 극소량
-  if (Math.random()<R.churn && seg.light.length>50) pick(seg.light).startMigration('churn');
-  if (Math.random()<R.churn*0.06 && seg.casual.length>50) pick(seg.casual).startMigration('churn'); // 극소량
-  if (Math.random()<R.churn*0.02 && seg.power.length>30) pick(seg.power).startMigration('churn'); // 거의 없음
-
-  // MAU → Light (occasional conversion: 미설치자/장기미이용/간헐이용 → Light)
-  if (Math.random()<0.003 && seg.uninstalled.length>5) pick(seg.uninstalled).startMigration('light');
-  if (Math.random()<0.008 && seg.dormant.length>5) pick(seg.dormant).startMigration('light');
-  if (Math.random()<0.014 && seg.intermittent.length>5) pick(seg.intermittent).startMigration('light');
-
-  // MAU inter-tank (very occasional): 장기미이용 ↔ 간헐이용
-  if (Math.random()<0.004 && seg.dormant.length>5) pick(seg.dormant).startMigration('intermittent');
-  if (Math.random()<0.003 && seg.intermittent.length>5) pick(seg.intermittent).startMigration('dormant');
-}
+canvas.addEventListener('mouseleave', ()=>{ mouseX=-999; mouseY=-999; });
 
 // ═══ DRAWING: Background ═══
 function drawBG() {
@@ -874,9 +288,6 @@ function drawBG() {
 
 // ═══ DRAWING: Dashboard ═══
 function drawDashboard() {
-  const seg={power:0,casual:0,light:0};
-  particles.forEach(p=>{if(seg[p.segment]!==undefined)seg[p.segment]++;});
-  const total=seg.power+seg.casual+seg.light;
   ctx.save();
   ctx.font='700 22px "YouandiNewKr"'; ctx.fillStyle='#fff'; ctx.textBaseline='middle'; ctx.textAlign='left';
   ctx.fillText('DP-AQUA',28,30);
@@ -1492,14 +903,6 @@ canvas.addEventListener('click', e => {
     segWeekRects.forEach((r, i) => {
       if (r && e.clientX>=r.x&&e.clientX<=r.x+r.w&&e.clientY>=r.y&&e.clientY<=r.y+r.h) {
         segWeek = i + 1;
-        _particlePulseT = 0;
-        // 카오스 임펄스: 비이동 파티클에 랜덤 속도 충격
-        particles.forEach(p => {
-          if (!p.migrating && !p.fading && p.segment !== 'churn') {
-            p.vx += (Math.random() - 0.5) * 5;
-            p.vy += (Math.random() - 0.5) * 5;
-          }
-        });
       }
     });
   }
@@ -3237,8 +2640,8 @@ let faceLandmarks = null; // face mesh landmarks
         fingerTips = smoothTips.map(ft => ({x:ft.x, y:ft.y}));
         handLostFrames = 0;
 
-        if (!drag.active && fingerSpread > 0.4) { mouseX = handX; mouseY = handY; }
-        else if (!drag.active && handActive) { mouseX = -999; mouseY = -999; }
+        if (fingerSpread > 0.4) { mouseX = handX; mouseY = handY; }
+        else if (handActive) { mouseX = -999; mouseY = -999; }
       } else {
         handLostFrames++;
         // Keep showing for a few frames to prevent flicker
@@ -3519,63 +2922,23 @@ function updateMauHotspot() { mauHotspot.style.width = ((W-56)/5) + 'px'; }
 
 resize(); updateMauHotspot();
 window.addEventListener('resize', () => { resize(); updateMauHotspot(); });
-initParticles();
 
 let frame=0;
 document.fonts.ready.then(()=>requestAnimationFrame(loop));
 
 function loop() {
   frame++;
-  buildGrid(); applyRepulsion(); applyMouseForce(); applyDragForce();
-  // Hard zone enforcement: force ALL non-migrating particles inside their sub-zone
-  particles.forEach(p => {
-    if (p.migrating || p.fadingIn || p.segment === 'churn' || p.segment === 'new') return;
-    const z = getSubZone(p.segment, p.subType);
-    if (!z) return;
-    const wL = z.x + p.radius + 2, wR = z.x + z.w - p.radius - 2;
-    const wT = z.y + p.radius + 2, wB = z.y + z.h - p.radius - 2;
-    // Teleport back if outside
-    if (p.x < wL) { p.x = wL; p.vx = 0; }
-    if (p.x > wR) { p.x = wR; p.vx = 0; }
-    if (p.y < wT) { p.y = wT; p.vy = 0; }
-    if (p.y > wB) { p.y = wB; p.vy = 0; }
-    // Block velocity that would exit next frame
-    if (p.x + p.vx < wL) p.vx = 0;
-    if (p.x + p.vx > wR) p.vx = 0;
-    if (p.y + p.vy < wT) p.vy = 0;
-    if (p.y + p.vy > wB) p.vy = 0;
-  });
-  particles.forEach(p=>p.update(frame));
-  // tryMigrations(); — growth2: 세그 간 이동 비활성화
   signalEvents=signalEvents.filter(e=>Date.now()-e.time<30000);
 
   drawBG(); drawDashboard(); drawLegend(); drawGNB();
   drawAquarium(frame);
   if (aquaTab === 0) {
-    drawTanks(); // drawAllPipes, drawSideZones 제거 (growth2)
+    drawTanks();
     drawConnLines();
-    // 주차별 파티클 수 — target 쪽으로 lerp (부드러운 전환)
-    _segDrawTargets = getWeekTargets(trackYear, trackMonth, segWeek);
-    for (const k in _segDrawCurrent) {
-      _segDrawCurrent[k] += (_segDrawTargets[k] - _segDrawCurrent[k]) * 0.07;
-    }
-    // 주차 변경 펄스: 2.0 → 1.0 ease
-    if (_particlePulseT < 1.0) {
-      _particlePulseT = Math.min(1.0, _particlePulseT + 0.045);
-      _particleScalePulse = 1.0 + 0.6 * Math.sin(Math.PI * _particlePulseT);
-    } else {
-      _particleScalePulse = 1.0;
-    }
-    const _segCnt = {};
-    particles.forEach(p => {
-      if (p.migrating || p._segIdx === undefined) { p.draw(); return; }
-      const lim = _segDrawCurrent[p.segment];
-      if (lim === undefined || p._segIdx < lim) p.draw();
-    });
   } else {
     drawMoveTracking();
   }
-  drawSignalPanel(frame); // drawActionPanel 히든 (이탈조짐 인사이트 — 추후 재사용)
+  drawSignalPanel(frame);
 
   function isOverRect(r) { return r && mouseX>=r.x&&mouseX<=r.x+r.w&&mouseY>=r.y&&mouseY<=r.y+r.h; }
   const _isMaxM = trackYear === 2026 && trackMonth >= 4;
@@ -3585,7 +2948,7 @@ function loop() {
     || isOverRect(segMonthRects.prev)
     || (isOverRect(segMonthRects.next) && !_isMaxM)
     || segWeekRects.some(r=>isOverRect(r));
-  canvas.style.cursor = drag.active ? 'grabbing' : overClickable ? 'pointer' : inAqua(mouseX,mouseY) ? 'grab' : 'default';
+  canvas.style.cursor = overClickable ? 'pointer' : 'default';
   requestAnimationFrame(loop);
 }
 </script>
