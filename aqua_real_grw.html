@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DP-AQUA · Real Growth Dashboard</title>
+<style>
+@font-face {
+  font-family: 'YouandiNewKrTitle';
+  font-weight: 700;
+  src: url('fonts/YouandiNewKrTitle-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'SFProDisplay';
+  font-weight: 700;
+  src: url('fonts/SF-Pro-Display-Bold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SFProDisplay';
+  font-weight: 500;
+  src: url('fonts/SF-Pro-Display-Medium.otf') format('opentype');
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --green:           #00D56D;
+  --red:             #FF3844;
+  --white:           #ffffff;
+  --black:           #000000;
+  --bg:              #000000;
+  --fg:              #ffffff;
+  --border:          rgba(255,255,255,0.10);
+  --border-aquarium: rgba(255,255,255,0.14);
+  --border-card:     rgba(255,255,255,0.10);
+  --border-divider:  rgba(255,255,255,0.12);
+  --border-tabbar:   rgba(255,255,255,0.08);
+  --muted:           rgba(255,255,255,0.35);
+  --card-bg:         rgba(255,255,255,0.08);
+  --font-sf:         'SFProDisplay', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  --font-yu:         'YouandiNewKrTitle', 'Apple SD Gothic Neo', sans-serif;
+}
+
+/* ── Light mode ── */
+body.light {
+  --bg:              #f0f0f0;
+  --fg:              #000000;
+  --border:          rgba(0,0,0,0.10);
+  --border-aquarium: rgba(0,0,0,0.14);
+  --border-card:     rgba(0,0,0,0.10);
+  --border-divider:  rgba(0,0,0,0.12);
+  --muted:           rgba(0,0,0,0.35);
+  --card-bg:         rgba(0,0,0,0.05);
+  --white:           #000000;
+}
+body.light .darkmode-btn { background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.15); color: rgba(0,0,0,0.7); }
+body.light .darkmode-btn:hover { background: rgba(0,0,0,0.15); }
+body.light .tabbar { background: rgba(0,0,0,0.08); }
+body.light .tab.active { background: #000; color: #fff; border-color: #000; }
+body.light .tab:hover:not(.active) { color: rgba(0,0,0,0.6); }
+body.light .tank-wrap:not(.alert):hover .tank-card { border-color: rgba(0,0,0,0.4); }
+body.light .alert-badge { background: var(--red); color: #fff; }
+body.light .toggle-bar { background: rgba(0,0,0,0.15); }
+body.light .toggle-knob { background: rgba(0,0,0,0.4); }
+body.light .dashboard-footer { color: rgba(0,0,0,0.15); }
+body.light .lnb-item:hover:not(.active) { color: rgba(0,0,0,0.5); }
+
+/* ── Theme transition ── */
+body,
+.topbar, .lnb, .main,
+.aquarium-container, .aquarium-header, .aquarium-divider,
+.tabbar, .tab,
+.track-label, .track-divider,
+.tank-card, .tank-name, .tank-sub, .tank-number, .tank-unit, .tank-prev,
+.period-key, .period-val,
+.lnb-item, .darkmode-btn,
+.dashboard-footer {
+  transition: background-color 0.4s ease, background 0.4s ease,
+              border-color 0.4s ease, color 0.4s ease;
+}
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--font-sf);
+  height: 100vh;
+  min-width: 1080px;
+  min-height: 520px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══ Top Bar ══ */
+.topbar {
+  flex-shrink: 0;
+  height: 88px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 24px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar-title {
+  font-family: var(--font-yu);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--white);
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.topbar-metrics {
+  display: flex;
+  align-items: flex-end;
+  flex: 1;
+  padding-bottom: 12px;
+}
+
+.metric-item { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.metric-label { font-weight: 700; font-size: 10px; color: var(--muted); line-height: 1; }
+.metric-value-row { display: flex; align-items: baseline; gap: 5px; }
+.metric-value { font-weight: 700; font-size: 16px; color: var(--white); line-height: 1; }
+.metric-delta { font-weight: 500; font-size: 10px; line-height: 1; }
+.metric-delta.good { color: var(--green); }
+.metric-delta.bad  { color: var(--red); }
+
+/* ══ Body ══ */
+.page-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ══ Left Nav ══ */
+.lnb {
+  flex-shrink: 0;
+  width: 220px;
+  padding: 26px 0 16px;
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  transition: width 0.35s ease;
+}
+body.lnb-collapsed .lnb { width: 0; }
+body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-events: none; }
+.lnb-nav { display: flex; flex-direction: column; transition: opacity 0.3s ease, transform 0.3s ease; }
+
+.lnb-item {
+  padding: 10px 24px;
+  font-family: var(--font-yu);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.lnb-item.active { color: var(--white); }
+.lnb-item:hover:not(.active) { color: rgba(255,255,255,0.6); }
+
+.lnb-bottom {
+  position: fixed;
+  bottom: 16px;
+  left: 0;
+  width: 220px;
+  padding: 0 16px 0 24px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  z-index: 100;
+}
+
+.darkmode-btn {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.8);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.darkmode-btn:hover { background: rgba(255,255,255,0.12); }
+.darkmode-btn svg { opacity: 0.7; }
+
+.toggle-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+  position: relative;
+  cursor: pointer;
+}
+.toggle-knob {
+  width: 50%;
+  height: 100%;
+  background: rgba(255,255,255,0.5);
+  border-radius: 3px;
+}
+
+/* ══ Main ══ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 24px 0;
+  overflow-y: auto;
+  gap: 0;
+}
+
+/* ══ Aquarium Container (rounded border) ══ */
+.aquarium-container {
+  flex: 1;
+  border: 1px solid var(--border-aquarium);
+  border-radius: 32px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header row inside container */
+.aquarium-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 14px 24px;
+  flex-shrink: 0;
+}
+
+.period-label { display: flex; align-items: baseline; gap: 8px; }
+.period-key { font-weight: 700; font-size: 18px; color: var(--white); }
+.period-val { font-weight: 700; font-size: 20px; color: var(--white); }
+
+/* Tabs — no container bg, just pill vs text */
+.tabbar { display: flex; align-items: center; gap: 0; background: rgba(255,255,255,0.08); border-radius: 24px; padding: 0; }
+
+.tab {
+  padding: 7px 20px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: var(--font-sf);
+  white-space: nowrap;
+}
+.tab.active {
+  background: var(--white);
+  color: #000;
+  border-color: var(--white);
+}
+.tab:hover:not(.active) { color: rgba(255,255,255,0.7); }
+
+/* Divider between header and tracks */
+.aquarium-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* ══ Track Section ══ */
+.tracks-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 16px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.track-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.track-label {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tank-spacer { flex: 1; min-height: 20px; }
+
+.track-divider {
+  border: none;
+  border-top: 1px dashed var(--border-divider);
+  margin: 0 0 0;
+  flex-shrink: 0;
+}
+
+.tanks-row {
+  flex: 1;
+  display: flex;
+  gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ══ Tank Wrap ══ */
+.tank-wrap {
+  flex: 1;
+  border-radius: 25px;
+  min-height: 0;
+}
+.tank-wrap:hover .tank-caret { color: var(--white); }
+.tank-wrap:hover .tank-card { border-color: rgba(255,255,255,0.55); }
+
+/* 이상 탱크 */
+.tank-wrap.alert .tank-card { border-color: rgba(255,80,80,0.52); }
+.tank-wrap.alert:hover .tank-card { border-color: rgba(255,80,80,0.9); }
+
+/* ══ Tank Card ══ */
+.tank-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-card);
+  border-radius: 24px;
+  padding: 18px 20px 16px;
+  height: 100%;
+  max-height: 260px;
+  min-height: 80px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.tank-card { transition: border-color 0.25s ease; }
+
+/* Tank top */
+.tank-top { display: flex; flex-direction: column; gap: 5px; }
+
+.tank-name-row { display: flex; align-items: center; gap: 4px; }
+.tank-name  { font-weight: 700; font-size: 17px; color: var(--white); opacity: 0.64; transition: opacity 0.2s; }
+.tank-caret { font-size: 15px; color: var(--muted); transition: opacity 0.2s; }
+.tank-wrap:hover .tank-name  { opacity: 1; }
+.tank-wrap:hover .tank-caret { opacity: 1; }
+
+.tank-sub {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Tank bottom */
+.tank-bottom { display: flex; flex-direction: column; gap: 5px; }
+
+.tank-number-row { display: flex; align-items: flex-end; gap: 2px; }
+.tank-number {
+  font-family: 'YouandiNewKrTitle', 'Apple SD Gothic Neo', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 54px;
+  color: var(--white);
+  line-height: 1;
+}
+.tank-unit {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--white);
+  padding-bottom: 4px;
+}
+
+.tank-prev {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: -2px;
+}
+
+/* Indicator row — arrow + delta + pct + optional badge inline */
+.tank-indicator { display: flex; align-items: center; gap: 4px; }
+.tank-arrow-sym { font-size: 24px; font-weight: 700; }
+.tank-delta     { font-weight: 500; font-size: 17px; line-height: 1; }
+.tank-pct       { font-weight: 500; font-size: 17px; line-height: 1; }
+
+.tank-indicator.good .tank-arrow-sym,
+.tank-indicator.good .tank-delta,
+.tank-indicator.good .tank-pct { color: var(--green); }
+
+.tank-indicator.bad .tank-arrow-sym,
+.tank-indicator.bad .tank-delta,
+.tank-indicator.bad .tank-pct  { color: var(--red); }
+
+/* Alert badge — inline after pct */
+.alert-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--red);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+/* ══ Footer ══ */
+.dashboard-footer {
+  flex-shrink: 0;
+  text-align: center;
+  padding: 28px 0;
+  font-weight: 500;
+  font-size: 12px;
+  background: transparent;
+  color: rgba(255,255,255,0.15);
+  letter-spacing: 0.06em;
+}
+</style>
+</head>
+<body>
+
+<!-- Bottom controls: 스크립트보다 앞에 위치, overflow:hidden 밖 -->
+<div class="lnb-bottom">
+  <div class="darkmode-btn" id="sidebar-btn" onclick="toggleSidebar()" style="flex-shrink:0">
+    <svg id="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/>
+      <line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" stroke-width="1.5"/>
+    </svg>
+  </div>
+  <div class="darkmode-btn" id="darkmode-btn" onclick="toggleTheme()" style="flex-shrink:0">
+    <svg id="theme-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="currentColor"/>
+    </svg>
+  </div>
+  <div class="toggle-bar"><div class="toggle-knob"></div></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// ★ 데이터 입력 영역 — 매주 이 부분만 수정하세요
+// ══════════════════════════════════════════════════════════
+const DATA = {
+
+  period: '5. 1 ~ 5. 15',
+
+  metrics: [
+    { label: 'MAU',        value: '763만',  delta: '+30,000',  positive: true },
+    { label: 'MAU 기여수',  value: '40,000', delta: '+2,000',   positive: true },
+    { label: 'PUSH 열람률', value: '4.6%',   delta: '+6.1% p', positive: true },
+    { label: 'Echo 열람률', value: '13.6%',  delta: '+6.1% p', positive: true },
+  ],
+
+  // invertSign:true → 감소가 좋은 세그
+  acquisition: [
+    { seg:'No-Show', sub:'신규 발급 후 미로그인',      value:200, prevClose:115, deltaV:20, pct:3.8, positive:false, invertSign:true,  alert:false },
+    { seg:'Long-D',  sub:'3개월 초과',                 value:200, prevClose:115, deltaV:20, pct:3.8, positive:true,  invertSign:true,  alert:true  },
+    { seg:'On-Off',  sub:'3개월 내 방문, 연속 방문 X', value:200, prevClose:115, deltaV:20, pct:3.8, positive:false, invertSign:true,  alert:false },
+  ],
+
+  // invertSign:false → 증가가 좋은 세그
+  retention: [
+    { seg:'Light',  sub:'월 1~2회',   value:200, prevClose:115, deltaV:20, pct:3.8, positive:true, invertSign:false, alert:false },
+    { seg:'Casual', sub:'월 3~7회',   value:200, prevClose:115, deltaV:20, pct:3.8, positive:true, invertSign:false, alert:false },
+    { seg:'Power',  sub:'월 8회 이상',value:200, prevClose:115, deltaV:20, pct:3.8, positive:true, invertSign:false, alert:false },
+  ],
+
+};
+// ══════════════════════════════════════════════════════════
+</script>
+
+<!-- Top Bar -->
+<header class="topbar">
+  <div class="topbar-title">DP-AQUA</div>
+  <div class="topbar-metrics" id="topbar-metrics"></div>
+</header>
+
+<!-- Body -->
+<div class="page-body">
+
+  <!-- Left Nav -->
+  <nav class="lnb">
+    <div class="lnb-nav">
+      <div class="lnb-item active">HOME</div>
+      <div class="lnb-item">MENU 1</div>
+      <div class="lnb-item">MENU 2</div>
+      <div class="lnb-item">MENU 3</div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+
+    <div class="aquarium-container">
+
+      <!-- Header -->
+      <div class="aquarium-header">
+        <div class="period-label">
+          <span class="period-key">기준일 :</span>
+          <span class="period-val" id="period-val"></span>
+        </div>
+        <div class="tabbar">
+          <button class="tab active">Seg Dashboard</button>
+          <button class="tab">Migration Tracking</button>
+        </div>
+      </div>
+
+      <hr class="aquarium-divider">
+
+      <!-- Tracks -->
+      <div class="tracks-area">
+
+        <section class="track-section">
+          <div class="track-label">Acquisition Track</div>
+          <div class="tanks-row" id="acq-tanks"></div>
+        </section>
+
+        <hr class="track-divider" style="margin: 20px 0 0;">
+
+        <section class="track-section">
+          <div class="track-label">Retention Track</div>
+          <div class="tanks-row" id="ret-tanks"></div>
+        </section>
+
+      </div>
+
+    </div>
+
+    <div class="dashboard-footer">Digital Product · App User Quantitative Analysis</div>
+
+  </main>
+</div>
+
+<script>
+function buildMetrics() {
+  document.getElementById('topbar-metrics').innerHTML =
+    DATA.metrics.map(m => `
+      <div class="metric-item">
+        <div class="metric-label">${m.label}</div>
+        <div class="metric-value-row">
+          <span class="metric-value">${m.value}</span>
+          <span class="metric-delta ${m.positive ? 'good' : 'bad'}">${m.delta}</span>
+        </div>
+      </div>
+    `).join('');
+}
+
+// ── 랜덤 데이터 생성 ──
+const RANGES = {
+  'No-Show': { val:[80,180],   prev:[60,160]  },
+  'Long-D':  { val:[60,150],   prev:[50,130]  },
+  'On-Off':  { val:[70,160],   prev:[60,140]  },
+  'Light':   { val:[100,250],  prev:[90,230]  },
+  'Casual':  { val:[80,200],   prev:[70,180]  },
+  'Power':   { val:[30,120],   prev:[25,110]  },
+};
+function ri(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function randomizeTanks(arr) {
+  return arr.map(t => {
+    const r  = RANGES[t.seg] || { val:[50,200], prev:[40,180] };
+    const pc = ri(r.prev[0], r.prev[1]);
+    const mag = ri(3, 28); // 등락 크기만 랜덤 (방향은 DATA positive 유지)
+    const v  = t.positive ? pc + mag : pc - mag;
+    const d  = v - pc;
+    return { ...t,
+      value:     Math.max(1, v),
+      prevClose: pc,
+      deltaV:    Math.abs(d),
+      pct:       parseFloat(Math.abs(d / pc * 100).toFixed(1)),
+    };
+  });
+}
+
+// ── 카운트업 애니메이션 ──
+function countUp(el, target, decimals, duration) {
+  const start = performance.now();
+  (function tick() {
+    const p = Math.min((performance.now() - start) / duration, 1);
+    const e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+    el.textContent = decimals > 0 ? (e * target).toFixed(decimals) : Math.round(e * target);
+    if (p < 1) requestAnimationFrame(tick);
+  })();
+}
+function animateCard(wrap) {
+  const dur = 800;
+  wrap.querySelectorAll('.tank-number[data-t]').forEach(el  => countUp(el, +el.dataset.t, 0, dur));
+  wrap.querySelectorAll('.prev-num[data-t]').forEach(el     => countUp(el, +el.dataset.t, 0, dur));
+  wrap.querySelectorAll('.delta-num[data-t]').forEach(el    => countUp(el, +el.dataset.t, 0, dur));
+  wrap.querySelectorAll('.pct-num[data-t]').forEach(el      => countUp(el, +el.dataset.t, 1, dur));
+}
+
+function animateTanks() {
+  document.querySelectorAll('.tank-wrap').forEach(wrap => {
+    animateCard(wrap);
+    wrap.addEventListener('mouseenter', () => animateCard(wrap));
+  });
+}
+
+function buildTanks(tanks, containerId) {
+  document.getElementById(containerId).innerHTML = tanks.map(t => {
+    const isGood   = t.invertSign ? !t.positive : t.positive;
+    const indClass = isGood ? 'good' : 'bad';
+    const arrow    = t.positive ? '▴' : '▾';
+    const sign     = t.positive ? '+' : '-';
+    return `
+      <div class="tank-wrap${t.alert ? ' alert' : ''}">
+      <div class="tank-card">
+        <div class="tank-top">
+          <div class="tank-name-row">
+            <span class="tank-name">${t.seg}</span>
+            <span class="tank-caret">›</span>
+          </div>
+          <div class="tank-sub">${t.sub}</div>
+        </div>
+        <div class="tank-spacer"></div>
+        <div class="tank-bottom">
+          <div class="tank-number-row">
+            <span class="tank-number" data-t="${t.value}">0</span>
+            <span class="tank-unit">만</span>
+          </div>
+          <div class="tank-prev">전월 마감 <span class="prev-num" data-t="${t.prevClose}">0</span>만</div>
+          <div class="tank-indicator ${indClass}">
+            <span class="tank-arrow-sym">${arrow}</span>
+            <span class="tank-delta"><span class="delta-num" data-t="${t.deltaV}">0</span>만</span>
+            <span class="tank-pct">${sign}<span class="pct-num" data-t="${t.pct}">0.0</span>%</span>
+            ${t.alert ? '<span class="alert-badge">이상</span>' : ''}
+          </div>
+        </div>
+      </div>
+      </div>
+    `;
+  }).join('');
+}
+
+document.getElementById('period-val').textContent = DATA.period;
+buildMetrics();
+buildTanks(randomizeTanks(DATA.acquisition), 'acq-tanks');
+buildTanks(randomizeTanks(DATA.retention),   'ret-tanks');
+document.fonts.ready.then(() => animateTanks());
+
+// ── 테마 상태 (applyStrokeScale에서 참조하므로 먼저 선언) ──
+let isLight = false;
+
+// ── 선 밝기 슬라이더 ──
+// 100%(슬라이더 오른쪽 끝) = 흰색 1.0 기준, 나머지는 비율 유지
+const STROKE_BASE = {
+  '--border':           0.10,
+  '--border-aquarium':  0.14,
+  '--border-card':      0.10,
+  '--border-divider':   0.12,
+};
+const MAX_BASE = 0.14; // 기준값 (가장 큰 값 = 100%일 때 1.0)
+
+function applyStrokeScale(S) {
+  const rgb = isLight ? '0,0,0' : '255,255,255';
+  Object.entries(STROKE_BASE).forEach(([key, base]) => {
+    const opacity = Math.min(1, base / MAX_BASE * S).toFixed(3);
+    document.body.style.setProperty(key, `rgba(${rgb},${opacity})`);
+  });
+}
+
+(function initSlider() {
+  const bar   = document.querySelector('.toggle-bar');
+  const knob  = document.querySelector('.toggle-knob');
+  let scale   = 0.14; // 기본값: 현재 디자인 값에 해당
+
+  function setScale(S) {
+    scale = Math.max(0, Math.min(1, S));
+    knob.style.width = (scale * 100) + '%';
+    applyStrokeScale(scale);
+  }
+
+  setScale(scale); // 초기 적용
+
+  bar.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const move = (me) => {
+      const rect = bar.getBoundingClientRect();
+      setScale((me.clientX - rect.left) / rect.width);
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+    move(e);
+  });
+})();
+
+// ── 다크/라이트 테마 전환 ──
+const MOON_SVG = `<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="currentColor"/>`;
+const SUN_SVG  = `<circle cx="12" cy="12" r="5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></g>`;
+
+const SIDEBAR_OPEN_SVG = `<rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" stroke-width="1.5"/>`;
+const SIDEBAR_CLOSED_SVG = `<line x1="4" y1="8" x2="20" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="14" x2="16" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
+
+let isSidebarCollapsed = false;
+function toggleSidebar() {
+  isSidebarCollapsed = !isSidebarCollapsed;
+  document.body.classList.toggle('lnb-collapsed', isSidebarCollapsed);
+  document.getElementById('sidebar-icon').innerHTML = isSidebarCollapsed ? SIDEBAR_CLOSED_SVG : SIDEBAR_OPEN_SVG;
+}
+
+function toggleTheme() {
+  isLight = !isLight;
+  document.body.classList.toggle('light', isLight);
+  document.getElementById('theme-icon').innerHTML = isLight ? SUN_SVG : MOON_SVG;
+  // 슬라이더 색상 재적용 (dark=흰, light=검)
+  const bar  = document.querySelector('.toggle-bar');
+  const knob = document.querySelector('.toggle-knob');
+  const S    = parseFloat(knob.style.width) / 100 || 0.14;
+  applyStrokeScale(S);
+}
+</script>
+
+
+</body>
+</html>

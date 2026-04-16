@@ -77,6 +77,61 @@
 
 ---
 
+---
+
+## aqua_real_grw.html (실데이터 POC 대시보드)
+
+### 파일 개요
+- 파티클 없는 순수 HTML/CSS 실데이터 대시보드
+- 폰트: `fonts/` 폴더 로컬 파일 (SF Pro Display Medium/Bold, YouandiNewKrTitle-Bold)
+
+### 완료된 작업
+
+#### 레이아웃 & 그리드
+- 좌우 마진 그리드: 24px (topbar, nav items, lnb-bottom 버튼, main 모두 일치)
+- aquarium-header: `padding: 14px 16px 14px 24px` (우측 16px = tracks-area 우측 패딩과 일치)
+- main: `padding: 16px 24px 0`
+- 최소 높이: `min-height: 520px`
+- 가로 최소: `min-width: 1080px`
+
+#### 사이드바 토글
+- lnb-bottom (버튼+슬라이더) → `<body>` 직하위, `position: fixed; left:0; width:220px; padding: 0 16px 0 24px`
+- 사이드바 버튼: 레이아웃 아이콘 ↔ 햄버거 아이콘 전환
+- 접힐 때: `lnb` width→0, lnb-nav 좌로 페이드아웃
+- 버튼 위치 고정 (덜컹거림 없음)
+
+#### 다크/라이트 모드
+- 완전 반전: 배경, 테두리, 텍스트, 카드, 탭바, 슬라이더 모두 전환
+- SVG 아이콘: `currentColor` 사용 → 모드에 따라 자동 반전
+- 전환 애니메이션: 0.4s ease (주요 요소 전체)
+- 라이트모드 슬라이더: `document.body.style.setProperty` 사용 (body > html 우선순위)
+
+#### 탱크 카드 인터랙션
+- 호버 시: 아웃라인 border-color 전환 (0.25s), caret 100% opacity, tank-name 100% opacity
+- 이상 탱크: 기본 `rgba(255,80,80,0.52)`, 호버 `rgba(255,80,80,0.9)`
+- 라이트모드 이상 탱크 호버: `:not(.alert)` 예외 처리로 빨간색 유지
+- 숫자 카운트업 애니메이션: 호버 재실행, duration 800ms, easeOutCubic
+
+#### 데이터
+- `DATA` 객체에서 수동 입력 후 `randomizeTanks()`로 랜덤 분산 적용
+- RANGES: No-Show/Long-D/On-Off/Light/Casual/Power 세그별 범위 정의
+- 등락 방향: `positive` 플래그 기반
+
+### 현재 상태
+- 다크/라이트 모드 완전 동작
+- 탱크 6개 (Acquisition 3 + Retention 3) 반응형 높이
+- 사이드바 토글 완전 동작
+- 스트로크 슬라이더 동작
+- 사운드 효과 없음 (브라우저 정책 이슈로 제거)
+
+### 다음 세션 작업 후보
+- [ ] 그리드 최종 정렬 재확인 (사이드바 접힘 시 버튼 위치)
+- [ ] 라이트모드 lnb-item 색상 재확인
+- [ ] 상세 데이터 연동 구조 설계
+- [ ] Migration Tracking 탭 화면 구현
+
+---
+
 ## 향후 작업
 - [ ] dp-aqua_growth2.html 기반 추가 수정 작업
 - [ ] 월간 보기 토글 (주간 ↔ 월간 전환)
