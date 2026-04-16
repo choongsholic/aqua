@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DP Cowork → Agent Pipeline</title>
+<style>
+@font-face { font-family:'YouandiNewKr'; font-weight:700; font-style:normal; src:url('https://img.hyundaicard.com/docfiles/resources/pc/fonts/YouandiNewKrTitle-Bold.woff2') format('woff2'), url('https://img.hyundaicard.com/docfiles/resources/pc/fonts/YouandiNewKrTitle-Bold.woff') format('woff'); font-display:swap; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a0a; overflow:hidden; cursor:default; font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,AppleSDGothicNeo-regular,'Spoqa Han Sans Neo','Malgun Gothic',sans-serif; }
+canvas { display:block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H;
+const dpr = window.devicePixelRatio || 1;
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  if (nodes.length) layoutPositions();
+}
+
+// ─── Node definitions ───
+const nodeData = [
+  // INPUT group (row 0)
+  { id:'I1', label:'Persona', sub:'', group:'input', row:0, col:0 },
+  { id:'I2', label:'BRD', sub:'', group:'input', row:0, col:1 },
+  { id:'I3', label:'Research', sub:'', group:'input', row:0, col:2 },
+  { id:'I4', label:'PRD', sub:'', group:'input', row:0, col:3 },
+  { id:'I5', label:'Marketing', sub:'', group:'input', row:0, col:4 },
+  { id:'I6', label:'Design', sub:'', group:'input', row:0, col:5 },
+  { id:'I7', label:'VOC', sub:'', group:'input', row:0, col:6 },
+  // PARSE (row 1)
+  { id:'PARSE', label:'Intent Agent', sub:'', group:'agent', row:1, col:3 },
+  // HDS (row 2 left)
+  { id:'HDS', label:'HDS', sub:'Design Principle · Guidelines\nRules · Components · Modules', group:'system', row:2, col:1 },
+  // KB (row 2 right)
+  { id:'KB', label:'Insight Memory', sub:'User · Business · Design', group:'memory', row:2, col:5 },
+  // AGENTS (row 3)
+  { id:'A01', label:'01. 기획', sub:'목적 정의 · 범위 설정\n페르소나 연결 · VOC 반영', group:'agent-step', row:3, col:0.75 },
+  { id:'A02', label:'02. 설계', sub:'기능 정의 · 화면 흐름\n요구사항 정리 · 엣지케이스', group:'agent-step', row:3, col:2.25 },
+  { id:'A03', label:'03. 디자인', sub:'화면 설계 · HDS 기반\n시안 A/B/C · 미리보기', group:'agent-step', row:3, col:3.75 },
+  { id:'A04', label:'04. 마케팅', sub:'카피 생성 · 이벤트 페이지\n배너 배리에이션 · 규격별 출력', group:'agent-step', row:3, col:5.25 },
+  // QG (row 4)
+  { id:'QG', label:'QG Agent', sub:'디자인 원칙 부합 · HDS 적합\n디자인 QA · 유저빌리티 검증', group:'qg', row:4, col:3 },
+  // RETRY (row 4 right)
+  { id:'RETRY', label:'Fallback Agent', sub:'실패 시 대안 처리', group:'retry', row:4, col:5.5 },
+  // DECISION (row 5)
+  { id:'DECISION', label:'👤 Decision', sub:'A / B / C 선택', group:'decision', row:5.2, col:3 },
+  // OUTPUT (row 6)
+  { id:'OUTPUT', label:'Output', sub:'Approved / Rejected History', group:'output', row:6, col:3 },
+];
+
+// Edge definitions: [fromId, toId, type]
+// type: 'solid' | 'dashed' | 'arrow-label'
+const edgeData = [
+  // Inputs → PARSE
+  ['I1','PARSE','solid'],['I2','PARSE','solid'],['I3','PARSE','solid'],
+  ['I4','PARSE','solid'],['I5','PARSE','solid'],['I6','PARSE','solid'],['I7','PARSE','solid'],
+  // PARSE → HDS
+  ['PARSE','HDS','solid'],
+  // KB → PARSE (인사이트 메모리가 인텐트 에이전트에 학습 주입)
+  ['KB','PARSE','dashed'],
+  // PARSE → Agents
+  ['PARSE','A01','solid'],['PARSE','A02','solid'],['PARSE','A03','solid'],['PARSE','A04','solid'],
+  // HDS → Agents
+  ['HDS','A01','dashed'],['HDS','A02','dashed'],['HDS','A03','dashed'],['HDS','A04','dashed'],
+  // KB → Agents
+  ['KB','A01','dashed'],['KB','A02','dashed'],['KB','A03','dashed'],['KB','A04','dashed'],
+  // Agent chain
+  ['A01','A02','solid'],['A02','A03','solid'],['A03','A04','solid'],
+  // Agents → QG
+  ['A01','QG','solid'],['A02','QG','solid'],['A03','QG','solid'],['A04','QG','solid'],
+  // QG → DECISION (통과)
+  ['QG','DECISION','solid'],
+  // QG → RETRY (미통과)
+  ['QG','RETRY','solid'],
+  // RETRY → Agents (QG 미통과 시 재시도)
+  ['RETRY','A01','dashed'],['RETRY','A02','dashed'],['RETRY','A03','dashed'],['RETRY','A04','dashed'],
+  // DECISION → OUTPUT
+  ['DECISION','OUTPUT','solid'],
+  // OUTPUT → KB (history)
+  ['OUTPUT','KB','dashed'],
+  // OUTPUT → HDS (디자인 축적)
+  ['OUTPUT','HDS','dashed'],
+];
+
+// ─── Physics Node ───
+class Node {
+  constructor(data) {
+    this.id = data.id;
+    this.label = data.label;
+    this.sub = data.sub;
+    this.group = data.group;
+    this.row = data.row;
+    this.col = data.col;
+    this.x = 0; this.y = 0;
+    this.ox = 0; this.oy = 0;
+    this.vx = 0; this.vy = 0;
+    this.w = 0; this.h = 0;
+    this.dragging = false;
+    this.hover = false;
+    this.scale = 1;
+    this.targetScale = 1;
+    this.scaleV = 0;
+    this.pushX = 0; // hover push offset
+    this.pushY = 0;
+    this.pushVX = 0;
+    this.pushVY = 0;
+    this.lastMouseX = 0;
+    this.lastMouseY = 0;
+    this.mouseDX = 0;
+    this.mouseDY = 0;
+    this.springK = 0.018;
+    this.damping = 0.9;
+    this.floatPhase = Math.random() * Math.PI * 2;
+    this.floatSpeed = 0.006 + Math.random() * 0.004;
+  }
+
+  computeSize() {
+    ctx.font = 'bold 13px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    let maxW = ctx.measureText(this.label).width;
+    if (this.sub) {
+      ctx.font = '11px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+      this.sub.split('\n').forEach(line => {
+        maxW = Math.max(maxW, ctx.measureText(line).width);
+      });
+    }
+    this.w = Math.max(maxW + 36, 90);
+    const lines = this.sub ? this.sub.split('\n').length : 0;
+    this.h = 32 + lines * 16;
+    if (this.group === 'input') { this.w = 88; this.h = 36; }
+  }
+
+  update(t) {
+    if (this.dragging) { this.vx = 0; this.vy = 0; return; }
+    const dx = this.ox - this.x, dy = this.oy - this.y;
+    this.vx += dx * this.springK;
+    this.vy += dy * this.springK;
+    this.vx *= this.damping;
+    this.vy *= this.damping;
+    this.x += this.vx;
+    this.y += this.vy;
+    this.x += Math.sin(t * this.floatSpeed + this.floatPhase) * 0;
+    this.y += Math.cos(t * this.floatSpeed * 0.8 + this.floatPhase) * 0;
+    // Spring scale
+    this.targetScale = this.hover ? 1.1 : 1;
+    const stiffness = 0.18;
+    const damping = 0.65;
+    const force = (this.targetScale - this.scale) * stiffness;
+    this.scaleV += force;
+    this.scaleV *= damping;
+    this.scale += this.scaleV;
+    // Hover push — mouse direction pushes node like jelly
+    if (this.hover) {
+      this.pushVX += this.mouseDX * 1.2;
+      this.pushVY += this.mouseDY * 1.2;
+    }
+    // Spring back — strong spring + moderate damping
+    this.pushVX += -this.pushX * 0.18;
+    this.pushVY += -this.pushY * 0.18;
+    this.pushVX *= 0.85;
+    this.pushVY *= 0.85;
+    this.pushX += this.pushVX;
+    this.pushY += this.pushVY;
+    this.mouseDX = 0;
+    this.mouseDY = 0;
+  }
+
+  draw() {
+    const x = this.x - this.w / 2, y = this.y - this.h / 2;
+    const r = this.group === 'qg' ? 4 : 12;
+    const isRound = this.group === 'agent' || this.group === 'agent-step' || this.group === 'retry' || this.group === 'output' || this.group === 'decision';
+    const isDiamond = this.group === 'qg';
+
+    ctx.save();
+    // Scale + push offset
+    ctx.translate(this.x + this.pushX, this.y + this.pushY);
+    ctx.scale(this.scale, this.scale);
+    ctx.translate(-(this.x + this.pushX), -(this.y + this.pushY));
+
+    // Glow on hover
+    if (this.hover) {
+      ctx.shadowColor = 'rgba(255,255,255,0.25)';
+      ctx.shadowBlur = 24;
+    }
+
+    // Shape
+    ctx.beginPath();
+    if (isDiamond) {
+      const dw = this.w * 0.75;
+      const dh = this.h * 0.75;
+      ctx.moveTo(this.x, this.y - dh);
+      ctx.lineTo(this.x + dw, this.y);
+      ctx.lineTo(this.x, this.y + dh);
+      ctx.lineTo(this.x - dw, this.y);
+      ctx.closePath();
+    } else if (isRound) {
+      const rr = this.h / 2;
+      ctx.roundRect(x, y, this.w, this.h, rr);
+    } else {
+      ctx.roundRect(x, y, this.w, this.h, r);
+    }
+
+    // Fill
+    const isFilled = this.group === 'input';
+    ctx.fillStyle = isFilled ? '#ffffff' : '#0a0a0a';
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = this.hover ? '#ffffff' : 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = this.hover ? 1.8 : 1;
+    ctx.stroke();
+
+    // Label
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    const textColor = isFilled ? '#0a0a0a' : '#ffffff';
+    ctx.fillStyle = textColor;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    if (this.sub) {
+      const subLines = this.sub.split('\n');
+      const totalH = 16 + subLines.length * 14;
+      let ty = this.y - totalH / 2 + 8;
+      ctx.font = 'bold 13px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+      ctx.globalAlpha = this.hover ? 1 : 0.95;
+      ctx.fillText(this.label, this.x, ty);
+      ty += 16;
+      ctx.font = '10px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+      ctx.globalAlpha = this.hover ? 0.8 : 0.5;
+      subLines.forEach(line => {
+        ctx.fillText(line, this.x, ty);
+        ty += 14;
+      });
+    } else {
+      ctx.font = this.group === 'input' ? 'bold 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif' : 'bold 13px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+      ctx.globalAlpha = this.hover ? 1 : 0.9;
+      ctx.fillText(this.label, this.x, this.y);
+    }
+    // Y/N labels on diamond vertices
+    if (isDiamond) {
+      const dw = this.w * 0.75;
+      const dh = this.h * 0.75;
+      ctx.font = 'bold 12px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha = 1;
+      // Y — bottom vertex
+      ctx.strokeStyle = '#0a0a0a';
+      ctx.lineWidth = 3;
+      ctx.strokeText('Y', this.x, this.y + dh);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('Y', this.x, this.y + dh);
+      // N — right vertex
+      ctx.strokeStyle = '#0a0a0a';
+      ctx.lineWidth = 3;
+      ctx.strokeText('N', this.x + dw, this.y);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('N', this.x + dw, this.y);
+    }
+    ctx.restore();
+  }
+
+  contains(px, py) {
+    return px >= this.x - this.w / 2 - 10 && px <= this.x + this.w / 2 + 10 &&
+           py >= this.y - this.h / 2 - 10 && py <= this.y + this.h / 2 + 10;
+  }
+}
+
+const nodes = nodeData.map(d => new Node(d));
+const nodeMap = {};
+nodes.forEach(n => nodeMap[n.id] = n);
+
+function layoutPositions() {
+  const marginX = 100;
+  const rowCount = 7;
+  const rowGap = 90;
+  // DP Cowork 그룹박스가 row 0 위로 약 80px 돌출 (topExtra + pad + label)
+  const topOverhang = 80;
+  const contentH = rowCount * rowGap + topOverhang;
+  const offsetY = (H - contentH) / 2 + topOverhang;
+  const usableW = W - marginX * 2;
+  const colW = usableW / 7;
+
+  nodes.forEach(n => {
+    n.computeSize();
+    const cx = marginX + (n.col + 0.5) * colW;
+    const cy = offsetY + (n.row + 0.5) * rowGap;
+    n.ox = cx; n.oy = cy;
+    if (n.x === 0 && n.y === 0) { n.x = cx; n.y = cy; }
+  });
+}
+
+// ─── Edges ───
+function getEdgePoint(node, targetX, targetY) {
+  const dx = targetX - node.x, dy = targetY - node.y;
+  const angle = Math.atan2(dy, dx);
+
+  // Diamond: intersect with diamond edges, vertices at top/right/bottom/left
+  if (node.group === 'qg') {
+    const dw = node.w * 0.75;
+    const dh = node.h * 0.75;
+    // Diamond has 4 edges. Find intersection with the ray from center.
+    // Vertices: top(0,-dh), right(dw,0), bottom(0,dh), left(-dw,0)
+    let ex, ey;
+    const absDx = Math.abs(dx), absDy = Math.abs(dy);
+    if (absDx * dh + absDy * dw === 0) {
+      ex = 0; ey = 0;
+    } else {
+      const t = (dw * dh) / (absDx * dh + absDy * dw);
+      ex = dx * t;
+      ey = dy * t;
+    }
+    return { x: node.x + ex, y: node.y + ey };
+  }
+
+  // Rectangle intersection
+  const hw = node.w / 2 + 2, hh = node.h / 2 + 2;
+  const tanA = Math.abs(Math.tan(angle));
+  let ex, ey;
+  if (tanA * hw <= hh) {
+    ex = dx > 0 ? hw : -hw;
+    ey = ex * Math.tan(angle);
+  } else {
+    ey = dy > 0 ? hh : -hh;
+    ex = ey / Math.tan(angle);
+  }
+  return { x: node.x + ex, y: node.y + ey };
+}
+
+function drawEdge(from, to, type, t, highlight) {
+  const a = getEdgePoint(from, to.x, to.y);
+  const b = getEdgePoint(to, from.x, from.y);
+
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  // Curvature
+  const nx = -dy / (dist || 1), ny = dx / (dist || 1);
+  const curveMag = Math.sin(t * 0.0015 + dist * 0.008) * 12 + (dist > 300 ? 20 : 6);
+  const mx = (a.x + b.x) / 2 + nx * curveMag;
+  const my = (a.y + b.y) / 2 + ny * curveMag;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(a.x, a.y);
+  ctx.quadraticCurveTo(mx, my, b.x, b.y);
+
+  const dashOffset = highlight ? -t * 0.3 : 0;
+  ctx.setLineDash([3, 3]);
+  ctx.lineDashOffset = dashOffset;
+  ctx.strokeStyle = highlight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = highlight ? 1.2 : 0.5;
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Arrow
+  const arrowSize = 6;
+  const at = 0.98;
+  const ax = (1-at)*(1-at)*a.x + 2*(1-at)*at*mx + at*at*b.x;
+  const ay = (1-at)*(1-at)*a.y + 2*(1-at)*at*my + at*at*b.y;
+  const at2 = 0.95;
+  const ax2 = (1-at2)*(1-at2)*a.x + 2*(1-at2)*at2*mx + at2*at2*b.x;
+  const ay2 = (1-at2)*(1-at2)*a.y + 2*(1-at2)*at2*my + at2*at2*b.y;
+  const aAngle = Math.atan2(ay - ay2, ax - ax2);
+
+  ctx.beginPath();
+  ctx.moveTo(b.x, b.y);
+  ctx.lineTo(b.x - arrowSize * Math.cos(aAngle - 0.4), b.y - arrowSize * Math.sin(aAngle - 0.4));
+  ctx.lineTo(b.x - arrowSize * Math.cos(aAngle + 0.4), b.y - arrowSize * Math.sin(aAngle + 0.4));
+  ctx.closePath();
+  ctx.fillStyle = highlight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.15)';
+  ctx.fill();
+
+  // Particle on highlighted edges
+  if (highlight) {
+    const pt = ((t * 0.0025) + dist * 0.0005) % 1;
+    const px = (1-pt)*(1-pt)*a.x + 2*(1-pt)*pt*mx + pt*pt*b.x;
+    const py = (1-pt)*(1-pt)*a.y + 2*(1-pt)*pt*my + pt*pt*b.y;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.8)';
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ─── Group boxes ───
+function drawGroupBox(label, nodeIds, t) {
+  const groupNodes = nodeIds.map(id => nodeMap[id]).filter(Boolean);
+  if (!groupNodes.length) return;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  groupNodes.forEach(n => {
+    minX = Math.min(minX, n.x - n.w / 2);
+    minY = Math.min(minY, n.y - n.h / 2);
+    maxX = Math.max(maxX, n.x + n.w / 2);
+    maxY = Math.max(maxY, n.y + n.h / 2);
+  });
+  const pad = 20;
+  const isDP = label === 'DP Cowork';
+  const isAgent = label === 'Agent Layer';
+  const labelH = isDP ? 26 : isAgent ? 14 : 14;
+  const gap = 16;
+  const topExtra = labelH + gap * 2;
+  const boxX = minX - pad;
+  const boxY = minY - pad - topExtra;
+  const boxW = maxX - minX + pad * 2;
+  const boxH = maxY - minY + pad * 2 + topExtra;
+  groupBounds[label] = { x: boxX, y: boxY, w: boxW, h: boxH };
+  const isHoverBox = isDP && hoverDPTitle;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, boxH, 32);
+  ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  // Group label — centered inside box, equal spacing top & bottom to nodes
+  const boxTop = boxY;
+  const labelY = boxTop + (topExtra - labelH) / 2 + labelH / 2;
+  if (isDP) {
+    // Save title bounds for hover detection
+    const titleW = 200;
+    dpTitleBounds = { x: (minX + maxX) / 2 - titleW / 2, y: labelY - 18, w: titleW, h: 36 };
+    ctx.font = '700 24px "YouandiNewKr"';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, (minX + maxX) / 2, labelY);
+  } else if (isAgent) {
+    ctx.font = 'bold 13px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, (minX + maxX) / 2, labelY);
+  } else {
+    ctx.font = 'bold 11px "SF Pro Display",-apple-system,BlinkMacSystemFont,sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, minX - pad + 8, labelY);
+  }
+  ctx.restore();
+}
+
+// ─── Interaction ───
+let dragNode = null, hoverNode = null;
+let hoverDPTitle = false;
+let dpTitleBounds = null;
+let dragGroup = null; // { nodeIds, startX, startY, offsets }
+const groupBounds = {}; // label → { x, y, w, h, nodeIds }
+const groupNodeIds = {
+  'DP Cowork': ['I1','I2','I3','I4','I5','I6','I7'],
+  'Agent Layer': ['A01','A02','A03','A04'],
+};
+
+canvas.addEventListener('mousedown', e => {
+  const mx = e.clientX, my = e.clientY;
+  // Check individual nodes first
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    if (nodes[i].contains(mx, my)) {
+      dragNode = nodes[i]; dragNode.dragging = true;
+      canvas.style.cursor = 'grabbing'; return;
+    }
+  }
+  // Check group boxes
+  for (const [label, ids] of Object.entries(groupNodeIds)) {
+    const b = groupBounds[label];
+    if (b && mx >= b.x && mx <= b.x + b.w && my >= b.y && my <= b.y + b.h) {
+      const offsets = ids.map(id => {
+        const n = nodeMap[id];
+        return { id, dx: n.x - mx, dy: n.y - my, oox: n.ox, ooy: n.oy };
+      });
+      dragGroup = { nodeIds: ids, startX: mx, startY: my, offsets };
+      ids.forEach(id => { nodeMap[id].dragging = true; });
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (dragGroup) {
+    const mx = e.clientX, my = e.clientY;
+    dragGroup.offsets.forEach(o => {
+      const n = nodeMap[o.id];
+      n.x = mx + o.dx;
+      n.y = my + o.dy;
+    });
+    return;
+  }
+  if (dragNode) { dragNode.x = e.clientX; dragNode.y = e.clientY; return; }
+  // Check DP Cowork title hover
+  if (dpTitleBounds) {
+    const b = dpTitleBounds;
+    hoverDPTitle = e.clientX >= b.x && e.clientX <= b.x + b.w && e.clientY >= b.y && e.clientY <= b.y + b.h;
+  }
+  let found = null;
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    if (nodes[i].contains(e.clientX, e.clientY)) { found = nodes[i]; break; }
+  }
+  // Feed mouse movement delta to hovered node
+  if (found && found.hover) {
+    found.mouseDX = e.movementX;
+    found.mouseDY = e.movementY;
+  }
+  if (found !== hoverNode) {
+    if (hoverNode) hoverNode.hover = false;
+    hoverNode = found;
+    if (hoverNode) hoverNode.hover = true;
+    canvas.style.cursor = found ? 'grab' : hoverDPTitle ? 'pointer' : 'default';
+  }
+});
+
+canvas.addEventListener('mouseup', () => {
+  if (dragGroup) {
+    dragGroup.offsets.forEach(o => {
+      const n = nodeMap[o.id];
+      n.dragging = false;
+      n.vx += (n.ox - n.x) * 0.06;
+      n.vy += (n.oy - n.y) * 0.06;
+    });
+    dragGroup = null;
+    canvas.style.cursor = 'default';
+    return;
+  }
+  if (dragNode) {
+    dragNode.dragging = false;
+    dragNode.vx += (dragNode.ox - dragNode.x) * 0.06;
+    dragNode.vy += (dragNode.oy - dragNode.y) * 0.06;
+    dragNode = null;
+    canvas.style.cursor = hoverNode ? 'grab' : 'default';
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (dragGroup) {
+    dragGroup.offsets.forEach(o => { nodeMap[o.id].dragging = false; });
+    dragGroup = null;
+  }
+  if (dragNode) { dragNode.dragging = false; dragNode = null; }
+  if (hoverNode) { hoverNode.hover = false; hoverNode = null; }
+});
+
+// Touch
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  for (let i = nodes.length - 1; i >= 0; i--) {
+    if (nodes[i].contains(t.clientX, t.clientY)) {
+      dragNode = nodes[i]; dragNode.dragging = true; return;
+    }
+  }
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (dragNode) { const t = e.touches[0]; dragNode.x = t.clientX; dragNode.y = t.clientY; }
+}, { passive: false });
+canvas.addEventListener('touchend', () => {
+  if (dragNode) {
+    dragNode.dragging = false;
+    dragNode.vx += (dragNode.ox - dragNode.x) * 0.06;
+    dragNode.vy += (dragNode.oy - dragNode.y) * 0.06;
+    dragNode = null;
+  }
+});
+
+// ─── Context-specific flow paths ───
+const contextFlows = {
+  'I1': { // Persona → 기획만, KB 참조
+    nodes: ['I1','PARSE','KB','A01','QG','DECISION','OUTPUT'],
+    edges: [['I1','PARSE'],['KB','PARSE'],['PARSE','A01'],['KB','A01'],['A01','QG'],['QG','DECISION'],['DECISION','OUTPUT'],['OUTPUT','KB']]
+  },
+  'I2': { // BRD → 기획요건서, 기획만, KB 참조
+    nodes: ['I2','PARSE','KB','A01','QG','DECISION','OUTPUT'],
+    edges: [['I2','PARSE'],['KB','PARSE'],['PARSE','A01'],['KB','A01'],['A01','QG'],['QG','DECISION'],['DECISION','OUTPUT'],['OUTPUT','KB']]
+  },
+  'I3': { // Research → 리서치 인사이트, 기획만, KB 참조
+    nodes: ['I3','PARSE','KB','A01','QG','DECISION','OUTPUT'],
+    edges: [['I3','PARSE'],['KB','PARSE'],['PARSE','A01'],['KB','A01'],['A01','QG'],['QG','DECISION'],['DECISION','OUTPUT'],['OUTPUT','KB']]
+  },
+  'I4': { // PRD → 기획→설계, HDS+KB 참조
+    nodes: ['I4','PARSE','HDS','KB','A01','A02','QG','DECISION','OUTPUT'],
+    edges: [['I4','PARSE'],['PARSE','HDS'],['KB','PARSE'],['PARSE','A01'],['HDS','A01'],['HDS','A02'],['KB','A01'],['KB','A02'],['A01','A02'],['A02','QG'],['QG','DECISION'],['DECISION','OUTPUT'],['OUTPUT','KB'],['OUTPUT','HDS']]
+  },
+  'I5': { // Marketing → 풀코스, KB 중심 참조
+    nodes: ['I5','PARSE','KB','A01','A02','A03','A04','QG','DECISION','OUTPUT'],
+    edges: [['I5','PARSE'],['KB','PARSE'],['PARSE','A01'],['KB','A01'],['KB','A04'],['A01','A02'],['A02','A03'],['A03','A04'],['A04','QG'],['QG','DECISION'],['DECISION','OUTPUT'],['OUTPUT','KB']]
+  },
+  'I6': { // Design → 풀코스 + HDS 중심 + 재시도 루프
+    nodes: ['I6','PARSE','HDS','KB','A01','A02','A03','A04','QG','RETRY','DECISION','OUTPUT'],
+    edges: [['I6','PARSE'],['PARSE','HDS'],['KB','PARSE'],['PARSE','A01'],['HDS','A01'],['HDS','A02'],['HDS','A03'],['HDS','A04'],['A01','A02'],['A02','A03'],['A03','A04'],['A04','QG'],['QG','RETRY'],['RETRY','A03'],['QG','DECISION'],['DECISION','OUTPUT'],['OUTPUT','HDS']]
+  },
+  'I7': { // VOC → 고객 피드백, 기획만, KB 참조
+    nodes: ['I7','PARSE','KB','A01','QG','DECISION','OUTPUT'],
+    edges: [['I7','PARSE'],['KB','PARSE'],['PARSE','A01'],['KB','A01'],['A01','QG'],['QG','DECISION'],['DECISION','OUTPUT'],['OUTPUT','KB']]
+  },
+};
+
+// ─── Connected set ───
+const agentStepIds = new Set(['A01','A02','A03','A04']);
+function getConnected(node) {
+  const set = new Set();
+  if (node.group === 'input' && contextFlows[node.id]) {
+    contextFlows[node.id].nodes.forEach(id => set.add(id));
+    return set;
+  }
+  for (const [fId, tId] of edgeData) {
+    if (fId === node.id) {
+      // Agent 01~04 호버 시 RETRY 연결 제외
+      if (agentStepIds.has(node.id) && tId === 'RETRY') continue;
+      set.add(tId);
+    }
+    if (tId === node.id) {
+      if (agentStepIds.has(node.id) && fId === 'RETRY') continue;
+      set.add(fId);
+    }
+  }
+  return set;
+}
+
+function getAllNodeIds() {
+  const set = new Set();
+  nodes.forEach(n => set.add(n.id));
+  return set;
+}
+
+// ─── Active edges for context flow ───
+function getActiveEdges(node) {
+  if (node.group === 'input' && contextFlows[node.id]) {
+    return contextFlows[node.id].edges;
+  }
+  return null;
+}
+
+// ─── Drag pull on neighbors ───
+function dragPull() {
+  // Group drag → pull connected external nodes
+  if (dragGroup) {
+    const groupSet = new Set(dragGroup.nodeIds);
+    dragGroup.nodeIds.forEach(id => {
+      for (const [fId, tId] of edgeData) {
+        let targetId = null;
+        if (fId === id && !groupSet.has(tId)) targetId = tId;
+        if (tId === id && !groupSet.has(fId)) targetId = fId;
+        if (targetId) {
+          const src = nodeMap[id], tgt = nodeMap[targetId];
+          if (tgt && !tgt.dragging) {
+            tgt.vx += (src.x - tgt.x) * 0.003;
+            tgt.vy += (src.y - tgt.y) * 0.003;
+          }
+        }
+      }
+    });
+    return;
+  }
+  if (!dragNode) return;
+  const connected = getConnected(dragNode);
+  connected.forEach(id => {
+    const n = nodeMap[id];
+    if (n && !n.dragging) {
+      n.vx += (dragNode.x - n.x) * 0.004;
+      n.vy += (dragNode.y - n.y) * 0.004;
+    }
+  });
+}
+
+// ─── Main loop ───
+resize();
+layoutPositions();
+window.addEventListener('resize', resize);
+
+// Wait for YouandiNewKr font to load before starting render
+document.fonts.ready.then(() => { startLoop(); });
+let frame = 0;
+function loop() {
+  frame++;
+  ctx.clearRect(0, 0, W, H);
+
+  // Subtle grid
+  ctx.fillStyle = 'rgba(255,255,255,0.015)';
+  for (let x = 40; x < W; x += 40) {
+    for (let y = 40; y < H; y += 40) { ctx.fillRect(x, y, 1, 1); }
+  }
+
+  nodes.forEach(n => n.update(frame));
+  dragPull();
+
+  const activeNode = dragNode || hoverNode;
+  const isInputHover = activeNode && activeNode.group === 'input';
+  const isDPTitleHover = hoverDPTitle && !activeNode;
+  const connected = activeNode ? getConnected(activeNode) : isDPTitleHover ? getAllNodeIds() : new Set();
+  const activeEdges = activeNode ? getActiveEdges(activeNode) : null;
+
+  // Group boxes
+  drawGroupBox('DP Cowork', ['I1','I2','I3','I4','I5','I6','I7'], frame);
+  drawGroupBox('Agent Layer', ['A01','A02','A03','A04'], frame);
+
+  // Edges
+  for (const [fId, tId, type] of edgeData) {
+    const from = nodeMap[fId], to = nodeMap[tId];
+    if (!from || !to) continue;
+    let hl = false;
+    if (isDPTitleHover) {
+      hl = true; // DP Cowork title hover → all edges
+    } else if (activeEdges) {
+      hl = activeEdges.some(([a, b]) => a === fId && b === tId);
+    } else if (activeNode) {
+      hl = activeNode.id === fId || activeNode.id === tId;
+      // Agent 01~04 호버 시 RETRY 엣지 제외
+      if (hl && agentStepIds.has(activeNode.id) && (fId === 'RETRY' || tId === 'RETRY')) hl = false;
+    }
+    drawEdge(from, to, type, frame, hl);
+  }
+
+  // Nodes
+  const hasActive = activeNode || isDPTitleHover;
+  nodes.forEach(n => {
+    if (hasActive && n.id !== (activeNode && activeNode.id) && !connected.has(n.id)) {
+      ctx.save(); ctx.globalAlpha = 0.15; n.draw(); ctx.restore();
+    }
+  });
+  nodes.forEach(n => {
+    if (!hasActive || n.id === (activeNode && activeNode.id) || connected.has(n.id)) n.draw();
+  });
+
+  requestAnimationFrame(loop);
+}
+function startLoop() { loop(); }
+</script>
+</body>
+</html>
