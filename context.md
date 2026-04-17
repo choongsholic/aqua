@@ -124,10 +124,36 @@
 - 스트로크 슬라이더 동작
 - 사운드 효과 없음 (브라우저 정책 이슈로 제거)
 
+### CSV 데이터 연동 구조 (완료)
+- `data/` 폴더에 3개 CSV 생성
+  - `seg_status.csv`: seg, track(acquisition/retention), sub, value, prev_close, positive, invert_sign, alert
+  - `seg_panel.csv`: period, label, value, delta, positive (KPI 4행)
+  - `seg_visit.csv`: week, seg, uv_current, uv_prev (Migration Tracking용, 현재 미사용)
+- 우측 하단 고정 버튼 (darkmode-btn 동일 스타일, 폴더 업로드 아이콘)
+- `webkitdirectory` 폴더 선택 → 3개 CSV 자동 매핑
+- localStorage 캐싱: 첫 로드 후 새로고침 시 자동 복원
+- delta_v, pct는 value/prev_close로 코드가 자동 계산
+- 레이블(seg, sub 컬럼)은 CSV 값 그대로 표시 → 언제든 변경 가능
+
+### 세그 명칭 매핑
+- 앱미경험 = No-Show (Acquisition)
+- 장기미이용 = Long-D (Acquisition)
+- 간헐이용 = On-Off (Acquisition)
+- Light / Casual / Power (Retention, 동일)
+
+### 이상징후 판단 기준 (가이드 기준, 미구현)
+- **Acquisition**: `value > prev_close`이면 이상 (비활성 증가 = 나쁜 신호)
+  - 현재는 CSV `alert` 컬럼 수동 입력 방식
+  - 향후: value > prev_close 자동 판단으로 전환 예정
+- **Retention**: `평균 로그인 일수_당월 < 평균 로그인 일수_전월 - 0.3`이면 이상
+  - 현재 CSV에 avg_login 데이터 없음
+  - 향후: seg_status.csv에 avg_login_current, avg_login_prev 컬럼 추가 예정
+
 ### 다음 세션 작업 후보
+- [ ] Acquisition 이상징후 자동 판단 (value > prev_close → alert 자동)
+- [ ] Retention 이상징후: seg_status.csv에 avg_login_current, avg_login_prev 추가 + 자동 판단
 - [ ] 그리드 최종 정렬 재확인 (사이드바 접힘 시 버튼 위치)
 - [ ] 라이트모드 lnb-item 색상 재확인
-- [ ] 상세 데이터 연동 구조 설계
 - [ ] Migration Tracking 탭 화면 구현
 
 ---

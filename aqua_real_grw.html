@@ -415,6 +415,15 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   flex-shrink: 0;
 }
 
+/* ══ Load Button (우측 하단 고정) ══ */
+.load-btn-wrap {
+  position: fixed;
+  bottom: 16px;
+  right: 24px;
+  z-index: 100;
+}
+.load-btn-wrap .darkmode-btn { min-width: 40px; min-height: 40px; }
+
 /* ══ Footer ══ */
 .dashboard-footer {
   flex-shrink: 0;
@@ -429,6 +438,18 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
 </style>
 </head>
 <body>
+
+<!-- 우측 하단 데이터 불러오기 버튼 -->
+<div class="load-btn-wrap">
+  <div class="darkmode-btn" id="load-btn" onclick="document.getElementById('folder-input').click()" title="데이터 폴더 불러오기">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M3 19V7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M13 15l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="16" y1="12" x2="16" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <input type="file" id="folder-input" webkitdirectory style="display:none" onchange="loadDataFolder(this.files)">
+</div>
 
 <!-- Bottom controls: 스크립트보다 앞에 위치, overflow:hidden 밖 -->
 <div class="lnb-bottom">
@@ -642,10 +663,24 @@ function buildTanks(tanks, containerId) {
   }).join('');
 }
 
+// localStorage 캐시 로드 시도
+(function loadFromCache() {
+  try {
+    const cached = localStorage.getItem('aqua_data');
+    if (cached) {
+      const d = JSON.parse(cached);
+      if (d.period)      DATA.period      = d.period;
+      if (d.metrics)     DATA.metrics     = d.metrics;
+      if (d.acquisition) DATA.acquisition = d.acquisition;
+      if (d.retention)   DATA.retention   = d.retention;
+    }
+  } catch(e) {}
+})();
+
 document.getElementById('period-val').textContent = DATA.period;
 buildMetrics();
-buildTanks(randomizeTanks(DATA.acquisition), 'acq-tanks');
-buildTanks(randomizeTanks(DATA.retention),   'ret-tanks');
+buildTanks(DATA.acquisition, 'acq-tanks');
+buildTanks(DATA.retention,   'ret-tanks');
 document.fonts.ready.then(() => animateTanks());
 
 // ── 테마 상태 (applyStrokeScale에서 참조하므로 먼저 선언) ──
@@ -721,6 +756,101 @@ function toggleTheme() {
   const knob = document.querySelector('.toggle-knob');
   const S    = parseFloat(knob.style.width) / 100 || 0.14;
   applyStrokeScale(S);
+}
+
+// ── CSV 데이터 폴더 로더 ──
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const headers = lines[0].split(',').map(h => h.trim());
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = line.split(',').map(v => v.trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = vals[i] ?? '');
+    return obj;
+  });
+}
+
+function loadDataFolder(files) {
+  const fileMap = {};
+  Array.from(files).forEach(f => {
+    const name = f.name.toLowerCase();
+    if (name === 'seg_status.csv') fileMap.status = f;
+    if (name === 'seg_panel.csv')  fileMap.panel  = f;
+    if (name === 'seg_visit.csv')  fileMap.visit  = f;
+  });
+
+  function readFile(file) {
+    return new Promise(resolve => {
+      const r = new FileReader();
+      r.onload = e => resolve(e.target.result);
+      r.readAsText(file, 'UTF-8');
+    });
+  }
+
+  const promises = [];
+  const keys = [];
+  Object.entries(fileMap).forEach(([k, f]) => { keys.push(k); promises.push(readFile(f)); });
+
+  Promise.all(promises).then(texts => {
+    const results = {};
+    keys.forEach((k, i) => results[k] = texts[i]);
+
+    if (results.panel) {
+      const rows = parseCSV(results.panel);
+      if (rows[0]?.period) DATA.period = rows[0].period;
+      DATA.metrics = rows.map(r => ({
+        label: r.label, value: r.value, delta: r.delta,
+        positive: r.positive === 'true'
+      }));
+    }
+
+    if (results.status) {
+      const rows = parseCSV(results.status);
+      function mapRow(r) {
+        const v  = parseFloat(r.value);
+        const pc = parseFloat(r.prev_close);
+        const d  = Math.abs(v - pc);
+        return {
+          seg:        r.seg,
+          sub:        r.sub,
+          value:      v,
+          prevClose:  pc,
+          deltaV:     Math.round(d),
+          pct:        parseFloat((d / pc * 100).toFixed(1)),
+          positive:   r.positive   === 'true',
+          invertSign: r.invert_sign === 'true',
+          alert:      r.alert       === 'true',
+        };
+      }
+      const acq = rows.filter(r => r.track === 'acquisition').map(mapRow);
+      const ret = rows.filter(r => r.track === 'retention').map(mapRow);
+      if (acq.length) DATA.acquisition = acq;
+      if (ret.length) DATA.retention   = ret;
+    }
+
+    // localStorage에 캐시 저장
+    try {
+      localStorage.setItem('aqua_data', JSON.stringify({
+        period:      DATA.period,
+        metrics:     DATA.metrics,
+        acquisition: DATA.acquisition,
+        retention:   DATA.retention,
+      }));
+    } catch(e) {}
+
+    // 재렌더링 (실데이터 → randomize 없음)
+    document.getElementById('period-val').textContent = DATA.period;
+    buildMetrics();
+    buildTanks(DATA.acquisition, 'acq-tanks');
+    buildTanks(DATA.retention,   'ret-tanks');
+    animateTanks();
+
+    // 버튼 로드 완료 표시
+    const btn = document.getElementById('load-btn');
+    btn.style.opacity = '0.35';
+    btn.title = '데이터 로드 완료';
+    btn.onclick = null;
+  });
 }
 </script>
 
