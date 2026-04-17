@@ -79,6 +79,13 @@ body,
               border-color 0.4s ease, color 0.4s ease;
 }
 
+:root {
+  --panel-w: 0px;
+}
+body.detail-open {
+  --panel-w: 360px;
+}
+
 body {
   background: var(--bg);
   color: var(--white);
@@ -88,7 +95,16 @@ body {
   min-height: 520px;
   overflow: hidden;
   display: flex;
+  flex-direction: row;
+}
+
+/* ══ Content Wrap (topbar + page-body) ══ */
+.content-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* ══ Top Bar ══ */
@@ -419,8 +435,9 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
 .load-btn-wrap {
   position: fixed;
   bottom: 16px;
-  right: 24px;
+  right: calc(var(--panel-w) + 24px);
   z-index: 100;
+  transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
 }
 .load-btn-wrap .darkmode-btn { min-width: 40px; min-height: 40px; }
 
@@ -435,6 +452,117 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   color: rgba(255,255,255,0.15);
   letter-spacing: 0.06em;
 }
+
+/* ══ Detail Panel ══ */
+.detail-panel {
+  flex-shrink: 0;
+  width: 0;
+  overflow: hidden;
+  overflow-y: auto;
+  transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
+  background: #000000;
+  display: flex; flex-direction: column;
+}
+.detail-panel.open { width: 360px; }
+
+/* Header */
+.detail-header {
+  padding: 20px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+  min-width: 360px;
+  flex-shrink: 0;
+}
+.detail-seg-name { font-family: var(--font-yu); font-weight: 700; font-size: 28px; color: #fff; line-height: 1.2; }
+.detail-seg-sub  { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 4px; }
+.detail-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,0.12); border: none;
+  color: #fff; font-size: 14px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.detail-close:hover { background: rgba(255,255,255,0.22); }
+
+/* KPI row (no card boxes) */
+.detail-kpi-row {
+  display: flex; gap: 49px;
+  padding: 12px 24px;
+  min-width: 360px;
+  flex-shrink: 0;
+}
+.detail-kpi-item { display: flex; flex-direction: column; gap: 4px; }
+.detail-kpi-label { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.36); }
+.detail-kpi-value-row { display: flex; align-items: baseline; gap: 2px; }
+.detail-kpi-num  { font-family: var(--font-sf); font-weight: 700; font-size: 34px; color: #fff; line-height: 1; }
+.detail-kpi-unit { font-family: var(--font-sf); font-weight: 700; font-size: 16px; color: #fff; line-height: 1; }
+
+/* Content sections */
+.detail-section {
+  padding: 32px 24px;
+  min-width: 360px;
+  flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.detail-section-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 0; }
+
+/* Bar rows (연령대) */
+.detail-bar-row {
+  display: flex; align-items: center; gap: 0;
+  height: 36px;
+}
+.detail-bar-label {
+  width: 52px; flex-shrink: 0;
+  font-size: 16px; font-weight: 500;
+  color: rgba(255,255,255,0.4);
+}
+.detail-bar-label.active { color: #fff; }
+.detail-bar-track {
+  width: 200px; flex-shrink: 0; height: 6px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255,255,255,0.14) 0px, rgba(255,255,255,0.14) 1px,
+    transparent 1px, transparent 9px
+  );
+  position: relative; overflow: hidden;
+}
+.detail-bar-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: #00D56D;
+  width: 0; transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+.detail-bar-pct {
+  width: 60px; flex-shrink: 0; text-align: right;
+  font-size: 16px; font-weight: 500;
+  color: rgba(255,255,255,0.4);
+}
+.detail-bar-pct.active { color: #fff; }
+
+/* Card rows (보유 카드) */
+.detail-card-row {
+  display: flex; align-items: center; gap: 0;
+  min-height: 50px;
+}
+.detail-rank-num {
+  width: 32px; flex-shrink: 0;
+  font-size: 20px; font-weight: 300;
+  color: #fff;
+}
+.detail-rank-num.dim { color: rgba(255,255,255,0.4); }
+.detail-card-col {
+  width: 220px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.detail-card-name {
+  font-size: 16px; font-weight: 500; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.detail-card-name.dim { color: rgba(255,255,255,0.4); }
+.detail-card-pct {
+  width: 60px; flex-shrink: 0; text-align: right;
+  font-size: 16px; font-weight: 500; color: #fff;
+}
+.detail-card-pct.dim { color: rgba(255,255,255,0.4); }
 </style>
 </head>
 <body>
@@ -500,66 +628,88 @@ const DATA = {
 // ══════════════════════════════════════════════════════════
 </script>
 
-<!-- Top Bar -->
-<header class="topbar">
-  <div class="topbar-title">DP-AQUA</div>
-  <div class="topbar-metrics" id="topbar-metrics"></div>
-</header>
+<!-- Content Wrap (topbar + page-body — shrinks when detail panel opens) -->
+<div class="content-wrap">
 
-<!-- Body -->
-<div class="page-body">
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="topbar-title">DP-AQUA</div>
+    <div class="topbar-metrics" id="topbar-metrics"></div>
+  </header>
 
-  <!-- Left Nav -->
-  <nav class="lnb">
-    <div class="lnb-nav">
-      <div class="lnb-item active">HOME</div>
-      <div class="lnb-item">MENU 1</div>
-      <div class="lnb-item">MENU 2</div>
-      <div class="lnb-item">MENU 3</div>
-    </div>
-  </nav>
+  <!-- Body -->
+  <div class="page-body">
 
-  <!-- Main -->
-  <main class="main">
+    <!-- Left Nav -->
+    <nav class="lnb">
+      <div class="lnb-nav">
+        <div class="lnb-item active">HOME</div>
+        <div class="lnb-item">MENU 1</div>
+        <div class="lnb-item">MENU 2</div>
+        <div class="lnb-item">MENU 3</div>
+      </div>
+    </nav>
 
-    <div class="aquarium-container">
+    <!-- Main -->
+    <main class="main">
 
-      <!-- Header -->
-      <div class="aquarium-header">
-        <div class="period-label">
-          <span class="period-key">기준일 :</span>
-          <span class="period-val" id="period-val"></span>
+      <div class="aquarium-container">
+
+        <!-- Header -->
+        <div class="aquarium-header">
+          <div class="period-label">
+            <span class="period-key">기준일 :</span>
+            <span class="period-val" id="period-val"></span>
+          </div>
+          <div class="tabbar">
+            <button class="tab active">Seg Dashboard</button>
+            <button class="tab">Migration Tracking</button>
+          </div>
         </div>
-        <div class="tabbar">
-          <button class="tab active">Seg Dashboard</button>
-          <button class="tab">Migration Tracking</button>
+
+        <hr class="aquarium-divider">
+
+        <!-- Tracks -->
+        <div class="tracks-area">
+
+          <section class="track-section">
+            <div class="track-label">Acquisition Track</div>
+            <div class="tanks-row" id="acq-tanks"></div>
+          </section>
+
+          <hr class="track-divider" style="margin: 20px 0 0;">
+
+          <section class="track-section">
+            <div class="track-label">Retention Track</div>
+            <div class="tanks-row" id="ret-tanks"></div>
+          </section>
+
         </div>
+
       </div>
 
-      <hr class="aquarium-divider">
+      <div class="dashboard-footer">Digital Product · App User Quantitative Analysis</div>
 
-      <!-- Tracks -->
-      <div class="tracks-area">
+    </main>
 
-        <section class="track-section">
-          <div class="track-label">Acquisition Track</div>
-          <div class="tanks-row" id="acq-tanks"></div>
-        </section>
+  </div><!-- /page-body -->
 
-        <hr class="track-divider" style="margin: 20px 0 0;">
+</div><!-- /content-wrap -->
 
-        <section class="track-section">
-          <div class="track-label">Retention Track</div>
-          <div class="tanks-row" id="ret-tanks"></div>
-        </section>
-
-      </div>
-
+<!-- Detail Panel (body-level flex sibling) -->
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-header">
+    <div>
+      <div class="detail-seg-name" id="detail-seg-name"></div>
+      <div class="detail-seg-sub"  id="detail-seg-sub"></div>
     </div>
-
-    <div class="dashboard-footer">Digital Product · App User Quantitative Analysis</div>
-
-  </main>
+    <button class="detail-close" onclick="closeDetail()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+        <path d="M1 1l10 10M11 1L1 11" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </div>
+  <div id="detail-body"></div>
 </div>
 
 <script>
@@ -612,6 +762,26 @@ function countUp(el, target, decimals, duration) {
     if (p < 1) requestAnimationFrame(tick);
   })();
 }
+
+function scrambleText(el, target, duration) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-';
+  const len = target.length;
+  const resolved = new Array(len).fill(false);
+  const start = performance.now();
+  (function tick() {
+    const p = Math.min((performance.now() - start) / duration, 1);
+    // 앞에서부터 easeOut 비율로 resolve
+    const resolvedCount = Math.floor((1 - Math.pow(1 - p, 2)) * len);
+    for (let i = 0; i < resolvedCount; i++) resolved[i] = true;
+    el.textContent = target.split('').map((ch, i) => {
+      if (resolved[i]) return ch;
+      if (ch === ' ') return ' ';
+      return chars[Math.floor(Math.random() * chars.length)];
+    }).join('');
+    if (p < 1) requestAnimationFrame(tick);
+    else el.textContent = target;
+  })();
+}
 function animateCard(wrap) {
   const dur = 800;
   wrap.querySelectorAll('.tank-number[data-t]').forEach(el  => countUp(el, +el.dataset.t, 0, dur));
@@ -624,6 +794,7 @@ function animateTanks() {
   document.querySelectorAll('.tank-wrap').forEach(wrap => {
     animateCard(wrap);
     wrap.addEventListener('mouseenter', () => animateCard(wrap));
+    wrap.addEventListener('click', () => openDetail(wrap.dataset.seg, wrap.dataset.sub));
   });
 }
 
@@ -634,7 +805,7 @@ function buildTanks(tanks, containerId) {
     const arrow    = t.positive ? '▴' : '▾';
     const sign     = t.positive ? '+' : '-';
     return `
-      <div class="tank-wrap${t.alert ? ' alert' : ''}">
+      <div class="tank-wrap${t.alert ? ' alert' : ''}" data-seg="${t.seg}" data-sub="${t.sub}">
       <div class="tank-card">
         <div class="tank-top">
           <div class="tank-name-row">
@@ -664,6 +835,7 @@ function buildTanks(tanks, containerId) {
 }
 
 // localStorage 캐시 로드 시도
+let dataFromCSV = false;
 (function loadFromCache() {
   try {
     const cached = localStorage.getItem('aqua_data');
@@ -673,9 +845,16 @@ function buildTanks(tanks, containerId) {
       if (d.metrics)     DATA.metrics     = d.metrics;
       if (d.acquisition) DATA.acquisition = d.acquisition;
       if (d.retention)   DATA.retention   = d.retention;
+      dataFromCSV = true;
     }
   } catch(e) {}
 })();
+
+if (!dataFromCSV) {
+  DATA.acquisition = randomizeTanks(DATA.acquisition);
+  DATA.retention   = randomizeTanks(DATA.retention);
+  try { localStorage.setItem('aqua_data', JSON.stringify({ period: DATA.period, metrics: DATA.metrics, acquisition: DATA.acquisition, retention: DATA.retention })); } catch(e) {}
+}
 
 document.getElementById('period-val').textContent = DATA.period;
 buildMetrics();
@@ -854,6 +1033,124 @@ function loadDataFolder(files) {
 }
 </script>
 
+<script>
+// ══ 세그 상세 데이터 ══
+const SEG_DETAILS = {
+  'No-Show': {
+    avgCards:'1.2개', avgSpend:'32만원',
+    ageGroups:[{age:'20대',pct:35},{age:'30대',pct:28},{age:'40대',pct:22},{age:'50대',pct:11},{age:'60대+',pct:4}],
+    topCards:[['카드명 A',30],['카드명 B',22],['카드명 C',18],['카드명 D',16],['카드명 E',14]]
+  },
+  'Long-D': {
+    avgCards:'1.4개', avgSpend:'45만원',
+    ageGroups:[{age:'20대',pct:18},{age:'30대',pct:29},{age:'40대',pct:30},{age:'50대',pct:16},{age:'60대+',pct:7}],
+    topCards:[['카드명 B',28],['카드명 A',24],['카드명 C',17],['카드명 F',14],['카드명 D',10]]
+  },
+  'On-Off': {
+    avgCards:'1.6개', avgSpend:'68만원',
+    ageGroups:[{age:'20대',pct:24},{age:'30대',pct:32},{age:'40대',pct:25},{age:'50대',pct:14},{age:'60대+',pct:5}],
+    topCards:[['카드명 B',26],['카드명 A',21],['카드명 E',16],['카드명 C',12],['카드명 G',9]]
+  },
+  'Light': {
+    avgCards:'1.8개', avgSpend:'85만원',
+    ageGroups:[{age:'20대',pct:28},{age:'30대',pct:34},{age:'40대',pct:24},{age:'50대',pct:10},{age:'60대+',pct:4}],
+    topCards:[['카드명 A',29],['카드명 B',23],['카드명 C',19],['카드명 E',15],['카드명 D',8]]
+  },
+  'Casual': {
+    avgCards:'2.1개', avgSpend:'124만원',
+    ageGroups:[{age:'20대',pct:22},{age:'30대',pct:35},{age:'40대',pct:28},{age:'50대',pct:12},{age:'60대+',pct:3}],
+    topCards:[['카드명 B',31],['카드명 A',25],['카드명 C',18],['카드명 G',13],['카드명 E',7]]
+  },
+  'Power': {
+    avgCards:'2.8개', avgSpend:'215만원',
+    ageGroups:[{age:'20대',pct:18},{age:'30대',pct:36},{age:'40대',pct:30},{age:'50대',pct:13},{age:'60대+',pct:3}],
+    topCards:[['카드명 B',33],['카드명 C',27],['카드명 A',20],['카드명 G',11],['카드명 D',6]]
+  }
+};
+
+function openDetail(seg, sub) {
+  const d = SEG_DETAILS[seg];
+  if (!d) return;
+  scrambleText(document.getElementById('detail-seg-name'), seg, 600);
+  document.getElementById('detail-seg-sub').textContent  = sub;
+  // KPI 수치/단위 분리 (예: "1.2개" → num="1.2", unit="개")
+  function splitKpi(s) {
+    const m = s.match(/^([\d.]+)(.*)$/);
+    return m ? { num: m[1], unit: m[2].trim() } : { num: s, unit: '' };
+  }
+  const kpi1 = splitKpi(d.avgCards);
+  const kpi2 = splitKpi(d.avgSpend);
+  const maxAge  = Math.max(...d.ageGroups.map(a=>a.pct));
+  const maxCard = Math.max(...d.topCards.map(([,p])=>p));
+
+  document.getElementById('detail-body').innerHTML = `
+    <div class="detail-kpi-row">
+      <div class="detail-kpi-item">
+        <div class="detail-kpi-label">평균 카드 보유</div>
+        <div class="detail-kpi-value-row">
+          <div class="detail-kpi-num" data-t="${kpi1.num}" data-d="${kpi1.num.includes('.')? kpi1.num.split('.')[1].length : 0}">0</div>
+          <div class="detail-kpi-unit">${kpi1.unit}</div>
+        </div>
+      </div>
+      <div class="detail-kpi-item">
+        <div class="detail-kpi-label">월평균 결제</div>
+        <div class="detail-kpi-value-row">
+          <div class="detail-kpi-num" data-t="${kpi2.num}" data-d="${kpi2.num.includes('.')? kpi2.num.split('.')[1].length : 0}">0</div>
+          <div class="detail-kpi-unit">${kpi2.unit}</div>
+        </div>
+      </div>
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">연령대</div>
+      ${d.ageGroups.map(ag=>`
+        <div class="detail-bar-row">
+          <div class="detail-bar-label${ag.pct===maxAge?' active':''}">${ag.age}</div>
+          <div class="detail-bar-track"><div class="detail-bar-fill" data-w="${(ag.pct/maxAge*100).toFixed(1)}"></div></div>
+          <div class="detail-bar-pct${ag.pct===maxAge?' active':''}" data-t="${ag.pct}">0%</div>
+        </div>`).join('')}
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">보유 카드 TOP 5</div>
+      ${d.topCards.map(([card,pct],i)=>`
+        <div class="detail-card-row">
+          <div class="detail-rank-num${i>=3?' dim':''}">${i+1}</div>
+          <div class="detail-card-col">
+            <div class="detail-card-name${i>=3?' dim':''}">${card}</div>
+            <div class="detail-bar-track"><div class="detail-bar-fill" data-w="${(pct/maxCard*100).toFixed(1)}"></div></div>
+          </div>
+          <div class="detail-card-pct${i>=3?' dim':''}" data-t="${pct}">0%</div>
+        </div>`).join('')}
+    </div>
+  `;
+  document.getElementById('detail-panel').classList.add('open');
+  document.body.classList.add('detail-open');
+  // 바 + 숫자 애니메이션
+  requestAnimationFrame(() => {
+    document.querySelectorAll('#detail-body .detail-bar-fill').forEach(el => {
+      el.style.width = el.dataset.w + '%';
+    });
+    document.querySelectorAll('#detail-body .detail-kpi-num[data-t]').forEach(el => {
+      countUp(el, +el.dataset.t, +el.dataset.d, 800);
+    });
+    document.querySelectorAll('#detail-body [data-t].detail-bar-pct, #detail-body [data-t].detail-card-pct').forEach(el => {
+      const target = +el.dataset.t;
+      const start = performance.now();
+      (function tick() {
+        const p = Math.min((performance.now() - start) / 800, 1);
+        const e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(e * target) + '%';
+        if (p < 1) requestAnimationFrame(tick);
+        else el.textContent = target + '%';
+      })();
+    });
+  });
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+  document.body.classList.remove('detail-open');
+}
+</script>
 
 </body>
 </html>

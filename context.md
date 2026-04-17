@@ -149,12 +149,38 @@
   - 현재 CSV에 avg_login 데이터 없음
   - 향후: seg_status.csv에 avg_login_current, avg_login_prev 컬럼 추가 예정
 
+### 레이아웃 구조 (최신)
+- `body`: `flex-direction: row`
+- `.content-wrap` (flex:1): topbar + page-body를 감싸는 wrapper
+- `detail-panel`: body 직하위 flex sibling (content-wrap 밖)
+- 패널 열릴 때 `body.detail-open` → `--panel-w: 360px` CSS var 활성화
+- `load-btn-wrap`: `right: calc(var(--panel-w) + 24px)` + transition으로 패널과 함께 이동
+
+### 세그 상세 패널 (완료)
+- 탱크 카드 클릭 시 우측 스플릿 패널 오픈 (width: 0 → 360px)
+- 패널 bg: 항상 pure `#000` (라이트/다크 무관)
+- Figma 노드 `672:80971` 기준으로 디자인 (파일: Main_Dev)
+- **Header**: YouandiNewKr Bold 28px + 32x32 원형 close btn (rgba 12%)
+- **KPI row**: 카드박스 없이 플랫 — label 14px 36% + 34px Bold 숫자 + 16px Bold 단위, gap 49px
+- **연령대**: title 20px Bold + 행 label(52px 16px) + 바(200px 6px, 9px tick 패턴 + #00D56D fill) + pct(60px 16px)
+- **보유 카드 TOP 5**: rank(32px fw=300, 1~3 white / 4~5 40%) + 카드명+바 col(220px) + pct(60px)
+- `SEG_DETAILS` 객체: No-Show/Long-D/On-Off/Light/Casual/Power 각 avgCards, avgSpend, ageGroups, topCards 정의
+
+### 애니메이션
+- `countUp(el, target, decimals, duration)`: easeOutCubic, 800ms
+- `scrambleText(el, target, duration)`: 랜덤 대문자+숫자 플리커 → 앞에서부터 확정, 600ms
+- 패널 오픈 시: 타이틀 scramble + KPI 숫자 countUp + 연령대/카드 % countUp + 바 width 애니메이션 동시 실행
+
+### 기준일 (period)
+- DATA 객체 `period` 필드에 수동 입력 (604번 줄 부근)
+- CSV 업로드 시 seg_panel.csv `period` 컬럼으로 자동 덮어쓰기
+- 현재 더미값 `'5. 1 ~ 5. 15'` — 실운영 시 매주 수정 필요
+
 ### 다음 세션 작업 후보
 - [ ] Acquisition 이상징후 자동 판단 (value > prev_close → alert 자동)
 - [ ] Retention 이상징후: seg_status.csv에 avg_login_current, avg_login_prev 추가 + 자동 판단
-- [ ] 그리드 최종 정렬 재확인 (사이드바 접힘 시 버튼 위치)
-- [ ] 라이트모드 lnb-item 색상 재확인
 - [ ] Migration Tracking 탭 화면 구현
+- [ ] 기준일(period) 실데이터로 교체
 
 ---
 
