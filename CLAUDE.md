@@ -10,6 +10,11 @@
 - "아쿠아 그로쓰 써밋"이라고 하면 변경된 파일을 확인하고 `context_growth.md`를 현재 작업 상태로 업데이트한 뒤 git commit + push
 - "아쿠아 그로쓰 풀"이라고 하면 git pull로 최신 파일을 받아오고 완료 여부를 알려줌
 
+## 템플릿 (Document_templete/)
+- "템플릿"이라고 하면 `./Document_templete/` 폴더의 context.md(없으면 DP context.md 템플릿 섹션)를 읽고 작업 준비 상태로 시작
+- "템플릿 써밋"이라고 하면 변경된 파일을 확인하고 context.md 템플릿 섹션을 업데이트한 뒤 `Document_templete/` 내 변경 파일 git add + commit + push
+- "템플릿 풀"이라고 하면 git pull로 최신 파일을 받아오고 완료 여부를 알려줌
+
 ---
 
 # 폰트 렌더링 규칙

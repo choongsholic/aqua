@@ -9,73 +9,17 @@
 - `dp-aqua_growth2.html` — 신규유입/이탈 제거 + 세그 간 이동 없는 정적 버전
 - `dp-aqua-guide.md` — 구현 가이드 (전체 스펙 정리)
 - `gm_dashboard.html` — 업무망 배포용 실전 대시보드 (파티클 제거, 로컬 폰트 적용)
-
----
-
-## 최근 완료 작업
-
-### dp-aqua_growth.html
-
-#### 상세페이지 — 주간 UV 추이 차트
-- **진입**: 헤더 MAU 영역 클릭 또는 T1 손가락 흔들기 제스처
-- **KPI**: 당월진행 763만 / 전월동기 749만 / 전월동기대비 ▲14만(green)
-- **차트**: 이번달(#50d278) + 전월동기(white 점선), 5주차
-- **크로스헤어**: 마우스 X → 1일 단위 스냅, 말풍선(4월 N일 + 주차 + 이번달/전월동기)
-
-#### 세그 현황판 탱크 UI
-- 레이아웃: 세그명+꺽쇠 / 큰 숫자+만 / ▲▼ 인디케이터 / 설명 텍스트
-- 호버 시: 아웃라인 80% 흰색, cursor:pointer, 틱 효과음
-- 하락 지표 색상: `rgba(0,112,240,0.95)` (파란색)
-
-#### 장기 미이용 슬라이드 패널 (dormantPanel)
-- 클릭 시 우측에서 슬라이드인 (width:400px)
-- 타이틀: "장기 미이용", 서브: "6개월 이상 미접속"
-- KPI 3개 카드, 연령대 바 차트, 보유 카드 TOP5, 주요 알림
-- 연령대/카드 프로그레스바 색상: `#50d278` (스타일 가이드 녹색)
-
-#### 이상 징후 감지 패널
-- MAU TRACK / RETENTION TRACK 섹션, 섹션 사이 점선
-- 고정 데이터: 미설치자 0, 장기미이용 1만, 간헐이용 2만 / Light 3만, Casual 2만, Power 0
-
-#### 이탈 존
-- 서브 텍스트: "전월 마감 기준"
-
-### dp-aqua_growth2.html (새로 생성)
-- dp-aqua_growth.html 복사본
-- **신규유입 / 이탈 사이드 존 제거** (drawSideZones 미호출)
-- **모든 탱크 구멍 막힘** (Retention 6개 + MAU 5개 홀 완전 제거)
-- **아쿠아리움 테두리 구멍 막힘** (new_in / churn_out 파이프 연결부)
-- **세그 간 이동 파티클 정지** (tryMigrations 비활성화)
-- **파이프 시각 제거** (drawAllPipes 미호출)
-- 페이드아웃 파티클: newZone 대신 light/casual/power 탱크 안에서 바로 리사이클
+- `aqua_real_grw.html` — 실데이터 POC 대시보드 (주력 작업 파일)
+- `uxi_aqua.html` — UXI 브랜드 페이지 (aqua_real_grw.html footer "UXI" 링크로 연결)
 
 ---
 
 ## 스타일 가이드
-- 녹색(성장/유입): `#50d278` / `rgba(80,210,120,0.95)`
-- 파란색(하락/이탈): `rgba(0,112,240,0.95)` — `COLOR.outflow`
-- 경고 빨강: `rgba(255,80,80,0.9)`
+- 녹색(성장/유입): `#00D56D` / `--clr-good` / `--clr-good-rgb: 0,213,109`
+- 빨강(하락/이탈): `#FF0238` / `--clr-bad` / `--clr-bad-rgb: 255,2,56`
+- 경고 빨강 테두리: `rgba(var(--clr-bad-rgb),0.40)` 기본 / `0.8` 호버 (슬라이더 비연동)
 - 폰트: `'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif`
-
----
-
----
-
-## gm_dashboard.html 작업 현황
-
-### 완료
-- 파티클 시뮬레이션 전체 제거 (Particle 클래스, buildGrid, applyRepulsion, applyMouseForce, tryMigrations 등)
-- 로컬 폰트 적용: `Fonts/SF-Pro-Display-Medium.otf`, `Fonts/SF-Pro-Display-Bold.otf`, `Fonts/YouandiNewKrTitle-Bold.ttf`
-  - weight 400/500 → Medium, weight 600/700/800 → Bold, YouandiNewKr → ttf 로컬
-- CDN 폰트(현대카드 서버) → 로컬 파일로 전환
-- 업무망 윈도우 환경 대응 완료
-
-### 폰트 규칙
-- 일반/얇은 텍스트 → SF Pro Display Medium
-- 굵은 텍스트 → SF Pro Display Bold
-- 로고/주요 지표 (명시적 요청 시) → YouandiNewKrTitle-Bold
-
----
+- 주요 숫자: `'YouandiNewKrTitle', sans-serif` (LF KPI 숫자 등)
 
 ---
 
@@ -88,109 +32,187 @@
 ### 완료된 작업
 
 #### 레이아웃 & 그리드
-- 좌우 마진 그리드: 24px (topbar, nav items, lnb-bottom 버튼, main 모두 일치)
-- aquarium-header: `padding: 14px 16px 14px 24px` (우측 16px = tracks-area 우측 패딩과 일치)
+- 좌우 마진 그리드: 24px
+- aquarium-header: `padding: 14px 16px 14px 24px`
 - main: `padding: 16px 24px 0`
-- 최소 높이: `min-height: 520px`
-- 가로 최소: `min-width: 1080px`
+- 최소 높이: `min-height: 520px` / 최소 가로: `min-width: 1080px`
 
 #### 사이드바 토글
-- lnb-bottom (버튼+슬라이더) → `<body>` 직하위, `position: fixed; left:0; width:220px; padding: 0 16px 0 24px`
+- lnb-bottom (버튼+슬라이더) → `<body>` 직하위, `position: fixed`
 - 사이드바 버튼: 레이아웃 아이콘 ↔ 햄버거 아이콘 전환
-- 접힐 때: `lnb` width→0, lnb-nav 좌로 페이드아웃
-- 버튼 위치 고정 (덜컹거림 없음)
+- 접힐 때: lnb width→0, lnb-nav 좌로 페이드아웃
+
+#### 슬라이더 (선 밝기)
+- `.toggle-bar`: `height: 6px`, `border-radius: 3px`, 호버 시 `height: 10px` / `border-radius: 5px` (0.18s 트랜지션)
+- `.toggle-knob`: `border-radius: 99px` (pill), 호버 시 `height: 10px`
+- 트랙 시각 요소는 `::before` 위장 (background-clip 이슈 해결)
+- 라이트모드: `body.light .toggle-bar::before { background: rgba(0,0,0,0.15); }`
+- `STROKE_BASE`: `--border` 0.10 / `--border-aquarium` 0.14 / `--border-card` 0.10 / `--border-divider` 0.12
+- alert 테두리(`rgba(var(--clr-bad-rgb),0.40)`)는 슬라이더 비연동 (색상이 달라 의도적 분리)
 
 #### 다크/라이트 모드
 - 완전 반전: 배경, 테두리, 텍스트, 카드, 탭바, 슬라이더 모두 전환
-- SVG 아이콘: `currentColor` 사용 → 모드에 따라 자동 반전
-- 전환 애니메이션: 0.4s ease (주요 요소 전체)
-- 라이트모드 슬라이더: `document.body.style.setProperty` 사용 (body > html 우선순위)
+- 라이트모드 세그 카드 배경: `background: rgba(255,255,255,1)`
 
 #### 탱크 카드 인터랙션
-- 호버 시: 아웃라인 border-color 전환 (0.25s), caret 100% opacity, tank-name 100% opacity
-- 이상 탱크: 기본 `rgba(255,80,80,0.52)`, 호버 `rgba(255,80,80,0.9)`
-- 라이트모드 이상 탱크 호버: `:not(.alert)` 예외 처리로 빨간색 유지
-- 숫자 카운트업 애니메이션: 호버 재실행, duration 800ms, easeOutCubic
+- 호버 시: 아웃라인 border-color 전환 (0.25s), caret 100% opacity
+- alert 탱크: 기본 `rgba(var(--clr-bad-rgb),0.40)`, 호버 `rgba(var(--clr-bad-rgb),0.8)`
+- 숫자 카운트업 애니메이션: 호버 재실행, 800ms easeOutCubic
+- 호버 틱 사운드: 모든 세그 카드 + LF 차트 버킷
+
+#### 복사 버튼 (LF 카드 + 세그 상세 패널)
+- 호버 시에만 표시, 클릭 시 체크마크로 전환
+- SVG mask로 앞쪽 rect가 뒤쪽 rect 일부를 잘라내는 클립보드 아이콘
+
+#### LF (Login Frequency) 탭
+- Acquisition 섹션: opacity/translateY + scale(0.9) 페이드아웃
+- Retention 3개 카드(Light/Casual/Power): 세로 확장, 꺽쇠 opacity:0
+- KPI 3개(당월평균/전월동기/전월대비) + Canvas 바 차트 + 범례 + 델타 칩
+- 바 차트: 당월 흰색(0.9)/전월 회색(0.22), Y축 그리드라인, X축 버킷레이블
+- 바 성장 애니메이션: `_barProg` easeOutCubic, 하단에서 위로
+- 해치 방향: 그린=아래→위, 레드=위→아래
+- hover 시 3개 중 나머지 opacity:0.4 fade
+- `.lf-kpi-row margin-bottom: 24px` (KPI행 ↔ 구간별 분포 제목 간격)
+- LF 툴팁(호버 말풍선): 라이트모드에서 shadow `rgba(0,0,0,0.18)` blur:16 offsetY:4
+
+#### LF 데이터 구조 (JS 하드코딩, LF_DATA 객체)
+- Light: curMean:1.2 / prevMean:1.8 / buckets: 0일/1~2일/3~7일/8일+
+- Casual: curMean:2.4 / prevMean:2.5
+- Power: curMean:3.2 / prevMean:3.6
+
+#### 세그 상세 패널
+- 탱크 카드 클릭 시 우측 스플릿 패널 (width: 0 → 360px)
+- 패널 bg: 항상 pure `#000`
+- Header: YouandiNewKr Bold 28px + 32x32 원형 close btn
+- KPI row: 플랫 — 34px Bold 숫자 + 16px Bold 단위, gap 49px
+- 연령대 바: 200px 6px, 9px tick 패턴 + #00D56D fill
+- `SEG_DETAILS` 객체: No-Show/Long-D/On-Off/Light/Casual/Power 정의
 
 #### 데이터
-- `DATA` 객체에서 수동 입력 후 `randomizeTanks()`로 랜덤 분산 적용
-- RANGES: No-Show/Long-D/On-Off/Light/Casual/Power 세그별 범위 정의
-- 등락 방향: `positive` 플래그 기반
+- `DATA` 객체 수동 입력 + `randomizeTanks()`로 랜덤 분산
+- CSV 폴더 업로드: seg_status.csv / seg_panel.csv / seg_visit.csv
+- localStorage 캐싱
 
-### 현재 상태
-- 다크/라이트 모드 완전 동작
-- 탱크 6개 (Acquisition 3 + Retention 3) 반응형 높이
-- 사이드바 토글 완전 동작
-- 스트로크 슬라이더 동작
-- 사운드 효과 없음 (브라우저 정책 이슈로 제거)
-
-### CSV 데이터 연동 구조 (완료)
-- `data/` 폴더에 3개 CSV 생성
-  - `seg_status.csv`: seg, track(acquisition/retention), sub, value, prev_close, positive, invert_sign, alert
-  - `seg_panel.csv`: period, label, value, delta, positive (KPI 4행)
-  - `seg_visit.csv`: week, seg, uv_current, uv_prev (Migration Tracking용, 현재 미사용)
-- 우측 하단 고정 버튼 (darkmode-btn 동일 스타일, 폴더 업로드 아이콘)
-- `webkitdirectory` 폴더 선택 → 3개 CSV 자동 매핑
-- localStorage 캐싱: 첫 로드 후 새로고침 시 자동 복원
-- delta_v, pct는 value/prev_close로 코드가 자동 계산
-- 레이블(seg, sub 컬럼)은 CSV 값 그대로 표시 → 언제든 변경 가능
-
-### 세그 명칭 매핑
-- 앱미경험 = No-Show (Acquisition)
-- 장기미이용 = Long-D (Acquisition)
-- 간헐이용 = On-Off (Acquisition)
-- Light / Casual / Power (Retention, 동일)
-
-### 이상징후 판단 기준 (가이드 기준, 미구현)
-- **Acquisition**: `value > prev_close`이면 이상 (비활성 증가 = 나쁜 신호)
-  - 현재는 CSV `alert` 컬럼 수동 입력 방식
-  - 향후: value > prev_close 자동 판단으로 전환 예정
-- **Retention**: `평균 로그인 일수_당월 < 평균 로그인 일수_전월 - 0.3`이면 이상
-  - 현재 CSV에 avg_login 데이터 없음
-  - 향후: seg_status.csv에 avg_login_current, avg_login_prev 컬럼 추가 예정
-
-### 레이아웃 구조 (최신)
-- `body`: `flex-direction: row`
-- `.content-wrap` (flex:1): topbar + page-body를 감싸는 wrapper
-- `detail-panel`: body 직하위 flex sibling (content-wrap 밖)
-- 패널 열릴 때 `body.detail-open` → `--panel-w: 360px` CSS var 활성화
-- `load-btn-wrap`: `right: calc(var(--panel-w) + 24px)` + transition으로 패널과 함께 이동
-
-### 세그 상세 패널 (완료)
-- 탱크 카드 클릭 시 우측 스플릿 패널 오픈 (width: 0 → 360px)
-- 패널 bg: 항상 pure `#000` (라이트/다크 무관)
-- Figma 노드 `672:80971` 기준으로 디자인 (파일: Main_Dev)
-- **Header**: YouandiNewKr Bold 28px + 32x32 원형 close btn (rgba 12%)
-- **KPI row**: 카드박스 없이 플랫 — label 14px 36% + 34px Bold 숫자 + 16px Bold 단위, gap 49px
-- **연령대**: title 20px Bold + 행 label(52px 16px) + 바(200px 6px, 9px tick 패턴 + #00D56D fill) + pct(60px 16px)
-- **보유 카드 TOP 5**: rank(32px fw=300, 1~3 white / 4~5 40%) + 카드명+바 col(220px) + pct(60px)
-- `SEG_DETAILS` 객체: No-Show/Long-D/On-Off/Light/Casual/Power 각 avgCards, avgSpend, ageGroups, topCards 정의
-
-### 애니메이션
-- `countUp(el, target, decimals, duration)`: easeOutCubic, 800ms
-- `scrambleText(el, target, duration)`: 랜덤 대문자+숫자 플리커 → 앞에서부터 확정, 600ms
-- 패널 오픈 시: 타이틀 scramble + KPI 숫자 countUp + 연령대/카드 % countUp + 바 width 애니메이션 동시 실행
-
-### 기준일 (period)
-- DATA 객체 `period` 필드에 수동 입력 (604번 줄 부근)
-- CSV 업로드 시 seg_panel.csv `period` 컬럼으로 자동 덮어쓰기
-- 현재 더미값 `'5. 1 ~ 5. 15'` — 실운영 시 매주 수정 필요
+#### 기타
+- Footer: "Digital Product · App User Quantitative Analysis · by UXI"
+  - UXI → `href="uxi_aqua.html"` (같은 탭 페이지 전환, target="_blank" 없음)
+  - 호버 시 흰색, underline 없음
 
 ### 다음 세션 작업 후보
 - [ ] Acquisition 이상징후 자동 판단 (value > prev_close → alert 자동)
-- [ ] Retention 이상징후: seg_status.csv에 avg_login_current, avg_login_prev 추가 + 자동 판단
-- [ ] Migration Tracking 탭 화면 구현
+- [ ] Retention 이상징후: avg_login_current, avg_login_prev 컬럼 추가 + 자동 판단
 - [ ] 기준일(period) 실데이터로 교체
+- [ ] LF 데이터 CSV 연동 (현재 JS 하드코딩)
 
 ---
 
-## 향후 작업
-- [ ] dp-aqua_growth2.html 기반 추가 수정 작업
-- [ ] 월간 보기 토글 (주간 ↔ 월간 전환)
-- [ ] T2 / T3 세그먼트 상세페이지 확장
-- [ ] WebGL 전환 (76,300개 파티클 — 100단위)
-- [ ] 실제 데이터 API 연동
-- [ ] 이상 신호 실시간 감지 로직
+## uxi_aqua.html (UXI 브랜드 페이지)
+
+### 파일 개요
+- Canvas 2D 기반 문자 그리드 페이지
+- "UXI" 마스크 텍스트 형체, SF Mono 폰트, 배경 #060606
+- aqua_real_grw.html footer에서 같은 탭 링크로 진입, 좌상단 ← 뒤로가기 버튼
+
+### 핵심 구조
+- `CHARS_IN`: 'AppUserQuantitativeAnalysis...' — UXI 마스크 내부 문자
+- `CHARS_OUT`: '0123456789' — 마스크 외부 문자
+- `CHARS_CHAOS`: 대소문자+숫자+특수문자 — 클릭/인트로 카오스용
+- `FONT_MASK`: Georgia serif (UXI 형체용 오프스크린 렌더링)
+- `FONT_FAM`: SF Mono, Menlo, Monaco (실제 표시 폰트)
+- 셀 크기: `cellW:13`, `cellH:20`
+- UXI 마스크: 화면 너비 92% 채우도록 폰트 크기 자동 계산
+
+### 행 이동 (스탁카토)
+- `sequence = [1, pause, 1, pause, 1, pause, 1, pause, 1, rest]`
+- cur===1 일 때만 `cellW/3` 이동
+- 짝수행 우→, 홀수행 좌←
+
+### 인터랙션
+#### 물고기 (자율 유영)
+- 자율 유영: 랜덤 target 이동, 벽 회피, 감쇠, 최대속도 7
+- 몸통 wiggle: 속도 수직 방향 sinusoidal 진동
+- 커서 300px 이내 접근 시 flee (force 2.8, 지수 1.4)
+- 잡기: 커서가 55px 이내 → `controlled=true`, 커서 숨김 (`html.controlled *`)
+  - 잡힌 상태: lerp 0.18로 커서 따라옴
+  - 잡힐 때 바운스 스케일 (catchBounceT)
+- 흔들기 해제: 700ms 내 방향 반전 3회 → 물고기 속도 20으로 랜덤 방향 튕김
+- 클릭 (잡힌 상태): 틱 사운드 + 카오스 파동 + 물고기 flee + clickBounce
+- Esc: 미구현 (흔들기로 대체)
+
+#### 클릭 카오스 (잡힌 상태에서만)
+- 링 웨이브 확장: waveFront = age * 0.55px/ms, waveW = 160 + age*0.08
+- 카오스 문자: `CHARS_CHAOS` 랜덤
+- 산개 방향: 클릭 중심에서 바깥 방향 * 28 + 랜덤 jitter * 14
+
+#### 마우스 호버 (알파벳 밀림)
+- 반경 520px, force = `(1-rd/520)^2 * 48`
+- UXI 내부: alpha 0.65~1.0 + flicker / 외부: alpha 0.10~0.72
+- 밀림은 물고기(fishX/fishY) 기준, 마우스 기준 아님
+
+### 인트로 애니메이션 (2000ms)
+- 각 셀에 `birthTime` (0~1400ms 랜덤)
+- birthTime 전: invisible
+- CHAOS_DUR 220ms: 매 프레임 CHARS_CHAOS 랜덤 플리커 (0.5~1.0 alpha)
+- SETTLE_DUR 350ms: 확률적으로 점점 고정 문자로 안착
+- → UXI 형체가 랜덤 코드에서 채워지는 터미널 느낌
+
+### Google Translate 차단
+- `<html lang="en" translate="no">`
+- `<meta name="google" content="notranslate">`
+
+---
+
+## Document_templete/template.html (팀 발표 템플릿)
+
+### 파일 개요
+- 단일 HTML 파일 발표 슬라이드 템플릿 (팀 데모데이용)
+- `slide-data.js`에 콘텐츠 입력 → `template.html` 브라우저에서 열기
+- 폰트: `fonts/` 폴더 로컬 파일 (SF-Pro-Display-Medium/Bold.otf, YouandiNewKrTitle-Bold.ttf)
+
+### 디자인 시스템
+- 배경: `--bg: #080808`, 서피스: `--surface: #141414`
+- 강조색: `--accent: #00D56D` / 네거티브: `--negative: #FF0238`
+- 텍스트: `--text: rgba(255,255,255,0.92)` / 서브: `--text-secondary: rgba(255,255,255,0.42)`
+- 테두리: `--border: rgba(255,255,255,0.10)`
+- 본문 폰트: `'SFProDisplay'` (font-family 이름, aqua 동일 방식)
+- 헤딩(h1/h2)/빅넘버 폰트: `'YouandiNewKrTitle', 'SFProDisplay', sans-serif`
+- 빅넘버 클래스: `.ba-big`, `.next-num`, `.next-roadmap-num`, `.built-step-num`, `.common-bignumber-value`, `.common-vlist-num` → 모두 YouandiNewKrTitle
+
+### 슬라이드 캔버스
+- wrapper 크기: **2040×1080px** (좌우 60px 버퍼 포함, 전환 잔상 방지)
+- 콘텐츠 패딩: `calc(clamp(32px,7vw,112px) + 60px)` (60px 버퍼 보정)
+- 스케일: `Math.min(innerWidth/2040, innerHeight/1080)`
+- wrapper에 `transition: transform 0.32s cubic-bezier(0.4,0,0.2,1)` (패널 열릴 때 부드럽게 축소)
+
+### 슬라이드 전환
+- `.slide`: `opacity:0; transform:translateX(60px)` → `.slide.active`: `opacity:1; transform:translateX(0)`
+- `.slide.exit-left`: `opacity:0; transform:translateX(-60px)`
+- transition: `opacity 0.5s + transform 0.5s cubic-bezier(0.4,0,0.2,1)`
+- body `transition: none` (그라디언트 전환 흰색 플래시 방지)
+
+### 주요 UI 결정
+- 헤더 위 서브태그(WHAT WE BUILT 등): `color: var(--text-secondary)` + `font-weight:700` (그린 아님)
+- 커버 레이블(SESSION 1.): 동일하게 `text-secondary + bold`
+- 문제카드 01/02/03 번호: `text-secondary` (레드 제거)
+- 아이콘/불릿 정렬: 모든 flex 컨테이너 `align-items:center` (Inter→SFPro 전환 시 margin-top 오정렬 수정)
+- `whatsnext-next-item`: `padding:20px 24px; border-radius:8px`
+- Inter 폰트 전면 제거 → 전부 `SFProDisplay`로 교체
+
+### 오버뷰 패널 (슬라이드 썸네일)
+- `↑` 키: 패널 열림 → 슬라이드 콘텐츠 위로 밀리며 축소 (트랜지션 동기화)
+- `↓` 키: 패널 닫힘
+- 패널 열린 상태: `←/→`로 썸네일 포커스 이동, `Enter`로 해당 슬라이드 이동
+- `Esc`도 닫힘 / 썸네일 클릭으로도 이동
+- 썸네일: 실제 슬라이드 DOM 클론 `scale(0.08824)` → 진짜 배경/콘텐츠 보임
+- 슬라이드 쿼리는 반드시 `#slidesWrapper` 범위 한정 (클론 중복 방지)
+- 비활성 테두리: `rgba(255,255,255,0.18)` 4px / 현재 장: `rgba(255,255,255,0.8)` 흰색 + 숫자 흰색 + 눈 아이콘
+- 포커스(이동 중): `#00D56D` 그린 테두리
+- 구분선: `border-top: 1px solid rgba(255,255,255,0.22)`
+- 썸네일 알값: `border-radius:8px`
+
+### 다음 세션 작업 후보
+- [ ] 라이트/다크 테마 전환 시 썸네일 배경 동기화 확인
+- [ ] 슬라이드 수 많을 때 오버뷰 패널 스크롤 UX 개선
 
 ---
 
