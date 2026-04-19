@@ -233,7 +233,7 @@
     .overview-thumb {
       width: 180px; height: 96px;
       overflow: hidden; position: relative; border-radius: 8px;
-      border: 4px solid rgba(255,255,255,0.18);
+      border: 2px solid rgba(255,255,255,0.18);
       transition: border-color 0.2s;
     }
     .overview-item.overview-focus .overview-thumb {
@@ -1463,7 +1463,7 @@
       var currentSlide = 0;
 
       // 슬라이드 배경 캐시 (투명 처리 전에 읽어야 함)
-      var slideBackgrounds = Array.from(slides).map(function(slide) {
+      slideBackgrounds = Array.from(slides).map(function(slide) {
         var s = window.getComputedStyle(slide);
         return { color: s.backgroundColor, image: s.backgroundImage };
       });
@@ -1553,8 +1553,16 @@
       });
 
 
-      // 테마 변경 시 배경 동기화
-      window.onThemeChange = function() { syncOuterBackground(currentSlide); };
+      // 테마 변경 시 배경 캐시 재빌드 후 동기화
+      window.onThemeChange = function() {
+        slides.forEach(function(slide) { slide.style.background = ''; });
+        slideBackgrounds = Array.from(slides).map(function(slide) {
+          var s = window.getComputedStyle(slide);
+          return { color: s.backgroundColor, image: s.backgroundImage };
+        });
+        slides.forEach(function(slide) { slide.style.background = 'transparent'; });
+        syncOuterBackground(currentSlide);
+      };
 
       // 초기 슬라이드 표시 (배경 즉시 적용)
       showSlide(0);
@@ -1669,6 +1677,7 @@
     var OVERVIEW_H = 220;
     var overviewOpen = false;
     var overviewFocus = 0;
+    var slideBackgrounds = [];
 
     function buildOverview() {
       var slides = document.getElementById('slidesWrapper').querySelectorAll('.slide');
@@ -1685,6 +1694,13 @@
 
         var clone = slide.cloneNode(true);
         clone.classList.add('overview-clone');
+        var cached = slideBackgrounds[i];
+        if (cached) {
+          clone.style.background = 'none';
+          clone.style.backgroundColor = cached.color;
+          clone.style.backgroundImage = cached.image;
+          clone.style.backgroundSize = '100% 100%';
+        }
         thumb.appendChild(clone);
 
         var num = document.createElement('div');
