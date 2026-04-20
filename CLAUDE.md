@@ -1,18 +1,13 @@
 # 트리거 규칙
 
-## DP-AQUA (dp-aqua.html 세트)
+## 아쿠아 (DP 폴더 전체 — Document_templete 제외)
 - "아쿠아"라고 하면 `./context.md` 파일을 읽고 이전 작업 맥락을 파악한 뒤 바로 작업 준비 상태로 시작
-- "아쿠아 푸시"라고 하면 변경된 파일을 확인하고 `context.md`를 현재 작업 상태로 업데이트한 뒤 git add + commit + push
+- "아쿠아 푸시"라고 하면 변경된 파일을 확인하고 `context.md`를 현재 작업 상태로 업데이트한 뒤 git add + commit + push (단, `Document_templete/` 변경분은 제외)
 - "아쿠아 풀"이라고 하면 git pull로 최신 파일을 받아오고 완료 여부를 알려줌
 
-## DP-AQUA Growth (dp-aqua_growth.html 세트)
-- "아쿠아 그로쓰"라고 하면 `./context_growth.md` 파일을 읽고 이전 작업 맥락을 파악한 뒤 바로 작업 준비 상태로 시작
-- "아쿠아 그로쓰 푸시"라고 하면 변경된 파일을 확인하고 `context_growth.md`를 현재 작업 상태로 업데이트한 뒤 git add + commit + push
-- "아쿠아 그로쓰 풀"이라고 하면 git pull로 최신 파일을 받아오고 완료 여부를 알려줌
-
-## 템플릿 (Document_templete/)
+## 템플릿 (Document_templete/ 폴더만)
 - "템플릿"이라고 하면 `./Document_templete/` 폴더의 context.md(없으면 DP context.md 템플릿 섹션)를 읽고 작업 준비 상태로 시작
-- "템플릿 푸시"라고 하면 변경된 파일을 확인하고 context.md 템플릿 섹션을 업데이트한 뒤 `Document_templete/` 내 변경 파일 git add + commit + push
+- "템플릿 푸시"라고 하면 변경된 파일을 확인하고 context.md 템플릿 섹션을 업데이트한 뒤 `Document_templete/` 내 변경 파일만 git add + commit + push
 - "템플릿 풀"이라고 하면 git pull로 최신 파일을 받아오고 완료 여부를 알려줌
 
 ---
