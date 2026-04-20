@@ -56,14 +56,15 @@
       --positive: #00b85e; --negative: #FF0238; --warning: #d97706;
     }
 
-    html, body { height: 100%; overflow: hidden; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); }
+    html.theme-dark, html.theme-dark body { background: #080808; }
+    html.theme-light, html.theme-light body { background: #F5F5F3; }
     body {
       font-family: 'SFProDisplay', 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
-      background: var(--bg); color: var(--text);
+      color: var(--text);
       line-height: 1.6; -webkit-font-smoothing: antialiased;
       display: flex; justify-content: center; align-items: center;
       transition: none;
-      background: #080808;
     }
     h1,h2,h3,h4,h5,h6 { color: var(--text); letter-spacing: -0.02em; line-height: 1.15; text-wrap: balance; }
     h1 { font-family: 'YouandiNewKrTitle', 'SFProDisplay', sans-serif; font-weight: 700; }

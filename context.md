@@ -220,6 +220,7 @@
 - `#bg-layer` + `#bg-layer-b` 두 레이어 교대로 사용
 - `syncOuterBackground`에서 다음 레이어 opacity 1, 현재 레이어 opacity 0 (0.5s cubic-bezier)
 - 슬라이드 전환 시 배경 컬러/이미지 점프 제거
+- **베이스 배경 테마 동기화**: `html.theme-dark` → `#080808`, `html.theme-light` → `#F5F5F3` 강제. 기존 body `#080808` 하드코딩으로 라이트 모드 크로스페이드 중간에 검정 깜빡임 발생하던 문제 해결
 
 ### 테마 localStorage
 - 키: `viz-theme-v3` (이전 `viz-theme` 폐기)
