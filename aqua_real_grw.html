@@ -24,8 +24,12 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 :root {
-  --green:           #00D56D;
-  --red:             #FF3844;
+  --clr-good:        #00D56D;
+  --clr-good-rgb:    0,213,109;
+  --clr-bad:         #FF0238;
+  --clr-bad-rgb:     255,2,56;
+  --green:           var(--clr-good);
+  --red:             var(--clr-bad);
   --white:           #ffffff;
   --black:           #000000;
   --bg:              #000000;
@@ -50,7 +54,7 @@ body.light {
   --border-card:     rgba(0,0,0,0.10);
   --border-divider:  rgba(0,0,0,0.12);
   --muted:           rgba(0,0,0,0.35);
-  --card-bg:         rgba(0,0,0,0.05);
+  --card-bg:         #ffffff;
   --white:           #000000;
 }
 body.light .darkmode-btn { background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.15); color: rgba(0,0,0,0.7); }
@@ -58,11 +62,13 @@ body.light .darkmode-btn:hover { background: rgba(0,0,0,0.15); }
 body.light .tabbar { background: rgba(0,0,0,0.08); }
 body.light .tab.active { background: #000; color: #fff; border-color: #000; }
 body.light .tab:hover:not(.active) { color: rgba(0,0,0,0.6); }
-body.light .tank-wrap:not(.alert):hover .tank-card { border-color: rgba(0,0,0,0.4); }
+body.light .tank-wrap:not(.alert) .tank-card:hover { border-color: rgba(0,0,0,0.4); }
 body.light .alert-badge { background: var(--red); color: #fff; }
-body.light .toggle-bar { background: rgba(0,0,0,0.15); }
+body.light .toggle-bar::before { background: rgba(0,0,0,0.15); }
 body.light .toggle-knob { background: rgba(0,0,0,0.4); }
-body.light .dashboard-footer { color: rgba(0,0,0,0.15); }
+body.light .toggle-bar:hover .toggle-knob { background: rgba(0,0,0,1); }
+body.light .toggle-knob { background: rgba(0,0,0,0.4); }
+body.light .dashboard-footer { color: rgba(0,0,0,0.40); }
 body.light .lnb-item:hover:not(.active) { color: rgba(0,0,0,0.5); }
 
 /* ── Theme transition ── */
@@ -208,17 +214,38 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
 .toggle-bar {
   flex: 1;
   height: 6px;
-  background: rgba(255,255,255,0.12);
-  border-radius: 3px;
+  background: none;
   position: relative;
   cursor: pointer;
+  padding: 12px 0;
+  margin: -12px 0;
+  box-sizing: content-box;
 }
+.toggle-bar::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%; transform: translateY(-50%);
+  height: 6px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+  transition: height 0.18s ease, border-radius 0.18s ease;
+  pointer-events: none;
+}
+.toggle-bar:hover::before { height: 10px; border-radius: 5px; }
 .toggle-knob {
   width: 50%;
-  height: 100%;
+  min-width: 6px;
+  height: 6px;
+  position: absolute;
+  top: 50%; left: 0;
+  transform: translateY(-50%);
   background: rgba(255,255,255,0.5);
-  border-radius: 3px;
+  border-radius: 99px;
+  transition: background 0.15s, height 0.18s ease;
+  pointer-events: none;
 }
+.toggle-bar:hover .toggle-knob { background: rgba(255,255,255,1); height: 10px; }
 
 /* ══ Main ══ */
 .main {
@@ -338,12 +365,12 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   border-radius: 25px;
   min-height: 0;
 }
-.tank-wrap:hover .tank-caret { color: var(--white); }
-.tank-wrap:hover .tank-card { border-color: rgba(255,255,255,0.55); }
+.tank-card:hover .tank-caret { color: var(--white); }
+.tank-card:hover { border-color: rgba(255,255,255,0.80); }
 
 /* 이상 탱크 */
-.tank-wrap.alert .tank-card { border-color: rgba(255,80,80,0.52); }
-.tank-wrap.alert:hover .tank-card { border-color: rgba(255,80,80,0.9); }
+.tank-wrap.alert .tank-card { border-color: rgba(var(--clr-bad-rgb),0.40); }
+.tank-wrap.alert .tank-card:hover { border-color: rgba(var(--clr-bad-rgb),0.8); }
 
 /* ══ Tank Card ══ */
 .tank-card {
@@ -352,24 +379,24 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   border-radius: 24px;
   padding: 18px 20px 16px;
   height: 100%;
+  position: relative;
   max-height: 260px;
   min-height: 80px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
   cursor: pointer;
-  transition: border-color 0.15s;
+  transition: border-color 0.25s ease, max-height 0.42s cubic-bezier(0.4,0,0.2,1);
 }
-.tank-card { transition: border-color 0.25s ease; }
 
 /* Tank top */
 .tank-top { display: flex; flex-direction: column; gap: 5px; }
 
 .tank-name-row { display: flex; align-items: center; gap: 4px; }
-.tank-name  { font-weight: 700; font-size: 17px; color: var(--white); opacity: 0.64; transition: opacity 0.2s; }
+.tank-name  { font-weight: 700; font-size: 17px; color: var(--white); opacity: 0.64; transition: opacity 0.2s, font-size 0.42s cubic-bezier(0.4,0,0.2,1); }
 .tank-caret { font-size: 15px; color: var(--muted); transition: opacity 0.2s; }
-.tank-wrap:hover .tank-name  { opacity: 1; }
-.tank-wrap:hover .tank-caret { opacity: 1; }
+.tank-card:hover .tank-name  { opacity: 1; }
+.tank-card:hover .tank-caret { opacity: 1; }
 
 .tank-sub {
   font-weight: 500;
@@ -449,7 +476,7 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   font-weight: 500;
   font-size: 12px;
   background: transparent;
-  color: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.40);
   letter-spacing: 0.06em;
 }
 
@@ -458,12 +485,19 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   flex-shrink: 0;
   width: 0;
   overflow: hidden;
-  overflow-y: auto;
   transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
   background: #000000;
   display: flex; flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
 }
 .detail-panel.open { width: 360px; }
+#detail-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
 
 /* Header */
 .detail-header {
@@ -471,18 +505,68 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   display: flex; justify-content: space-between; align-items: center;
   min-width: 360px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: #000000;
+  z-index: 10;
 }
 .detail-seg-name { font-family: var(--font-yu); font-weight: 700; font-size: 28px; color: #fff; line-height: 1.2; }
 .detail-seg-sub  { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 4px; }
-.detail-close {
-  width: 32px; height: 32px; border-radius: 50%;
+.detail-close, .detail-play-btn {
+  width: 28px; height: 28px; border-radius: 50%;
   background: rgba(255,255,255,0.12); border: none;
   color: #fff; font-size: 14px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   cursor: pointer; flex-shrink: 0;
   transition: background 0.15s;
 }
-.detail-close:hover { background: rgba(255,255,255,0.22); }
+.detail-close:hover, .detail-play-btn:hover { background: rgba(255,255,255,0.22); }
+.detail-play-btn.playing { background: rgba(255,255,255,0.18); }
+.detail-play-btn.playing:hover { background: rgba(255,255,255,0.26); }
+.detail-header-btns { display: flex; gap: 12px; align-items: center; position: relative; }
+
+/* 인터벌 툴팁 */
+.play-interval-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: rgba(30,30,30,0.97);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 20px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  z-index: 100;
+  gap: 6px;
+  align-items: center;
+}
+.play-interval-tip.visible { display: flex; }
+.play-interval-tip-label { font-size: 11px; color: rgba(255,255,255,0.4); margin-right: 4px; }
+.play-interval-opt {
+  width: 32px; height: 28px;
+  border-radius: 14px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+.play-interval-opt:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.play-interval-opt.active { background: #fff; color: #000; }
+
+/* 탱크 활성화 상태 (플레이 중) */
+.tank-card.active {
+  border-width: 1px;
+  border-color: rgba(255,255,255,1);
+}
+.tank-card.active .tank-name  { opacity: 1; color: #fff; }
+.tank-card.active .tank-caret { opacity: 1; color: #fff; }
+body.light .tank-card.active .tank-name  { color: #000; }
+body.light .tank-card.active .tank-caret { color: #000; }
+.tank-wrap.alert .tank-card.active { border-color: rgba(var(--clr-bad-rgb),1); }
+body.light .tank-wrap:not(.alert) .tank-card.active { border-color: rgba(0,0,0,1); }
 
 /* KPI row (no card boxes) */
 .detail-kpi-row {
@@ -520,15 +604,15 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
 .detail-bar-track {
   width: 200px; flex-shrink: 0; height: 6px;
   background: repeating-linear-gradient(
-    90deg,
-    rgba(255,255,255,0.14) 0px, rgba(255,255,255,0.14) 1px,
-    transparent 1px, transparent 9px
+    45deg,
+    rgba(255,255,255,0.18) 0, rgba(255,255,255,0.18) 1.5px,
+    transparent 1.5px, transparent 4px
   );
   position: relative; overflow: hidden;
 }
 .detail-bar-fill {
   position: absolute; left: 0; top: 0; height: 100%;
-  background: #00D56D;
+  background: var(--clr-good);
   width: 0; transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
 }
 .detail-bar-pct {
@@ -563,6 +647,259 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   font-size: 16px; font-weight: 500; color: #fff;
 }
 .detail-card-pct.dim { color: rgba(255,255,255,0.4); }
+
+/* ══ Delta Chart (전월 비교) ══ */
+.delta-inner { display: flex; align-items: flex-start; gap: 16px; }
+.delta-labels { flex-shrink: 0; display: flex; flex-direction: column; padding-top: 12px; }
+.delta-lbl {
+  height: 16px; display: flex; align-items: center;
+  font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.36); white-space: nowrap;
+}
+.delta-lbl + .delta-lbl { margin-top: 14px; }
+.delta-lbl.curr { color: #fff; }
+
+.delta-area {
+  flex: 1; position: relative;
+  padding-top: 12px; padding-bottom: 50px;
+}
+.delta-bar {
+  height: 16px; width: 0;
+  transition: width 0.75s cubic-bezier(0.4,0,0.2,1);
+  position: relative; z-index: 1;
+}
+.delta-bar + .delta-bar { margin-top: 14px; }
+.delta-bar.prev-bar { background: rgba(255,255,255,0.28); }
+.delta-bar.curr-bar { background: #fff; }
+
+/* 해칭 영역 — top:0 = padding-top 시작점 = 바 8px 위 */
+.delta-hatch {
+  position: absolute; top: 0;
+  height: 70px; /* 12 + 16 + 14 + 16 + 12 */
+  left: 0; width: 0;
+  z-index: 2;
+  transition: left 0.75s cubic-bezier(0.4,0,0.2,1),
+              width 0.75s cubic-bezier(0.4,0,0.2,1);
+}
+.delta-hatch.pos {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(var(--clr-good-rgb),0.28) 0, rgba(var(--clr-good-rgb),0.28) 1.5px,
+    transparent 1.5px, transparent 4px
+  );
+  border-left: 1.5px solid rgba(var(--clr-good-rgb),0.7);
+  border-right: 1.5px solid rgba(var(--clr-good-rgb),0.7);
+}
+.delta-hatch.neg {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(var(--clr-bad-rgb),0.28) 0, rgba(var(--clr-bad-rgb),0.28) 1.5px,
+    transparent 1.5px, transparent 4px
+  );
+  border-left: 1.5px solid rgba(var(--clr-bad-rgb),0.8);
+  border-right: 1.5px solid rgba(var(--clr-bad-rgb),0.8);
+}
+.delta-hatch.zero {
+  background: none;
+  border-left: none; border-right: none;
+  height: 0;
+  border-top: 1.5px solid rgba(255,255,255,0.8);
+  min-width: 40px;
+  transform: translateX(-50%);
+  top: 50%;
+}
+
+/* 배지 (말풍선) */
+.delta-badge-wrap {
+  position: absolute; bottom: 0; left: 0;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  z-index: 3;
+  transition: left 0.75s cubic-bezier(0.4,0,0.2,1);
+}
+.delta-badge-arrow {
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+}
+.delta-badge-arrow.pos  { border-bottom: 5px solid var(--clr-good); }
+.delta-badge-arrow.neg  { border-bottom: 5px solid rgba(var(--clr-bad-rgb),0.9); }
+.delta-badge-arrow.zero { display: none; }
+.delta-badge {
+  font-size: 13px; font-weight: 700;
+  padding: 5px 13px; border-radius: 20px;
+  white-space: nowrap;
+}
+.delta-badge.pos  { background: var(--clr-good); color: #000; }
+.delta-badge.neg  { background: rgba(var(--clr-bad-rgb),0.9); color: #fff; }
+.delta-badge.zero { background: rgba(255,255,255,0.15); color: #fff; }
+/* ══ Login Frequency Tab 전환 ══ */
+/* LF 모드: overflow 해제만, flex 구조는 유지 (카드가 높이 fill) */
+.aquarium-container.aquarium-lf { overflow: visible; }
+.lf-mode { overflow: visible; }
+.lf-mode #ret-section { overflow: visible; }
+.lf-mode #ret-section .tanks-row { overflow: visible; }
+
+/* acq 동시 축소 */
+#acq-section {
+  max-height: 600px; overflow: hidden;
+  transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.42s cubic-bezier(0.4,0,0.2,1), margin 0.42s cubic-bezier(0.4,0,0.2,1);
+}
+.lf-mode #acq-section {
+  opacity: 0; transform: translateY(-16px) scale(0.9);
+  max-height: 0 !important; margin: 0 !important; overflow: hidden; pointer-events: none;
+}
+#acq-ret-divider { transition: opacity 0.3s ease, max-height 0.35s ease, margin 0.35s ease; }
+.lf-mode #acq-ret-divider { opacity: 0; max-height: 0; margin: 0; overflow: hidden; }
+#ret-section .track-label { transition: opacity 0.25s ease, max-height 0.3s ease, margin 0.3s ease; }
+.lf-mode #ret-section .track-label { opacity: 0; max-height: 0; overflow: hidden; margin: 0; }
+/* ret 카드: min-height 트랜지션으로 동시 성장 */
+.lf-mode #ret-section .tank-card { max-height: 820px; min-height: 400px; }
+/* animation 완료 후: min-height 제거해 복귀 시 자연스럽게 축소 */
+.lf-mode-settled #ret-section .tank-card { min-height: 0; }
+.lf-mode #ret-section .tank-caret { opacity: 0; pointer-events: none; }
+.lf-mode #ret-section .tank-name { opacity: 1; }
+
+/* seg 콘텐츠 ↔ LF 콘텐츠 전환 */
+.tank-seg-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+/* LF 모드: 타이틀(tank-top)은 유지, 숫자 영역만 숨김 */
+.lf-mode #ret-section .tank-seg-content { flex: 0 0 auto; }
+.lf-mode #ret-section .tank-seg-content .tank-spacer,
+.lf-mode #ret-section .tank-seg-content .tank-bottom { display: none; }
+.tank-lf-content { display: none; flex-direction: column; flex: 1; min-height: 0; }
+@keyframes lfContentIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.lf-mode #ret-section .tank-lf-content { display: flex; animation: lfContentIn 0.32s ease 0.22s both; }
+
+/* LF 내부 레이아웃 */
+.lf-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
+.lf-seg-desc { font-size: 12px; color: rgba(255,255,255,0.36); }
+.lf-warning-badge { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: rgba(var(--clr-bad-rgb),0.15); color: rgba(var(--clr-bad-rgb),0.9); }
+.lf-kpi-row { display: flex; gap: 8px; flex-shrink: 0; margin-bottom: 24px; }
+.lf-kpi-card { flex: 1; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 10px; display: flex; flex-direction: column; gap: 5px; }
+.lf-kpi-card.warn { background: rgba(var(--clr-bad-rgb),0.08); }
+.lf-kpi-label { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.3; }
+.lf-kpi-val { font-size: 26px; font-weight: 700; line-height: 1; color: #fff; }
+.lf-kpi-val.muted { color: rgba(255,255,255,0.45); }
+.lf-kpi-val.good { color: var(--clr-good); }
+.lf-kpi-val.bad { color: rgba(var(--clr-bad-rgb),0.9); }
+.lf-kpi-sub { font-size: 10px; color: rgba(255,255,255,0.25); }
+.lf-chart-title { font-size: 11px; color: rgba(255,255,255,0.3); margin-bottom: 6px; flex-shrink: 0; }
+.lf-canvas-wrap { flex: 1; min-height: 120px; position: relative; }
+.lf-canvas-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.lf-legend { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-top: 6px; }
+.lf-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.lf-legend-dot.curr { background: rgba(255,255,255,0.9); }
+.lf-legend-dot.prev { background: rgba(255,255,255,0.22); }
+.lf-legend-lbl { font-size: 10px; color: rgba(255,255,255,0.35); margin-right: 6px; }
+.lf-delta-row { display: flex; gap: 6px; flex-shrink: 0; margin-top: 8px; }
+.lf-delta-chip { flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 5px 4px; text-align: center; }
+.lf-delta-blabel { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.4); }
+.lf-delta-num { font-size: 11px; font-weight: 700; margin-top: 2px; }
+.lf-delta-num.pos { color: var(--clr-good); }
+.lf-delta-num.neg { color: rgba(var(--clr-bad-rgb),0.9); }
+.lf-delta-num.zero { color: rgba(255,255,255,0.3); }
+
+/* ── LF Flat KPI (detail-kpi 스타일) ── */
+.lf-warn-top { display: flex; justify-content: flex-end; margin-bottom: 8px; flex-shrink: 0; }
+.lf-kpi-flat { display: flex; flex-shrink: 0; margin-top: 32px; margin-bottom: 64px; }
+.lf-kpi-flat-item { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.lf-kpi-flat-label { font-size: 14px; font-weight: 500; color: var(--white); }
+.lf-kpi-flat-value-row { display: flex; align-items: baseline; gap: 3px; }
+.lf-kpi-flat-num { font-family: 'YouandiNewKrTitle', sans-serif; font-weight: 600; font-size: 34px; color: var(--white); line-height: 1; }
+.lf-kpi-flat-num.muted { color: var(--muted); }
+.lf-kpi-flat-num.good  { color: var(--clr-good); }
+.lf-kpi-flat-num.bad   { color: var(--clr-bad); }
+.lf-kpi-flat-unit { font-weight: 500; font-size: 13px; color: var(--white); line-height: 1; align-self: flex-end; margin-bottom: 3px; }
+.lf-kpi-flat-unit.muted { color: var(--muted); }
+.lf-kpi-flat-unit.good  { color: var(--clr-good); }
+.lf-kpi-flat-unit.bad   { color: var(--clr-bad); }
+
+/* X축 레이블 + 델타 (HTML, 캔버스 외부) */
+.lf-xaxis-row { display: flex; flex-shrink: 0; padding-left: 52px; margin-top: 4px; margin-bottom: 12px; }
+.lf-xcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.lf-xcol-lbl { font-size: 14px; font-weight: 500; color: var(--muted); }
+.lf-xcol-lbl.active { color: var(--white); font-weight: 700; }
+.lf-xcol-delta { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 1px; min-height: 28px; }
+.lf-xcol-delta.pos  { color: var(--clr-good); }
+.lf-xcol-delta.neg  { color: var(--clr-bad); }
+.lf-xcol-delta.zero { color: var(--muted); }
+.lf-xcol-sym { font-size: 24px; font-weight: 500; }
+
+/* LF: 카드 타이틀 */
+.lf-mode #ret-section .tank-name { font-size: 28px; font-weight: 600; }
+
+/* LF: 복사 버튼 */
+.lf-copy-btn {
+  display: none;
+  position: absolute; top: 18px; right: 20px;
+  width: 32px; height: 32px;
+  align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.08); border: none;
+  border-radius: 50%; cursor: pointer;
+  color: rgba(255,255,255,0.5);
+  transition: background 0.15s, color 0.15s;
+  z-index: 2;
+}
+.lf-copy-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.lf-copy-btn.copied { color: var(--clr-good); }
+.lf-mode #ret-section .tank-card:hover .lf-copy-btn,
+.lf-mode #ret-section .lf-copy-btn.copied { display: flex; }
+body.light .lf-copy-btn { background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.4); }
+body.light .lf-copy-btn:hover { background: rgba(0,0,0,0.1); color: #000; }
+body.light .lf-copy-btn.copied { color: var(--clr-good); }
+
+/* LF: 호버 시 나머지 카드 페이드아웃 */
+.lf-mode #ret-section .tanks-row .tank-wrap { transition: opacity 0.25s ease; }
+.lf-mode #ret-section .tanks-row:has(.tank-wrap:hover) .tank-wrap:not(:hover) { opacity: 0.4; }
+
+/* LF: 차트 섹션 */
+.lf-kpi-divider { display: none; }
+.lf-chart-section-title { font-size: 20px; font-weight: 700; color: var(--white); margin-bottom: 4px; flex-shrink: 0; }
+.lf-chart-section-sub   { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 20px; flex-shrink: 0; }
+.lf-warn-chip {
+  display: inline-flex; align-items: center;
+  background: var(--clr-bad); color: #fff;
+  font-size: 12px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px; margin-left: 6px;
+  vertical-align: middle; position: relative; top: -2px;
+}
+
+/* ── LF Light mode 반전 ── */
+body.light .lf-kpi-flat-label   { color: rgba(0,0,0,0.36); }
+body.light .lf-kpi-flat-num     { color: #000; }
+body.light .lf-kpi-flat-num.muted { color: rgba(0,0,0,0.4); }
+body.light .lf-kpi-flat-unit    { color: rgba(0,0,0,0.5); }
+body.light .lf-kpi-flat-unit.muted { color: rgba(0,0,0,0.3); }
+body.light .lf-chart-title      { color: rgba(0,0,0,0.3); }
+body.light .lf-legend-dot.curr  { background: rgba(0,0,0,0.65); }
+body.light .lf-legend-dot.prev  { background: rgba(0,0,0,0.2); }
+body.light .lf-legend-lbl       { color: rgba(0,0,0,0.35); }
+body.light .lf-delta-chip       { background: rgba(0,0,0,0.04); }
+body.light .lf-delta-blabel     { color: rgba(0,0,0,0.4); }
+body.light .lf-delta-num.zero   { color: rgba(0,0,0,0.3); }
+body.light .lf-warning-badge    { background: rgba(var(--clr-bad-rgb),0.12); color: rgba(var(--clr-bad-rgb),0.9); }
+
+/* 복사 버튼 */
+.detail-copy-wrap {
+  display: flex; justify-content: center;
+  padding: 20px 24px 60px;
+}
+.detail-copy-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.detail-copy-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.footer-uxi { color: inherit; text-decoration: none; transition: text-decoration 0.15s; }
+.footer-uxi:hover { color: #fff; }
+.detail-copy-btn.copied { border-color: rgba(var(--clr-good-rgb),0.5); color: var(--clr-good); background: rgba(var(--clr-good-rgb),0.08); }
 </style>
 </head>
 <body>
@@ -663,7 +1000,7 @@ const DATA = {
           </div>
           <div class="tabbar">
             <button class="tab active">Seg Dashboard</button>
-            <button class="tab">Migration Tracking</button>
+            <button class="tab">Login Frequency</button>
           </div>
         </div>
 
@@ -672,14 +1009,14 @@ const DATA = {
         <!-- Tracks -->
         <div class="tracks-area">
 
-          <section class="track-section">
+          <section class="track-section" id="acq-section">
             <div class="track-label">Acquisition Track</div>
             <div class="tanks-row" id="acq-tanks"></div>
           </section>
 
-          <hr class="track-divider" style="margin: 20px 0 0;">
+          <hr class="track-divider" id="acq-ret-divider" style="margin: 20px 0 0;">
 
-          <section class="track-section">
+          <section class="track-section" id="ret-section">
             <div class="track-label">Retention Track</div>
             <div class="tanks-row" id="ret-tanks"></div>
           </section>
@@ -688,7 +1025,7 @@ const DATA = {
 
       </div>
 
-      <div class="dashboard-footer">Digital Product · App User Quantitative Analysis</div>
+      <div class="dashboard-footer">Digital Product · App User Quantitative Analysis · by <a href="uxi_aqua.html" class="footer-uxi">UXI</a></div>
 
     </main>
 
@@ -703,11 +1040,30 @@ const DATA = {
       <div class="detail-seg-name" id="detail-seg-name"></div>
       <div class="detail-seg-sub"  id="detail-seg-sub"></div>
     </div>
-    <button class="detail-close" onclick="closeDetail()">
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-        <path d="M1 1l10 10M11 1L1 11" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-    </button>
+    <div class="detail-header-btns">
+      <div class="play-interval-tip" id="play-interval-tip">
+        <span class="play-interval-tip-label">Delay</span>
+        <button class="play-interval-opt" data-sec="2" onclick="setPlayInterval(2)">2s</button>
+        <button class="play-interval-opt" data-sec="4" onclick="setPlayInterval(4)">4s</button>
+        <button class="play-interval-opt active" data-sec="6" onclick="setPlayInterval(6)">6s</button>
+        <button class="play-interval-opt" data-sec="8" onclick="setPlayInterval(8)">8s</button>
+        <button class="play-interval-opt" data-sec="10" onclick="setPlayInterval(10)">10s</button>
+      </div>
+      <button class="detail-play-btn" id="detail-play-btn">
+        <svg id="play-icon" width="10" height="12" viewBox="0 0 12 14" fill="none">
+          <path d="M1 1l10 6-10 6V1z" fill="currentColor"/>
+        </svg>
+        <svg id="pause-icon" width="10" height="12" viewBox="0 0 12 14" fill="none" style="display:none">
+          <rect x="1" y="1" width="3.5" height="12" rx="1" fill="currentColor"/>
+          <rect x="7.5" y="1" width="3.5" height="12" rx="1" fill="currentColor"/>
+        </svg>
+      </button>
+      <button class="detail-close" onclick="closeDetail()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M1 1l10 10M11 1L1 11" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
   </div>
   <div id="detail-body"></div>
 </div>
@@ -753,12 +1109,13 @@ function randomizeTanks(arr) {
 }
 
 // ── 카운트업 애니메이션 ──
-function countUp(el, target, decimals, duration) {
+function countUp(el, target, decimals, duration, fmt) {
   const start = performance.now();
   (function tick() {
     const p = Math.min((performance.now() - start) / duration, 1);
     const e = 1 - Math.pow(1 - p, 3); // easeOutCubic
-    el.textContent = decimals > 0 ? (e * target).toFixed(decimals) : Math.round(e * target);
+    const v = decimals > 0 ? (e * target).toFixed(decimals) : Math.round(e * target);
+    el.textContent = fmt ? fmt(v) : v;
     if (p < 1) requestAnimationFrame(tick);
   })();
 }
@@ -793,8 +1150,12 @@ function animateCard(wrap) {
 function animateTanks() {
   document.querySelectorAll('.tank-wrap').forEach(wrap => {
     animateCard(wrap);
-    wrap.addEventListener('mouseenter', () => animateCard(wrap));
-    wrap.addEventListener('click', () => openDetail(wrap.dataset.seg, wrap.dataset.sub));
+    const card = wrap.querySelector('.tank-card');
+    if (card) card.addEventListener('mouseenter', () => { animateCard(wrap); tickSound(); });
+    wrap.addEventListener('click', () => {
+      if (currentTab === 'lf' && wrap.closest('#ret-tanks')) return;
+      openDetail(wrap.dataset.seg, wrap.dataset.sub);
+    });
   });
 }
 
@@ -807,25 +1168,27 @@ function buildTanks(tanks, containerId) {
     return `
       <div class="tank-wrap${t.alert ? ' alert' : ''}" data-seg="${t.seg}" data-sub="${t.sub}">
       <div class="tank-card">
-        <div class="tank-top">
-          <div class="tank-name-row">
-            <span class="tank-name">${t.seg}</span>
-            <span class="tank-caret">›</span>
+        <div class="tank-seg-content">
+          <div class="tank-top">
+            <div class="tank-name-row">
+              <span class="tank-name">${t.seg}</span>
+              <span class="tank-caret">›</span>
+            </div>
+            <div class="tank-sub">${t.sub}</div>
           </div>
-          <div class="tank-sub">${t.sub}</div>
-        </div>
-        <div class="tank-spacer"></div>
-        <div class="tank-bottom">
-          <div class="tank-number-row">
-            <span class="tank-number" data-t="${t.value}">0</span>
-            <span class="tank-unit">만</span>
-          </div>
-          <div class="tank-prev">전월 마감 <span class="prev-num" data-t="${t.prevClose}">0</span>만</div>
-          <div class="tank-indicator ${indClass}">
-            <span class="tank-arrow-sym">${arrow}</span>
-            <span class="tank-delta"><span class="delta-num" data-t="${t.deltaV}">0</span>만</span>
-            <span class="tank-pct">${sign}<span class="pct-num" data-t="${t.pct}">0.0</span>%</span>
-            ${t.alert ? '<span class="alert-badge">이상</span>' : ''}
+          <div class="tank-spacer"></div>
+          <div class="tank-bottom">
+            <div class="tank-number-row">
+              <span class="tank-number" data-t="${t.value}">0</span>
+              <span class="tank-unit">만</span>
+            </div>
+            <div class="tank-prev">전월 마감 <span class="prev-num" data-t="${t.prevClose}">0</span>만</div>
+            <div class="tank-indicator ${indClass}">
+              <span class="tank-arrow-sym">${arrow}</span>
+              <span class="tank-delta"><span class="delta-num" data-t="${t.deltaV}">0</span>만</span>
+              <span class="tank-pct">${sign}<span class="pct-num" data-t="${t.pct}">0.0</span>%</span>
+              ${t.alert ? '<span class="alert-badge">이상</span>' : ''}
+            </div>
           </div>
         </div>
       </div>
@@ -860,7 +1223,13 @@ document.getElementById('period-val').textContent = DATA.period;
 buildMetrics();
 buildTanks(DATA.acquisition, 'acq-tanks');
 buildTanks(DATA.retention,   'ret-tanks');
-document.fonts.ready.then(() => animateTanks());
+document.fonts.ready.then(() => {
+  animateTanks();
+  initPlayLongPress();
+  document.querySelectorAll('.tab').forEach((btn, i) => {
+    btn.addEventListener('click', () => switchTab(i === 0 ? 'seg' : 'lf'));
+  });
+});
 
 // ── 테마 상태 (applyStrokeScale에서 참조하므로 먼저 선언) ──
 let isLight = false;
@@ -930,11 +1299,11 @@ function toggleTheme() {
   isLight = !isLight;
   document.body.classList.toggle('light', isLight);
   document.getElementById('theme-icon').innerHTML = isLight ? SUN_SVG : MOON_SVG;
-  // 슬라이더 색상 재적용 (dark=흰, light=검)
   const bar  = document.querySelector('.toggle-bar');
   const knob = document.querySelector('.toggle-knob');
   const S    = parseFloat(knob.style.width) / 100 || 0.14;
   applyStrokeScale(S);
+  if (currentTab === 'lf') ['Light','Casual','Power'].forEach(drawLFChart);
 }
 
 // ── CSV 데이터 폴더 로더 ──
@@ -999,6 +1368,8 @@ function loadDataFolder(files) {
           positive:   r.positive   === 'true',
           invertSign: r.invert_sign === 'true',
           alert:      r.alert       === 'true',
+          inflow:     r.inflow  ? parseFloat(r.inflow)  : null,
+          outflow:    r.outflow ? parseFloat(r.outflow) : null,
         };
       }
       const acq = rows.filter(r => r.track === 'acquisition').map(mapRow);
@@ -1038,39 +1409,56 @@ function loadDataFolder(files) {
 const SEG_DETAILS = {
   'No-Show': {
     avgCards:'1.2개', avgSpend:'32만원',
+    flow:{ prev:130, curr:150, inflow:35, outflow:15 },
     ageGroups:[{age:'20대',pct:35},{age:'30대',pct:28},{age:'40대',pct:22},{age:'50대',pct:11},{age:'60대+',pct:4}],
     topCards:[['카드명 A',30],['카드명 B',22],['카드명 C',18],['카드명 D',16],['카드명 E',14]]
   },
   'Long-D': {
     avgCards:'1.4개', avgSpend:'45만원',
+    flow:{ prev:100, curr:120, inflow:28, outflow:8 },
     ageGroups:[{age:'20대',pct:18},{age:'30대',pct:29},{age:'40대',pct:30},{age:'50대',pct:16},{age:'60대+',pct:7}],
     topCards:[['카드명 B',28],['카드명 A',24],['카드명 C',17],['카드명 F',14],['카드명 D',10]]
   },
   'On-Off': {
     avgCards:'1.6개', avgSpend:'68만원',
+    flow:{ prev:125, curr:140, inflow:22, outflow:7 },
     ageGroups:[{age:'20대',pct:24},{age:'30대',pct:32},{age:'40대',pct:25},{age:'50대',pct:14},{age:'60대+',pct:5}],
     topCards:[['카드명 B',26],['카드명 A',21],['카드명 E',16],['카드명 C',12],['카드명 G',9]]
   },
   'Light': {
     avgCards:'1.8개', avgSpend:'85만원',
+    flow:{ prev:180, curr:200, inflow:38, outflow:18 },
     ageGroups:[{age:'20대',pct:28},{age:'30대',pct:34},{age:'40대',pct:24},{age:'50대',pct:10},{age:'60대+',pct:4}],
     topCards:[['카드명 A',29],['카드명 B',23],['카드명 C',19],['카드명 E',15],['카드명 D',8]]
   },
   'Casual': {
     avgCards:'2.1개', avgSpend:'124만원',
+    flow:{ prev:160, curr:180, inflow:42, outflow:22 },
     ageGroups:[{age:'20대',pct:22},{age:'30대',pct:35},{age:'40대',pct:28},{age:'50대',pct:12},{age:'60대+',pct:3}],
     topCards:[['카드명 B',31],['카드명 A',25],['카드명 C',18],['카드명 G',13],['카드명 E',7]]
   },
   'Power': {
     avgCards:'2.8개', avgSpend:'215만원',
+    flow:{ prev:80, curr:90, inflow:18, outflow:8 },
     ageGroups:[{age:'20대',pct:18},{age:'30대',pct:36},{age:'40대',pct:30},{age:'50대',pct:13},{age:'60대+',pct:3}],
     topCards:[['카드명 B',33],['카드명 C',27],['카드명 A',20],['카드명 G',11],['카드명 D',6]]
   }
 };
 
-function openDetail(seg, sub) {
+function openDetail(seg, sub, fromPlay) {
   const d = SEG_DETAILS[seg];
   if (!d) return;
+  // 클릭 시 항상 해당 세그 활성화
+  if (!fromPlay) {
+    setActiveTank(seg);
+    if (isPlaying) {
+      clearTimeout(playTimer);
+      const segs = getPlaySegs();
+      const idx  = segs.findIndex(t => t.seg === seg);
+      if (idx !== -1) playIndex = (idx + 1) % segs.length;
+      playTimer = setTimeout(playNext, playInterval);
+    }
+  }
   scrambleText(document.getElementById('detail-seg-name'), seg, 600);
   document.getElementById('detail-seg-sub').textContent  = sub;
   // KPI 수치/단위 분리 (예: "1.2개" → num="1.2", unit="개")
@@ -1082,6 +1470,22 @@ function openDetail(seg, sub) {
   const kpi2 = splitKpi(d.avgSpend);
   const maxAge  = Math.max(...d.ageGroups.map(a=>a.pct));
   const maxCard = Math.max(...d.topCards.map(([,p])=>p));
+
+  // 탱크 실데이터로 prev/curr 동기화
+  const tank = [...DATA.acquisition, ...DATA.retention].find(t => t.seg === seg);
+  const f = {
+    prev:    tank              ? tank.prevClose : d.flow.prev,
+    curr:    tank              ? tank.value     : d.flow.curr,
+    inflow:  tank?.inflow  != null ? tank.inflow  : d.flow.inflow,
+    outflow: tank?.outflow != null ? tank.outflow : d.flow.outflow,
+  };
+  const scaleMax = Math.max(f.prev, f.curr) * 1.08;
+  const prevPct  = (f.prev / scaleMax * 100).toFixed(1);
+  const currPct  = (f.curr / scaleMax * 100).toFixed(1);
+  const delta      = f.curr - f.prev;
+  const deltaSign  = delta >= 0 ? '+' : '';
+  const isGood     = tank ? (tank.invertSign ? delta < 0 : delta >= 0) : delta >= 0;
+  const deltaClass = delta === 0 ? 'zero' : (isGood ? 'pos' : 'neg');
 
   document.getElementById('detail-body').innerHTML = `
     <div class="detail-kpi-row">
@@ -1100,6 +1504,26 @@ function openDetail(seg, sub) {
         </div>
       </div>
     </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">전월 비교</div>
+      <div class="delta-inner">
+        <div class="delta-labels">
+          <div class="delta-lbl">전월 <span id="dc-lbl-prev" data-t="${f.prev}" style="display:inline-block;min-width:2.2em;text-align:right">0</span>만</div>
+          <div class="delta-lbl curr">당월 <span id="dc-lbl-curr" data-t="${f.curr}" style="display:inline-block;min-width:2.2em;text-align:right">0</span>만</div>
+        </div>
+        <div class="delta-area">
+          <div class="delta-bar prev-bar" id="dc-prev"></div>
+          <div class="delta-bar curr-bar" id="dc-curr"></div>
+          <div class="delta-hatch ${deltaClass}" id="dc-hatch"></div>
+          <div class="delta-badge-wrap" id="dc-badge">
+            <div class="delta-badge-arrow ${deltaClass}"></div>
+            <div class="delta-badge ${deltaClass}">${deltaSign}${delta}만</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="detail-section">
       <div class="detail-section-title">연령대</div>
       ${d.ageGroups.map(ag=>`
@@ -1121,6 +1545,12 @@ function openDetail(seg, sub) {
           <div class="detail-card-pct${i>=3?' dim':''}" data-t="${pct}">0%</div>
         </div>`).join('')}
     </div>
+    <div class="detail-copy-wrap">
+      <button class="detail-copy-btn" onclick="copySegData('${seg}', ${f.inflow}, ${f.outflow})">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><defs><mask id="cp-m-detail"><rect width="16" height="16" fill="white"/><rect x="5.7" y="1.7" width="7.6" height="9.6" rx="1.3" fill="black"/></mask></defs><rect x="2" y="4" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4" mask="url(#cp-m-detail)"/><rect x="5" y="1" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span id="copy-btn-label">복사</span>
+      </button>
+    </div>
   `;
   document.getElementById('detail-panel').classList.add('open');
   document.body.classList.add('detail-open');
@@ -1129,6 +1559,24 @@ function openDetail(seg, sub) {
     document.querySelectorAll('#detail-body .detail-bar-fill').forEach(el => {
       el.style.width = el.dataset.w + '%';
     });
+    // 델타 차트 위치 설정
+    const dcPrev  = document.getElementById('dc-prev');
+    const dcCurr  = document.getElementById('dc-curr');
+    const dcHatch = document.getElementById('dc-hatch');
+    const dcBadge = document.getElementById('dc-badge');
+    if (dcPrev) {
+      dcPrev.style.width  = prevPct + '%';
+      dcCurr.style.width  = currPct + '%';
+      const minP = Math.min(+prevPct, +currPct);
+      const maxP = Math.max(+prevPct, +currPct);
+      dcHatch.style.left  = minP + '%';
+      dcHatch.style.width = (maxP - minP) + '%';
+      dcBadge.style.left  = ((minP + maxP) / 2) + '%';
+      const dcLblPrev = document.getElementById('dc-lbl-prev');
+      const dcLblCurr = document.getElementById('dc-lbl-curr');
+      if (dcLblPrev) countUp(dcLblPrev, +dcLblPrev.dataset.t, 0, 800);
+      if (dcLblCurr) countUp(dcLblCurr, +dcLblCurr.dataset.t, 0, 800);
+    }
     document.querySelectorAll('#detail-body .detail-kpi-num[data-t]').forEach(el => {
       countUp(el, +el.dataset.t, +el.dataset.d, 800);
     });
@@ -1146,9 +1594,584 @@ function openDetail(seg, sub) {
   });
 }
 
+// ══ Login Frequency ══
+const BUCKETS = ['0일','1~2일','3~7일','8일+'];
+const BUCKET_COLORS = { '0일':'#EF4444','1~2일':'#F97316','3~7일':'#4ADE80','8일+':'#38BDF8' };
+const LF_DATA = {
+  Light:  { curMean:1.2, prevMean:1.8,
+            current:{'0일':98,'1~2일':150,'3~7일':35,'8일+':2},
+            prev:   {'0일':82,'1~2일':160,'3~7일':38,'8일+':5} },
+  Casual: { curMean:2.4, prevMean:2.5,
+            current:{'0일':42,'1~2일':153,'3~7일':94,'8일+':9},
+            prev:   {'0일':38,'1~2일':153,'3~7일':100,'8일+':7} },
+  Power:  { curMean:3.2, prevMean:3.6,
+            current:{'0일':12,'1~2일':57,'3~7일':90,'8일+':23},
+            prev:   {'0일':8,'1~2일':50,'3~7일':100,'8일+':24} },
+};
+
+let _audioCtx = null;
+function tickSound() {
+  if (navigator.vibrate) navigator.vibrate(4);
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    const t = _audioCtx.currentTime;
+    const o = _audioCtx.createOscillator();
+    const g = _audioCtx.createGain();
+    o.connect(g); g.connect(_audioCtx.destination);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(140, t);
+    o.frequency.exponentialRampToValueAtTime(80, t + 0.04);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 0.008);
+    g.gain.linearRampToValueAtTime(0.0001, t + 0.04);
+    o.start(t); o.stop(t + 0.045);
+  } catch(e){}
+}
+
+function lfCopy(seg, btn) {
+  const d = LF_DATA[seg];
+  if (!d) return;
+  const diff = +(d.curMean - d.prevMean).toFixed(1);
+  const sign = diff > 0 ? '+' : '';
+  const lines = [
+    `[${seg}] 로그인 빈도`,
+    `당월 평균: ${d.curMean}일 / 전월 동기: ${d.prevMean}일 / 전월 대비: ${sign}${diff}일`,
+    '',
+    ...Object.keys(d.current).map(b => {
+      const bd = d.current[b] - d.prev[b];
+      const bs = bd > 0 ? '+' : '';
+      return `${b}: 당월 ${d.current[b]}만 / 전월 ${d.prev[b]}만 / 전월 대비 ${bs}${bd}만`;
+    }),
+  ];
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polyline points="3,8 6.5,12 13,4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><defs><mask id="cp-m-${seg}"><rect width="16" height="16" fill="white"/><rect x="5.7" y="1.7" width="7.6" height="9.6" rx="1.3" fill="black"/></mask></defs><rect x="2" y="4" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4" mask="url(#cp-m-${seg})"/><rect x="5" y="1" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>`;
+    }, 2000);
+  });
+}
+
+function buildLFContent(seg) {
+  const d = LF_DATA[seg];
+  if (!d) return '';
+  const diff     = +(d.curMean - d.prevMean).toFixed(1);
+  const diffSign = diff > 0 ? '+' : '';
+  const isWarn   = diff <= -0.3;
+  const numClass = isWarn ? 'bad' : diff > 0 ? 'good' : '';
+  const SEG_DESC = { Light: '월 1~2회', Casual: '월 3~7회', Power: '월 8회 이상' };
+
+  return `<div class="tank-lf-content">
+    <div class="lf-kpi-flat">
+      <div class="lf-kpi-flat-item">
+        <div class="lf-kpi-flat-label">당월 평균 로그인</div>
+        <div class="lf-kpi-flat-value-row">
+          <span class="lf-kpi-flat-num" id="lf-kpi-cur-${seg}" data-t="${d.curMean}">0.0</span>
+          <span class="lf-kpi-flat-unit">일</span>
+        </div>
+      </div>
+      <div class="lf-kpi-flat-item">
+        <div class="lf-kpi-flat-label">전월 동기</div>
+        <div class="lf-kpi-flat-value-row">
+          <span class="lf-kpi-flat-num muted" id="lf-kpi-prev-${seg}" data-t="${d.prevMean}">0.0</span>
+          <span class="lf-kpi-flat-unit muted">일</span>
+        </div>
+      </div>
+      <div class="lf-kpi-flat-item">
+        <div class="lf-kpi-flat-label">전월 대비${isWarn ? ' <span class="lf-warn-chip">이상</span>' : ''}</div>
+        <div class="lf-kpi-flat-value-row">
+          <span class="lf-kpi-flat-num ${numClass}" id="lf-kpi-diff-${seg}" data-t="${Math.abs(diff)}" data-sign="${diffSign}">0.0</span>
+          <span class="lf-kpi-flat-unit ${numClass}">일</span>
+        </div>
+      </div>
+    </div>
+    <hr class="lf-kpi-divider">
+    <div class="lf-chart-section-title">구간별 분포</div>
+    <div class="lf-chart-section-sub">전월 vs 당월 동기 (3월/4월 1~5일)</div>
+    <div class="lf-canvas-wrap">
+      <canvas id="lf-canvas-${seg}"></canvas>
+    </div>
+    <div class="lf-xaxis-row">
+      ${BUCKETS.map(b => {
+        const bd  = d.current[b] - d.prev[b];
+        const cls = bd > 0 ? 'pos' : bd < 0 ? 'neg' : 'zero';
+        const sym = bd > 0 ? '▴' : bd < 0 ? '▾' : '';
+        return `<div class="lf-xcol">
+          <div class="lf-xcol-lbl">${b}</div>
+          <div class="lf-xcol-delta ${cls}">${sym ? `<span class="lf-xcol-sym">${sym}</span>` : ''}${Math.abs(bd)}만</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// Canvas helper: diagonal hatch between bars
+function lfDrawHatch(ctx, x, y, w, h, isPos) {
+  if (h <= 2 || w <= 0) return;
+  const hatchClr  = isPos ? 'rgba(0,213,109,0.4)' : 'rgba(255,2,56,0.4)';
+  const borderClr = isPos ? 'rgba(0,213,109,0.75)'  : 'rgba(255,2,56,0.8)';
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.strokeStyle = hatchClr; ctx.lineWidth = 1.5;
+  const step = 4;
+  for (let d = -(h + w); d < w + h; d += step) {
+    ctx.beginPath();
+    ctx.moveTo(x + d,     y);
+    ctx.lineTo(x + d + h, y + h);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.strokeStyle = borderClr; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x, y);     ctx.lineTo(x + w, y);     ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x + w, y + h); ctx.stroke();
+}
+
+// Canvas helper: rounded rect path
+function lfRoundRect(ctx, x, y, w, h, r) {
+  if (h <= 0) return;
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y,     x + w, y + r,     r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x,     y + h, x,     y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x,     y,     x + r, y,         r);
+  ctx.closePath();
+}
+
+function drawLFChart(seg) {
+  const canvas = document.getElementById('lf-canvas-' + seg);
+  if (!canvas) return;
+  const d = LF_DATA[seg];
+  if (!d) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.offsetWidth;
+  const H   = canvas.offsetHeight;
+  if (!W || !H) return;
+
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+
+  const padL = 52, padR = 8, padT = 10, padB = 8;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // ── Y-axis: 40만 단위, min 40px 간격 ──
+  const maxVal   = Math.max(...BUCKETS.flatMap(b => [d.current[b], d.prev[b]]));
+  const dataStep = 40;
+  const topVal   = Math.ceil(maxVal / dataStep) * dataStep;
+  const numSteps = topVal / dataStep;
+  const idealPx  = chartH / numSteps;
+  const skip     = Math.max(1, Math.ceil(40 / idealPx));
+  const drawStep = dataStep * skip;
+
+  // ── 버킷 지오메트리 (Figma: 8px 바, 4px 간격) ──
+  const groupW = chartW / BUCKETS.length;
+  const barW   = 8;
+  const gap    = 4;
+
+  const buckets = BUCKETS.map((b, i) => {
+    const cx  = padL + i * groupW + groupW / 2;
+    const cur = d.current[b];
+    const pv  = d.prev[b];
+    return {
+      b, cx, cur, pv,
+      curH: Math.max(2, (cur / topVal) * chartH),
+      pvH:  Math.max(2, (pv  / topVal) * chartH),
+    };
+  });
+
+  const rgb = isLight ? '0,0,0' : '255,255,255';
+
+  // 바 진입 애니메이션 상태
+  let _barProg = 0, _barRaf = null;
+  // 해치 애니메이션 상태
+  let _hatchIdx = null, _hatchProg = 0, _hatchRaf = null;
+
+  function render(hovIdx) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W * dpr, H * dpr);
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Y-axis 그리드 + 라벨 (좌측 정렬)
+    for (let v = 0; v <= topVal; v += drawStep) {
+      const y = padT + chartH - (v / topVal) * chartH;
+      ctx.strokeStyle = `rgba(${rgb},0.08)`;
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
+      ctx.font = `500 14px SFProDisplay,sans-serif`;
+      ctx.fillStyle = `rgba(${rgb},0.36)`;
+      ctx.textAlign = 'left';
+      ctx.fillText(v + '만', 0, y + 5);
+    }
+
+    // 버킷 바 + 해치
+    buckets.forEach(({ cx, cur, pv, curH, pvH }, i) => {
+      const hov   = i === hovIdx;
+      const prevX = cx - gap / 2 - barW;
+      const currX = cx + gap / 2;
+      const aPvH  = pvH  * _barProg;
+      const aCurH = curH * _barProg;
+      const prevY = padT + chartH - aPvH;
+      const currY = padT + chartH - aCurH;
+
+      ctx.fillStyle = hov ? `rgba(${rgb},0.38)` : `rgba(${rgb},0.20)`;
+      ctx.beginPath(); ctx.rect(prevX, prevY, barW, aPvH); ctx.fill();
+
+      ctx.fillStyle = hov
+        ? (isLight ? 'rgba(0,0,0,0.9)' : '#fff')
+        : (isLight ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,1)');
+      ctx.beginPath(); ctx.rect(currX, currY, barW, aCurH); ctx.fill();
+
+      // 델타 해치 (호버 시만, 좌우 12px 돌출, 애니메이션)
+      if (hov) {
+        const hatchX = prevX - 12;
+        const hatchW = currX + barW - prevX + 24;
+        const hatchY = Math.min(prevY, currY);
+        const hatchH = Math.abs(aPvH - aCurH);
+        if (hatchH <= 2) {
+          // delta=0: 흰 가로선
+          ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(hatchX, hatchY); ctx.lineTo(hatchX + hatchW, hatchY); ctx.stroke();
+        } else {
+          const isPos = cur >= pv;
+          const prog = (i === _hatchIdx) ? _hatchProg : 1;
+          const animH = hatchH * prog;
+          const animY = isPos ? hatchY + hatchH - animH : hatchY;
+          if (animH > 1) lfDrawHatch(ctx, hatchX, animY, hatchW, animH, isPos);
+        }
+      }
+    });
+
+    // 호버 툴팁 — 바 우측에 위치, 가리지 않음
+    if (hovIdx !== null && hovIdx >= 0) {
+      const bk = buckets[hovIdx];
+      const delta = bk.cur - bk.pv;
+      const dStr  = (delta >= 0 ? '+' : '') + delta + '만';
+      // 순서: 전월 → 당월 → 전월 대비
+      const lines = [`전월 ${bk.pv}만`, `당월 ${bk.cur}만`, `전월 대비 ${dStr}`];
+
+      const fs = 15, lh = fs + 10, px = 16, py = 14, divH = 1, divGap = 10;
+      ctx.font = `700 ${fs}px SFProDisplay,sans-serif`;
+      const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + px * 2;
+      // th: line0(lh) + line1(lh) + divGap + divH + divGap + fs + py*2
+      const th = py * 2 + lh * 2 + divGap * 2 + divH + fs;
+
+      // 바 우측 배치, 공간 없으면 좌측
+      const hatchExt = 12;
+      let tx = bk.cx + gap / 2 + barW + hatchExt + 8;
+      if (tx + tw > W - padR) tx = bk.cx - gap / 2 - barW - hatchExt - 8 - tw;
+      if (tx < padL) tx = padL;
+
+      // 수직: 가장 높은 바 상단 기준, 캔버스 안으로 클램프
+      let ty = Math.min(padT + chartH - bk.pvH * _barProg, padT + chartH - bk.curH * _barProg);
+      if (ty + th > padT + chartH) ty = padT + chartH - th;
+      if (ty < padT) ty = padT;
+
+      // 흰 배경
+      ctx.shadowColor = 'rgba(0,0,0,0.18)';
+      ctx.shadowBlur = 16;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = '#ffffff';
+      lfRoundRect(ctx, tx, ty, tw, th, 10); ctx.fill();
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetY = 0;
+
+      // 모두 검정, 구분선 위아래 divGap 동일
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#000000';
+      ctx.fillText(lines[0], tx + px, ty + py + fs);           // 전월
+      ctx.fillText(lines[1], tx + px, ty + py + fs + lh);      // 당월
+
+      const divY = ty + py + lh * 2 + divGap;
+      ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(tx + px, divY); ctx.lineTo(tx + tw - px, divY); ctx.stroke();
+
+      ctx.fillStyle = '#000000';
+      ctx.fillText(lines[2], tx + px, divY + divGap + fs);     // 전월 대비
+    }
+
+    ctx.restore();
+  }
+
+  // 해치 애니메이션 시작
+  function startBarAnim() {
+    if (_barRaf) cancelAnimationFrame(_barRaf);
+    _barProg = 0;
+    const t0 = performance.now(), dur = 500;
+    (function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      _barProg = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      render(null);
+      if (p < 1) _barRaf = requestAnimationFrame(step);
+      else _barRaf = null;
+    })(t0);
+  }
+
+  function startHatch(idx) {
+    if (_hatchRaf) cancelAnimationFrame(_hatchRaf);
+    _hatchIdx = idx;
+    _hatchProg = 0;
+    const t0 = performance.now();
+    const dur = 280;
+    (function step(now) {
+      _hatchProg = Math.min(1, (now - t0) / dur);
+      render(idx);
+      if (_hatchProg < 1) _hatchRaf = requestAnimationFrame(step);
+    })(t0);
+  }
+
+  render(null);
+
+  const xcolEls = canvas.closest('.tank-lf-content')
+    ? canvas.closest('.tank-lf-content').querySelectorAll('.lf-xcol-lbl') : [];
+
+  function setActiveXcol(hi) {
+    xcolEls.forEach((el, i) => el.classList.toggle('active', i === hi));
+  }
+
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    let hi = null;
+    buckets.forEach(({ cx }, i) => { if (Math.abs(mx - cx) < groupW / 2) hi = i; });
+    if (hi !== _hatchIdx) { startHatch(hi); if (hi !== null) tickSound(); }
+    setActiveXcol(hi);
+  };
+  canvas.onmouseleave = () => {
+    if (_hatchRaf) cancelAnimationFrame(_hatchRaf);
+    _hatchIdx = null; _hatchProg = 0;
+    render(null); setActiveXcol(null);
+  };
+
+  // KPI countUp
+  const curEl  = document.getElementById('lf-kpi-cur-'  + seg);
+  const prevEl = document.getElementById('lf-kpi-prev-' + seg);
+  const diffEl = document.getElementById('lf-kpi-diff-' + seg);
+  if (curEl)  countUp(curEl,  +curEl.dataset.t,  1, 800);
+  if (prevEl) countUp(prevEl, +prevEl.dataset.t, 1, 800);
+  if (diffEl) {
+    const sign = diffEl.dataset.sign;
+    countUp(diffEl, +diffEl.dataset.t, 1, 800, v => sign + v);
+  }
+
+  // 바 진입 애니메이션
+  startBarAnim();
+
+  // 크기 변경 시 재렌더링
+  if (!canvas._lfRO) {
+    canvas._lfRO = new ResizeObserver(() => { drawLFChart(seg); });
+    canvas._lfRO.observe(canvas.parentElement);
+  }
+}
+
+let currentTab = 'seg';
+function switchTab(tab) {
+  if (tab === currentTab) return;
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((btn, i) => {
+    btn.classList.toggle('active', (i === 0 && tab === 'seg') || (i === 1 && tab === 'lf'));
+  });
+  const ta = document.querySelector('.tracks-area');
+  const LF_BUCKET_DESC = { Light: '1~2일', Casual: '3~7일', Power: '8일 이상' };
+  if (tab === 'lf') {
+    if (document.getElementById('detail-panel').classList.contains('open')) closeDetail();
+    document.querySelectorAll('#ret-tanks .tank-wrap').forEach(wrap => {
+      const seg  = wrap.dataset.seg;
+      const card = wrap.querySelector('.tank-card');
+      // 서브 텍스트 → LF 포맷 변경
+      const subEl = wrap.querySelector('.tank-sub');
+      if (subEl && !subEl.dataset.origSub) {
+        subEl.dataset.origSub = subEl.textContent;
+        const tank = DATA.retention.find(t => t.seg === seg);
+        subEl.textContent = `월 로그인 ${LF_BUCKET_DESC[seg] || ''} (전월마감 ${tank ? tank.prevClose : '?'}만)`;
+      }
+      // LF 콘텐츠 주입 (최초 1회)
+      if (card && !card.querySelector('.tank-lf-content')) {
+        card.insertAdjacentHTML('beforeend', buildLFContent(seg));
+        // 복사 버튼 주입
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'lf-copy-btn';
+        copyBtn.title = '데이터 복사';
+        copyBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><defs><mask id="cp-m-${seg}"><rect width="16" height="16" fill="white"/><rect x="5.7" y="1.7" width="7.6" height="9.6" rx="1.3" fill="black"/></mask></defs><rect x="2" y="4" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4" mask="url(#cp-m-${seg})"/><rect x="5" y="1" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>`;
+        copyBtn.addEventListener('click', e => { e.stopPropagation(); lfCopy(seg, copyBtn); });
+        card.appendChild(copyBtn);
+      }
+    });
+    ta.classList.add('lf-mode');
+    ta.closest('.aquarium-container').classList.add('aquarium-lf');
+    setTimeout(() => {
+      ta.classList.add('lf-mode-settled');
+      ['Light','Casual','Power'].forEach(drawLFChart);
+    }, 420);
+  } else {
+    ta.classList.remove('lf-mode');
+    ta.classList.remove('lf-mode-settled');
+    ta.closest('.aquarium-container').classList.remove('aquarium-lf');
+    // 서브 텍스트 복원
+    document.querySelectorAll('#ret-tanks .tank-wrap .tank-sub').forEach(el => {
+      if (el.dataset.origSub) { el.textContent = el.dataset.origSub; delete el.dataset.origSub; }
+    });
+  }
+}
+
 function closeDetail() {
+  stopPlay();
+  setActiveTank(null);
   document.getElementById('detail-panel').classList.remove('open');
   document.body.classList.remove('detail-open');
+}
+
+// ── 플레이 로직 ──
+let isPlaying    = false;
+let playTimer    = null;
+let playIndex    = 0;
+let playInterval = 6000;
+let longPressTimer = null;
+
+function getPlaySegs() {
+  return [...DATA.acquisition, ...DATA.retention];
+}
+
+function setActiveTank(seg) {
+  document.querySelectorAll('.tank-card').forEach(c => c.classList.remove('active'));
+  if (!seg) return;
+  const wrap = document.querySelector(`.tank-wrap[data-seg="${seg}"]`);
+  if (wrap) wrap.querySelector('.tank-card')?.classList.add('active');
+}
+
+function togglePlay() {
+  if (isPlaying) { stopPlay(); return; }
+  isPlaying = true;
+  const btn = document.getElementById('detail-play-btn');
+  btn.classList.add('playing');
+  document.getElementById('play-icon').style.display  = 'none';
+  document.getElementById('pause-icon').style.display = '';
+  playNext();
+}
+
+function stopPlay() {
+  isPlaying = false;
+  clearTimeout(playTimer);
+  setActiveTank(null);
+  const btn = document.getElementById('detail-play-btn');
+  if (btn) {
+    btn.classList.remove('playing');
+    document.getElementById('play-icon').style.display  = '';
+    document.getElementById('pause-icon').style.display = 'none';
+  }
+}
+
+function setPlayInterval(sec) {
+  playInterval = sec * 1000;
+  document.querySelectorAll('.play-interval-opt').forEach(el => {
+    el.classList.toggle('active', +el.dataset.sec === sec);
+  });
+  document.getElementById('play-interval-tip').classList.remove('visible');
+  // 플레이 중이면 현재 타이머 즉시 재시작
+  if (isPlaying) {
+    clearTimeout(playTimer);
+    playTimer = setTimeout(playNext, playInterval);
+  }
+}
+
+function initPlayLongPress() {
+  const btn = document.getElementById('detail-play-btn');
+  const tip = document.getElementById('play-interval-tip');
+  let longPressActivated = false;
+
+  btn.addEventListener('mousedown', () => {
+    longPressActivated = false;
+    longPressTimer = setTimeout(() => {
+      longPressActivated = true;
+      tip.classList.add('visible');
+    }, 2000);
+  });
+  btn.addEventListener('mouseup',    () => clearTimeout(longPressTimer));
+  btn.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+  btn.addEventListener('click', () => {
+    if (longPressActivated) { longPressActivated = false; return; }
+    togglePlay();
+  });
+  // 툴팁 외부 클릭 시 닫기
+  document.addEventListener('mousedown', (e) => {
+    if (!tip.contains(e.target) && e.target !== btn) {
+      tip.classList.remove('visible');
+    }
+  });
+}
+
+function playNext() {
+  if (!isPlaying) return;
+  const segs = getPlaySegs();
+  const t = segs[playIndex % segs.length];
+  openDetail(t.seg, t.sub, true);
+  setActiveTank(t.seg);
+  const wrap = document.querySelector(`.tank-wrap[data-seg="${t.seg}"]`);
+  if (wrap) animateCard(wrap);
+  playIndex = (playIndex + 1) % segs.length;
+  playTimer = setTimeout(playNext, playInterval);
+}
+
+function copySegData(seg, inflowVal, outflowVal) {
+  const tank = [...DATA.acquisition, ...DATA.retention].find(t => t.seg === seg);
+  const d    = SEG_DETAILS[seg];
+  if (!tank || !d) return;
+
+  const sub      = tank.sub;
+  const curr     = tank.value;
+  const prev     = tank.prevClose;
+  const delta    = curr - prev;
+  const deltaStr = (delta >= 0 ? '+' : '') + delta + '만';
+
+  const kpi1 = d.avgCards;
+  const kpi2 = d.avgSpend;
+
+  const ageLines  = d.ageGroups.map(a => `  ${a.age}  ${a.pct}%`).join('\n');
+  const cardLines = d.topCards.map(([name, pct], i) => `  ${i+1}. ${name}  ${pct}%`).join('\n');
+
+  const text = [
+    `[${seg}] ${curr}만`,
+    sub,
+    `기준일: ${DATA.period}`,
+    '',
+    `평균 카드 보유: ${kpi1}`,
+    `월평균 결제: ${kpi2}`,
+    '',
+    `전월 비교`,
+    `  전월: ${prev}만  당월: ${curr}만  (${deltaStr})`,
+    '',
+    `연령대`,
+    ageLines,
+    '',
+    `보유 카드 TOP 5`,
+    cardLines,
+  ].join('\n');
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.detail-copy-btn');
+    const lbl = document.getElementById('copy-btn-label');
+    if (!btn) return;
+    btn.classList.add('copied');
+    lbl.textContent = '복사됨';
+    const iconEl = btn.querySelector('svg');
+    if (iconEl) iconEl.outerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polyline points="3,8 6.5,12 13,4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      lbl.textContent = '복사';
+      const ic = btn.querySelector('svg');
+      if (ic) ic.outerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><defs><mask id="cp-m-detail"><rect width="16" height="16" fill="white"/><rect x="5.7" y="1.7" width="7.6" height="9.6" rx="1.3" fill="black"/></mask></defs><rect x="2" y="4" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4" mask="url(#cp-m-detail)"/><rect x="5" y="1" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>`;
+    }, 2000);
+  });
 }
 </script>
 
