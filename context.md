@@ -198,17 +198,32 @@
 - `whatsnext-next-item`: `padding:20px 24px; border-radius:8px`
 - Inter 폰트 전면 제거 → 전부 `SFProDisplay`로 교체
 
-### 오버뷰 패널 (슬라이드 썸네일)
+### 오버뷰 패널 (슬라이드 썸네일 + 컨트롤)
+- 우측 상단 햄버거 메뉴(`.viz-menu`) **제거** → 오버뷰 패널 좌측 사이드바로 통합
+- 패널 구성: `#overview-controls`(좌, 210px 고정) + `#overview-track`(우, 썸네일)
 - `↑` 키: 패널 열림 → 슬라이드 콘텐츠 위로 밀리며 축소 (트랜지션 동기화)
-- `↓` 키: 패널 닫힘
-- 패널 열린 상태: `←/→`로 썸네일 포커스 이동, `Enter`로 해당 슬라이드 이동
-- `Esc`도 닫힘 / 썸네일 클릭으로도 이동
+- `↓` 키 / `Esc`: 패널 닫힘
+- 패널 열린 상태 키 네비게이션 (2섹션):
+  - `thumbs` 섹션: `←/→`로 썸네일 포커스, `Enter`로 이동. 맨 왼쪽에서 `←` 누르면 `controls` 섹션으로 전환
+  - `controls` 섹션: `↑/↓`로 버튼 이동, `Enter`로 실행. 폰트 조절 행(`.font-row`)에서는 `←/→`가 폰트 크기 조절(+flashFontNudge 좌/우 하이라이트)
+- 컨트롤 버튼: 전체 화면 / 테마 토글 / 폰트 A−/A+ / PNG 다운로드 / Print
 - 썸네일: 실제 슬라이드 DOM 클론 `scale(0.08824)` → 진짜 배경/콘텐츠 보임
 - 슬라이드 쿼리는 반드시 `#slidesWrapper` 범위 한정 (클론 중복 방지)
-- 비활성 테두리: `rgba(255,255,255,0.18)` 4px / 현재 장: `rgba(255,255,255,0.8)` 흰색 + 숫자 흰색 + 눈 아이콘
-- 포커스(이동 중): `#00D56D` 그린 테두리
-- 구분선: `border-top: 1px solid rgba(255,255,255,0.22)`
-- 썸네일 알값: `border-radius:8px`
+- 포커스 표시:
+  - 썸네일 현재 장(`.overview-current`): opacity 1
+  - 썸네일 이동 포커스(`.overview-focus`): `#00D56D` 그린 테두리
+  - 컨트롤 포커스(`.control-focus`): `rgba(255,255,255,0.14)` 배경 + 흰색 outline
+- 구분선: `border-right: 1px solid rgba(255,255,255,0.14)` (controls↔thumbs)
+- 썸네일 라디우스: `border-radius:8px`
+
+### 배경 전환 (크로스페이드)
+- `#bg-layer` + `#bg-layer-b` 두 레이어 교대로 사용
+- `syncOuterBackground`에서 다음 레이어 opacity 1, 현재 레이어 opacity 0 (0.5s cubic-bezier)
+- 슬라이드 전환 시 배경 컬러/이미지 점프 제거
+
+### 테마 localStorage
+- 키: `viz-theme-v3` (이전 `viz-theme` 폐기)
+- 기본값: `dark` (시스템 prefers-color-scheme 감지 제거)
 
 ### 다음 세션 작업 후보
 - [ ] 라이트/다크 테마 전환 시 썸네일 배경 동기화 확인

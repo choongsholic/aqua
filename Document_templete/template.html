@@ -95,20 +95,10 @@
     /* ===== PRINT ===== */
     @media print {
       body { background: white !important; color: black !important; }
-      .viz-menu, .slide-nav { display: none !important; }
+      .slide-nav, #overview-panel { display: none !important; }
       .slide { page-break-after: always; }
     }
 
-    /* ===== MENU ===== */
-    .viz-menu { position: fixed; top: 16px; right: 16px; z-index: 9999; }
-    .viz-menu-toggle {
-      width: 40px; height: 40px; border-radius: 10px;
-      background: rgba(20,20,20,0.6); border: 1px solid var(--border);
-      color: var(--text); cursor: pointer; display: flex;
-      align-items: center; justify-content: center;
-      backdrop-filter: blur(12px); transition: all 0.2s;
-    }
-    .theme-light .viz-menu-toggle { background: rgba(255,255,255,0.7); }
     .theme-light .problem-card,
     .theme-light .feature-card,
     .theme-light .next-card,
@@ -124,23 +114,34 @@
     .theme-light .problem-single-point {
       box-shadow: 0 1px 6px rgba(0,0,0,0.08);
     }
-    .viz-menu-toggle:hover { background: var(--surface-hover); }
-    .viz-menu-dropdown {
-      position: absolute; top: 48px; right: 0; min-width: 180px;
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 10px; padding: 6px;
-      opacity: 0; visibility: hidden; transform: translateY(-8px);
-      transition: all 0.2s; backdrop-filter: blur(16px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    /* ===== OVERVIEW CONTROLS ===== */
+    #overview-controls {
+      flex-shrink: 0; width: 210px; height: 100%;
+      padding: 20px 22px; box-sizing: border-box;
+      display: flex; flex-direction: column; gap: 4px; justify-content: center;
+      border-right: 1px solid rgba(255,255,255,0.14);
     }
-    .viz-menu-dropdown.open { opacity: 1; visibility: visible; transform: translateY(0); }
-    .viz-menu-dropdown button {
+    #overview-controls button {
       width: 100%; padding: 8px 12px; border: none; border-radius: 6px;
-      background: transparent; color: var(--text); font-size: 13px;
+      background: transparent; color: rgba(255,255,255,0.92); font-size: 13px;
       font-family: inherit; cursor: pointer; text-align: left;
       display: flex; align-items: center; gap: 8px; transition: background 0.15s;
     }
-    .viz-menu-dropdown button:hover { background: var(--surface-hover); }
+    #overview-controls button span { color: inherit; }
+    #overview-controls button:hover { background: rgba(255,255,255,0.08); }
+    #overview-controls .control-focus,
+    #overview-controls button.control-focus {
+      background: rgba(255,255,255,0.14);
+      outline: 1px solid rgba(255,255,255,0.4);
+    }
+    #overview-controls .font-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; border-radius: 6px; }
+    #overview-controls .font-row button { flex: 1; justify-content: center; padding: 6px 4px; }
+    #overview-controls .font-row span { color: rgba(255,255,255,0.42); }
+    #overview-controls .font-row.font-nudge-left button:first-child { background: rgba(255,255,255,0.2); }
+    #overview-controls .font-row.font-nudge-right button:last-child { background: rgba(255,255,255,0.2); }
+    #overview-controls .font-row span {
+      min-width: 42px; text-align: center; font-size: 12px; color: var(--text-secondary);
+    }
 
     /* ===== FOCUS ===== */
     *:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
@@ -196,14 +197,14 @@
     }
     .slide-nav button {
       width: 32px; height: 32px; border-radius: 8px;
-      background: transparent; border: none; color: var(--text-secondary);
+      background: transparent; border: none; color: var(--text);
       cursor: pointer; display: flex; align-items: center; justify-content: center;
-      opacity: 0.35; transition: opacity 0.2s;
+      opacity: 0.4; transition: opacity 0.2s;
     }
-    .slide-nav button:hover { opacity: 0.8; }
+    .slide-nav button:hover { opacity: 1; }
     .slide-counter {
-      font-size: 14px; color: var(--text-secondary); font-weight: 400;
-      min-width: 44px; text-align: center; opacity: 0.48;
+      font-size: 14px; color: var(--text); font-weight: 400;
+      min-width: 44px; text-align: center; opacity: 0.4;
       font-family: 'SFProDisplay', sans-serif;
     }
 
@@ -213,9 +214,10 @@
       background: #000; z-index: 10000;
       transform: translateY(100%);
       transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
-      display: flex; flex-direction: column; justify-content: center;
+      display: flex; flex-direction: row; align-items: center;
       border-top: 1px solid rgba(255,255,255,0.22);
     }
+    #overview-panel > #overview-track { flex: 1; height: 100%; }
     #overview-panel.open { transform: translateY(0); }
     #overview-track {
       display: flex; align-items: center; gap: 14px;
@@ -229,7 +231,8 @@
       cursor: pointer; opacity: 0.5; transition: opacity 0.2s;
     }
     .overview-item:hover { opacity: 0.8; }
-    .overview-item.overview-focus { opacity: 1; }
+    .overview-item.overview-focus,
+    .overview-item.overview-current { opacity: 1; }
     .overview-thumb {
       width: 180px; height: 96px;
       overflow: hidden; position: relative; border-radius: 8px;
@@ -893,25 +896,6 @@
   <a href="#main-content" class="skip-link sr-only" onfocus="this.style.cssText='position:fixed;left:16px;top:16px;z-index:10000;padding:8px 16px;background:var(--accent);color:white;text-decoration:none;border-radius:4px;'" onblur="this.style.cssText='position:absolute;left:-9999px;'">Skip to content</a>
 
   <!-- MENU -->
-  <div class="viz-menu">
-    <button class="viz-menu-toggle" onclick="toggleMenu()" aria-label="메뉴">
-      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <line x1="3" y1="5" x2="17" y2="5"/><line x1="3" y1="10" x2="17" y2="10"/><line x1="3" y1="15" x2="17" y2="15"/>
-      </svg>
-    </button>
-    <div class="viz-menu-dropdown" id="vizMenuDropdown">
-      <button onclick="toggleFullscreen()"><span id="fsIcon">⛶</span><span id="fsLabel">전체 화면</span></button>
-      <button onclick="cycleTheme()"><span id="themeIcon">🌙</span><span id="themeLabel">Dark</span></button>
-      <div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
-        <button onclick="adjustFontScale(-0.1)" style="flex:1;">A−</button>
-        <span id="fontScaleLabel" style="min-width:40px;text-align:center;font-size:13px;">100%</span>
-        <button onclick="adjustFontScale(0.1)" style="flex:1;">A+</button>
-      </div>
-      <button onclick="downloadImage()"><span>📥</span><span>Download PNG</span></button>
-      <button onclick="window.print()"><span>🖨️</span><span>Print / PDF</span></button>
-    </div>
-  </div>
-
   <!-- PROGRESS BAR -->
   <div class="progress-bar" id="progressBar" style="width: 0%;" role="progressbar" aria-label="슬라이드 진행"></div>
 
@@ -932,9 +916,21 @@
     </button>
   </nav>
 
-  <div id="bg-layer" style="position:fixed;inset:0;z-index:-1;background:#080808;background-size:100% 100%;"></div>
+  <div id="bg-layer" style="position:fixed;inset:0;z-index:-1;background:#080808;background-size:100% 100%;opacity:1;transition:opacity 0.5s cubic-bezier(0.4,0,0.2,1);"></div>
+  <div id="bg-layer-b" style="position:fixed;inset:0;z-index:-1;background-size:100% 100%;opacity:0;transition:opacity 0.5s cubic-bezier(0.4,0,0.2,1);"></div>
 
   <div id="overview-panel">
+    <div id="overview-controls">
+      <button data-ctrl="0" onclick="closeOverview(); toggleFullscreen();"><span id="fsIcon">⛶</span><span id="fsLabel">전체 화면</span></button>
+      <button data-ctrl="1" onclick="closeOverview(); cycleTheme();"><span id="themeIcon">🌙</span><span id="themeLabel">Dark</span></button>
+      <div class="font-row" data-ctrl="2">
+        <button onclick="adjustFontScale(-0.1)">A−</button>
+        <span id="fontScaleLabel">100%</span>
+        <button onclick="adjustFontScale(0.1)">A+</button>
+      </div>
+      <button data-ctrl="3" onclick="downloadImage()"><span>📥</span><span>Download PNG</span></button>
+      <button data-ctrl="4" onclick="window.print()"><span>🖨️</span><span>Print / PDF</span></button>
+    </div>
     <div id="overview-track"></div>
   </div>
 
@@ -1475,13 +1471,19 @@
         return s.classList.contains('slide-ba');
       });
 
+      var _bgActive = 'bg-layer';
       function syncOuterBackground(index) {
         var cached = slideBackgrounds[index];
         if (!cached) return;
-        var bg = document.getElementById('bg-layer');
-        bg.style.backgroundColor = cached.color;
-        bg.style.backgroundImage = cached.image === 'none' ? 'none' : cached.image;
-        bg.style.backgroundSize = '100% 100%';
+        var nextId = _bgActive === 'bg-layer' ? 'bg-layer-b' : 'bg-layer';
+        var next = document.getElementById(nextId);
+        var current = document.getElementById(_bgActive);
+        next.style.backgroundColor = cached.color;
+        next.style.backgroundImage = cached.image === 'none' ? 'none' : cached.image;
+        next.style.backgroundSize = '100% 100%';
+        next.style.opacity = '1';
+        current.style.opacity = '0';
+        _bgActive = nextId;
       }
 
       function showSlide(index) {
@@ -1517,25 +1519,56 @@
       document.addEventListener('keydown', function(e) {
         // ArrowUp: 오버뷰 열기
         if (!overviewOpen && e.key === 'ArrowUp') { e.preventDefault(); openOverview(); return; }
-        // ArrowDown: 오버뷰 닫기
-        if (overviewOpen && e.key === 'ArrowDown') { e.preventDefault(); closeOverview(); return; }
 
         if (overviewOpen) {
-          // 오버뷰 모드: 좌우로 포커스 이동
           var slides = document.getElementById('slidesWrapper').querySelectorAll('.slide');
-          if (e.key === 'ArrowRight') {
-            e.preventDefault();
-            overviewFocus = Math.min(overviewFocus + 1, slides.length - 1);
-            updateOverviewFocus(overviewFocus);
-          } else if (e.key === 'ArrowLeft') {
-            e.preventDefault();
-            overviewFocus = Math.max(overviewFocus - 1, 0);
-            updateOverviewFocus(overviewFocus);
-          } else if (e.key === 'Enter') {
-            e.preventDefault();
-            window._overviewGoTo(overviewFocus);
-          } else if (e.key === 'Escape') {
-            e.preventDefault(); closeOverview();
+
+          if (overviewSection === 'controls') {
+            // controls 섹션
+            var CTRL_MAX = 4;
+            var onFontRow = overviewControlFocus === 2;
+
+            if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              if (onFontRow) { adjustFontScale(0.1); flashFontNudge('right'); }
+              else { setOverviewSection('thumbs'); }
+            } else if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              if (onFontRow) { adjustFontScale(-0.1); flashFontNudge('left'); }
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              if (overviewControlFocus < CTRL_MAX) updateControlFocus(overviewControlFocus + 1);
+              else closeOverview();
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              if (overviewControlFocus > 0) updateControlFocus(overviewControlFocus - 1);
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              if (!onFontRow) {
+                var btn = document.querySelector('#overview-controls button[data-ctrl="' + overviewControlFocus + '"]');
+                if (btn) btn.click();
+              }
+            } else if (e.key === 'Escape') {
+              e.preventDefault(); closeOverview();
+            }
+          } else {
+            // thumbs 섹션
+            if (e.key === 'ArrowRight') {
+              e.preventDefault();
+              overviewFocus = Math.min(overviewFocus + 1, slides.length - 1);
+              updateOverviewFocus(overviewFocus);
+            } else if (e.key === 'ArrowLeft') {
+              e.preventDefault();
+              if (overviewFocus === 0) { setOverviewSection('controls'); }
+              else { overviewFocus--; updateOverviewFocus(overviewFocus); }
+            } else if (e.key === 'ArrowDown') {
+              e.preventDefault(); closeOverview();
+            } else if (e.key === 'Enter') {
+              e.preventDefault();
+              window._overviewGoTo(overviewFocus);
+            } else if (e.key === 'Escape') {
+              e.preventDefault(); closeOverview();
+            }
           }
         } else {
           // 일반 모드: 슬라이드 이동
@@ -1562,6 +1595,7 @@
         });
         slides.forEach(function(slide) { slide.style.background = 'transparent'; });
         syncOuterBackground(currentSlide);
+        if (overviewOpen) buildOverview();
       };
 
       // 초기 슬라이드 표시 (배경 즉시 적용)
@@ -1590,10 +1624,10 @@
 
     // PNG 다운로드
     async function downloadImage() {
-      var menu = document.querySelector('.viz-menu');
       var nav = document.querySelector('.slide-nav');
-      menu.style.display = 'none';
+      var overview = document.getElementById('overview-panel');
       nav.style.display = 'none';
+      overview.style.display = 'none';
       try {
         var activeSlide = document.querySelector('.slide.active');
         var url = await htmlToImage.toPng(activeSlide, { quality: 1, pixelRatio: 2 });
@@ -1602,27 +1636,9 @@
         a.download = 'slide-' + (document.querySelectorAll('.slide.exit-left').length + 1) + '.png';
         a.click();
       } catch(e) { console.error('Download failed:', e); }
-      menu.style.display = '';
       nav.style.display = '';
+      overview.style.display = '';
     }
-
-    // === 메뉴 ===
-    function toggleMenu() {
-      var dropdown = document.getElementById('vizMenuDropdown');
-      if (dropdown) dropdown.classList.toggle('open');
-    }
-    document.addEventListener('click', function(e) {
-      if (!e.target.closest('.viz-menu')) {
-        var dropdown = document.getElementById('vizMenuDropdown');
-        if (dropdown) dropdown.classList.remove('open');
-      }
-    });
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        var dropdown = document.getElementById('vizMenuDropdown');
-        if (dropdown) dropdown.classList.remove('open');
-      }
-    });
 
     // === 폰트 크기 조절 ===
     var currentFontScale = parseFloat(localStorage.getItem('font-scale') || '1');
@@ -1641,13 +1657,13 @@
     }
 
     // === 테마 ===
-    var savedTheme = localStorage.getItem('viz-theme');
-    var currentTheme = savedTheme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    var savedTheme = localStorage.getItem('viz-theme-v3');
+    var currentTheme = savedTheme || 'dark';
     function applyTheme(t) {
       document.documentElement.className = 'theme-' + t;
       document.getElementById('themeIcon').textContent = t === 'dark' ? '🌙' : '☀️';
       document.getElementById('themeLabel').textContent = t === 'dark' ? 'Dark' : 'Light';
-      localStorage.setItem('viz-theme', t);
+      localStorage.setItem('viz-theme-v3', t);
       currentTheme = t;
       if (typeof window.onThemeChange === 'function') window.onThemeChange();
     }
@@ -1677,7 +1693,44 @@
     var OVERVIEW_H = 220;
     var overviewOpen = false;
     var overviewFocus = 0;
+    var overviewSection = 'thumbs';
+    var overviewControlFocus = 0;
     var slideBackgrounds = [];
+
+    function updateControlFocus(idx) {
+      overviewControlFocus = idx;
+      var nodes = document.querySelectorAll('#overview-controls [data-ctrl]');
+      nodes.forEach(function(el) { el.classList.remove('control-focus'); });
+      var target = document.querySelector('#overview-controls [data-ctrl="' + idx + '"]');
+      if (target) target.classList.add('control-focus');
+    }
+
+    function setOverviewSection(section) {
+      overviewSection = section;
+      if (section === 'controls') {
+        updateControlFocus(overviewControlFocus || 0);
+        document.querySelectorAll('#overview-track .overview-item').forEach(function(el) {
+          el.classList.remove('overview-focus');
+        });
+      } else {
+        document.querySelectorAll('#overview-controls [data-ctrl]').forEach(function(el) {
+          el.classList.remove('control-focus');
+        });
+        updateOverviewFocus(overviewFocus);
+      }
+    }
+
+    var _fontNudgeTimer = null;
+    function flashFontNudge(dir) {
+      var row = document.querySelector('#overview-controls .font-row');
+      if (!row) return;
+      row.classList.remove('font-nudge-left', 'font-nudge-right');
+      row.classList.add('font-nudge-' + dir);
+      clearTimeout(_fontNudgeTimer);
+      _fontNudgeTimer = setTimeout(function() {
+        row.classList.remove('font-nudge-left', 'font-nudge-right');
+      }, 140);
+    }
 
     function buildOverview() {
       var slides = document.getElementById('slidesWrapper').querySelectorAll('.slide');
@@ -1744,14 +1797,21 @@
       var slides = document.getElementById('slidesWrapper').querySelectorAll('.slide');
       overviewOpen = true;
       overviewFocus = parseInt(document.getElementById('slideCounter').textContent.split('/')[0].trim()) - 1;
+      overviewSection = 'thumbs';
       buildOverview();
       document.getElementById('overview-panel').classList.add('open');
+      document.querySelectorAll('#overview-controls [data-ctrl]').forEach(function(el) {
+        el.classList.remove('control-focus');
+      });
       scaleSlides();
     }
 
     function closeOverview() {
       overviewOpen = false;
       document.getElementById('overview-panel').classList.remove('open');
+      document.querySelectorAll('#overview-controls [data-ctrl]').forEach(function(el) {
+        el.classList.remove('control-focus');
+      });
       scaleSlides();
     }
 
