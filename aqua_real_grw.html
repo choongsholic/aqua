@@ -296,6 +296,14 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   font-family: var(--font-sf);
   white-space: nowrap;
 }
+/* 비활성 탭 hover/focus 시 탭바 전체 배경을 16%로 (비활성 영역 연속 표시) */
+.tabbar:has(.tab:hover:not(.active)),
+.tabbar:has(.tab.kbd-focus:not(.active)) { background: rgba(255,255,255,0.16); transition: background 0.15s; }
+body.light .tabbar:has(.tab:hover:not(.active)),
+body.light .tabbar:has(.tab.kbd-focus:not(.active)) { background: rgba(0,0,0,0.16); }
+/* kbd-nav 모드에서는 hover 무시, kbd-focus만 */
+body.kbd-nav .tabbar:has(.tab:hover:not(.active)):not(:has(.tab.kbd-focus:not(.active))) { background: rgba(255,255,255,0.08); }
+body.light.kbd-nav .tabbar:has(.tab:hover:not(.active)):not(:has(.tab.kbd-focus:not(.active))) { background: rgba(0,0,0,0.08); }
 .tab.active {
   background: var(--white);
   color: #000;
@@ -426,12 +434,12 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   font-weight: 500;
   font-size: 13px;
   color: var(--muted);
-  margin-bottom: -2px;
+  margin-bottom: 0;
 }
 
 /* Indicator row — arrow + delta + pct + optional badge inline */
-.tank-indicator { display: flex; align-items: center; gap: 4px; }
-.tank-arrow-sym { font-size: 24px; font-weight: 700; }
+.tank-indicator { display: flex; align-items: center; gap: 4px; min-height: 24px; margin-bottom: 2px; }
+.tank-arrow-sym { font-size: 24px; font-weight: 700; line-height: 1; }
 .tank-delta     { font-weight: 500; font-size: 17px; line-height: 1; }
 .tank-pct       { font-weight: 500; font-size: 17px; line-height: 1; }
 
@@ -442,6 +450,15 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
 .tank-indicator.bad .tank-arrow-sym,
 .tank-indicator.bad .tank-delta,
 .tank-indicator.bad .tank-pct  { color: var(--red); }
+
+.tank-indicator.zero .tank-arrow-sym,
+.tank-indicator.zero .tank-delta,
+.tank-indicator.zero .tank-pct { color: rgba(255,255,255,0.64); }
+.tank-indicator.zero .tank-arrow-sym { font-size: 16px; color: rgba(255,255,255,0.4); }
+body.light .tank-indicator.zero .tank-arrow-sym { color: rgba(0,0,0,0.4); }
+body.light .tank-indicator.zero .tank-arrow-sym,
+body.light .tank-indicator.zero .tank-delta,
+body.light .tank-indicator.zero .tank-pct { color: rgba(0,0,0,0.64); }
 
 /* Alert badge — inline after pct */
 .alert-badge {
@@ -457,6 +474,7 @@ body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-
   margin-left: 4px;
   flex-shrink: 0;
 }
+.alert-badge.placeholder { visibility: hidden; }
 
 /* ══ Load Button (우측 하단 고정) ══ */
 .load-btn-wrap {
@@ -700,12 +718,12 @@ body.light .tank-wrap:not(.alert) .tank-card.active { border-color: rgba(0,0,0,1
 }
 .delta-hatch.zero {
   background: none;
-  border-left: none; border-right: none;
-  height: 0;
-  border-top: 1.5px solid rgba(255,255,255,0.8);
-  min-width: 40px;
-  transform: translateX(-50%);
-  top: 50%;
+  border-right: none;
+  border-top: none;
+  border-left: 2px solid rgba(255,255,255,0.8);
+  height: 70px;
+  top: 0;
+  transform: translateX(-1px);
 }
 
 /* 배지 (말풍선) */
@@ -752,8 +770,8 @@ body.light .tank-wrap:not(.alert) .tank-card.active { border-color: rgba(0,0,0,1
 .lf-mode #acq-ret-divider { opacity: 0; max-height: 0; margin: 0; overflow: hidden; }
 #ret-section .track-label { transition: opacity 0.25s ease, max-height 0.3s ease, margin 0.3s ease; }
 .lf-mode #ret-section .track-label { opacity: 0; max-height: 0; overflow: hidden; margin: 0; }
-/* ret 카드: min-height 트랜지션으로 동시 성장 */
-.lf-mode #ret-section .tank-card { max-height: 820px; min-height: 400px; }
+/* ret 카드: min-height 트랜지션으로 동시 성장, max-height 해제로 가용 높이 풀 사용 */
+.lf-mode #ret-section .tank-card { max-height: 2000px; min-height: 400px; }
 /* animation 완료 후: min-height 제거해 복귀 시 자연스럽게 축소 */
 .lf-mode-settled #ret-section .tank-card { min-height: 0; }
 .lf-mode #ret-section .tank-caret { opacity: 0; pointer-events: none; }
@@ -788,6 +806,10 @@ body.light .tank-wrap:not(.alert) .tank-card.active { border-color: rgba(0,0,0,1
 .lf-chart-title { font-size: 11px; color: rgba(255,255,255,0.3); margin-bottom: 6px; flex-shrink: 0; }
 .lf-canvas-wrap { flex: 1; min-height: 120px; position: relative; }
 .lf-canvas-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.lf-tooltip { position: absolute; pointer-events: none; background: #fff; color: #000; border-radius: 10px; padding: 14px 16px; font-family: 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif; font-weight: 700; font-size: 15px; line-height: 25px; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.18); opacity: 0; transition: opacity 0.14s ease; z-index: 20; left: 0; top: 0; }
+.lf-tooltip.show { opacity: 1; }
+.lf-tt-div { height: 1px; background: rgba(0,0,0,0.15); margin: 10px -4px; }
+body:not(.light) .lf-tooltip { box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.45); }
 .lf-legend { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-top: 6px; }
 .lf-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
 .lf-legend-dot.curr { background: rgba(255,255,255,0.9); }
@@ -803,8 +825,9 @@ body.light .tank-wrap:not(.alert) .tank-card.active { border-color: rgba(0,0,0,1
 
 /* ── LF Flat KPI (detail-kpi 스타일) ── */
 .lf-warn-top { display: flex; justify-content: flex-end; margin-bottom: 8px; flex-shrink: 0; }
-.lf-kpi-flat { display: flex; flex-shrink: 0; margin-top: 32px; margin-bottom: 64px; }
-.lf-kpi-flat-item { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.lf-kpi-flat { display: flex; flex-shrink: 0; margin-top: 20px; margin-bottom: 52px; margin-left: -14px; margin-right: 0; }
+.lf-kpi-flat-item { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 16px; }
+.lf-kpi-flat-item.warn { background: rgba(var(--clr-bad-rgb),0.08); }
 .lf-kpi-flat-label { font-size: 14px; font-weight: 500; color: var(--white); }
 .lf-kpi-flat-value-row { display: flex; align-items: baseline; gap: 3px; }
 .lf-kpi-flat-num { font-family: 'YouandiNewKrTitle', sans-serif; font-weight: 600; font-size: 34px; color: var(--white); line-height: 1; }
@@ -817,15 +840,16 @@ body.light .tank-wrap:not(.alert) .tank-card.active { border-color: rgba(0,0,0,1
 .lf-kpi-flat-unit.bad   { color: var(--clr-bad); }
 
 /* X축 레이블 + 델타 (HTML, 캔버스 외부) */
-.lf-xaxis-row { display: flex; flex-shrink: 0; padding-left: 52px; margin-top: 4px; margin-bottom: 12px; }
-.lf-xcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.lf-xcol-lbl { font-size: 14px; font-weight: 500; color: var(--muted); }
+.lf-xaxis-row { display: flex; flex-shrink: 0; padding-left: 40px; padding-right: 8px; margin-top: 4px; margin-bottom: 12px; }
+.lf-xcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.lf-xcol-lbl { font-size: 12px; font-weight: 400; color: var(--muted); white-space: nowrap; }
 .lf-xcol-lbl.active { color: var(--white); font-weight: 700; }
-.lf-xcol-delta { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 1px; min-height: 28px; }
+.lf-xcol-delta { font-size: 11px; font-weight: 400; display: flex; align-items: center; gap: 1px; min-height: 20px; white-space: nowrap; }
 .lf-xcol-delta.pos  { color: var(--clr-good); }
 .lf-xcol-delta.neg  { color: var(--clr-bad); }
 .lf-xcol-delta.zero { color: var(--muted); }
-.lf-xcol-sym { font-size: 24px; font-weight: 500; }
+.lf-xcol-sym { font-size: 14px; font-weight: 500; }
+.lf-xcol-sym.zero-dash { opacity: 0.48; }
 
 /* LF: 카드 타이틀 */
 .lf-mode #ret-section .tank-name { font-size: 28px; font-weight: 600; }
@@ -833,7 +857,7 @@ body.light .tank-wrap:not(.alert) .tank-card.active { border-color: rgba(0,0,0,1
 /* LF: 복사 버튼 */
 .lf-copy-btn {
   display: none;
-  position: absolute; top: 18px; right: 20px;
+  position: absolute; top: 18px; right: 18px;
   width: 32px; height: 32px;
   align-items: center; justify-content: center;
   background: rgba(255,255,255,0.08); border: none;
@@ -870,8 +894,12 @@ body.light .lf-copy-btn.copied { color: var(--clr-good); }
 body.light .lf-kpi-flat-label   { color: rgba(0,0,0,0.36); }
 body.light .lf-kpi-flat-num     { color: #000; }
 body.light .lf-kpi-flat-num.muted { color: rgba(0,0,0,0.4); }
+body.light .lf-kpi-flat-num.good  { color: var(--clr-good); }
+body.light .lf-kpi-flat-num.bad   { color: var(--clr-bad); }
 body.light .lf-kpi-flat-unit    { color: rgba(0,0,0,0.5); }
 body.light .lf-kpi-flat-unit.muted { color: rgba(0,0,0,0.3); }
+body.light .lf-kpi-flat-unit.good  { color: var(--clr-good); }
+body.light .lf-kpi-flat-unit.bad   { color: var(--clr-bad); }
 body.light .lf-chart-title      { color: rgba(0,0,0,0.3); }
 body.light .lf-legend-dot.curr  { background: rgba(0,0,0,0.65); }
 body.light .lf-legend-dot.prev  { background: rgba(0,0,0,0.2); }
@@ -900,6 +928,38 @@ body.light .lf-warning-badge    { background: rgba(var(--clr-bad-rgb),0.12); col
 .footer-uxi { color: inherit; text-decoration: none; transition: text-decoration 0.15s; }
 .footer-uxi:hover { color: #fff; }
 .detail-copy-btn.copied { border-color: rgba(var(--clr-good-rgb),0.5); color: var(--clr-good); background: rgba(var(--clr-good-rgb),0.08); }
+
+/* ══ 키보드 네비게이션 포커스 = 호버 상태 재사용 ══ */
+.tab.kbd-focus:not(.active) { color: rgba(255,255,255,0.7); }
+body.light .tab.kbd-focus:not(.active) { color: rgba(0,0,0,0.6); }
+.tank-wrap.kbd-focus .tank-card { border-color: rgba(255,255,255,0.80); }
+.tank-wrap.kbd-focus .tank-card .tank-name,
+.tank-wrap.kbd-focus .tank-card .tank-caret { opacity: 1; }
+.tank-wrap.kbd-focus .tank-card .tank-caret { color: var(--white); }
+.tank-wrap.alert.kbd-focus .tank-card { border-color: rgba(var(--clr-bad-rgb),0.8); }
+body.light .tank-wrap:not(.alert).kbd-focus .tank-card { border-color: rgba(0,0,0,0.4); }
+/* LF 모드: 포커스된 카드 외 나머지 페이드 (호버와 동일) */
+.lf-mode #ret-section .tanks-row:has(.tank-wrap.kbd-focus) .tank-wrap:not(.kbd-focus) { opacity: 0.4; }
+.lf-mode #ret-section .tank-wrap.kbd-focus .lf-copy-btn { display: flex; }
+/* 키보드 네비 모드: 호버 효과 억제 (kbd-focus만 반영) */
+body.kbd-nav .tab:hover:not(.active) { color: var(--muted); }
+body.light.kbd-nav .tab:hover:not(.active) { color: rgba(0,0,0,0.35); }
+body.kbd-nav .tank-card:hover { border-color: var(--border-card); }
+body.kbd-nav .tank-card:hover .tank-name  { opacity: 0.64; }
+body.kbd-nav .tank-card:hover .tank-caret { opacity: 1; color: var(--muted); }
+body.kbd-nav .tank-wrap.alert .tank-card:hover { border-color: rgba(var(--clr-bad-rgb),0.40); }
+body.kbd-nav .lf-mode #ret-section .tanks-row:has(.tank-wrap:hover) .tank-wrap:not(:hover) { opacity: 1; }
+body.kbd-nav .lf-mode #ret-section .tank-card:hover .lf-copy-btn:not(.copied) { display: none; }
+/* kbd-focus는 계속 적용 */
+body.kbd-nav .tank-wrap.kbd-focus .tank-card { border-color: rgba(255,255,255,0.80); }
+body.light.kbd-nav .tank-wrap:not(.alert).kbd-focus .tank-card { border-color: rgba(0,0,0,0.4); }
+body.kbd-nav .tank-wrap.alert.kbd-focus .tank-card { border-color: rgba(var(--clr-bad-rgb),0.8); }
+body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-name,
+body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-caret { opacity: 1; }
+body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-caret { color: var(--white); }
+body.light.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-caret { color: #000; }
+body.kbd-nav .lf-mode #ret-section .tanks-row:has(.tank-wrap.kbd-focus) .tank-wrap:not(.kbd-focus) { opacity: 0.4; }
+body.kbd-nav .lf-mode #ret-section .tank-wrap.kbd-focus .lf-copy-btn { display: flex; }
 </style>
 </head>
 <body>
@@ -949,9 +1009,9 @@ const DATA = {
 
   // invertSign:true → 감소가 좋은 세그
   acquisition: [
-    { seg:'No-Show', sub:'신규 발급 후 미로그인',      value:200, prevClose:115, deltaV:20, pct:3.8, positive:false, invertSign:true,  alert:false },
-    { seg:'Long-D',  sub:'3개월 초과',                 value:200, prevClose:115, deltaV:20, pct:3.8, positive:true,  invertSign:true,  alert:true  },
-    { seg:'On-Off',  sub:'3개월 내 방문, 연속 방문 X', value:200, prevClose:115, deltaV:20, pct:3.8, positive:false, invertSign:true,  alert:false },
+    { seg:'앱미경험',   sub:'앱 미경험 고객',     value:110, prevClose:110, deltaV:0,  pct:0,   positive:false, invertSign:true, alert:false },
+    { seg:'장기미이용', sub:'3개월 초과 미이용',  value:110, prevClose:100, deltaV:10, pct:10,  positive:true,  invertSign:true, alert:true  },
+    { seg:'간헐이용',   sub:'간헐적 방문',        value:190, prevClose:190, deltaV:0,  pct:0,   positive:false, invertSign:true, alert:false },
   ],
 
   // invertSign:false → 증가가 좋은 세그
@@ -1084,9 +1144,9 @@ function buildMetrics() {
 
 // ── 랜덤 데이터 생성 ──
 const RANGES = {
-  'No-Show': { val:[80,180],   prev:[60,160]  },
-  'Long-D':  { val:[60,150],   prev:[50,130]  },
-  'On-Off':  { val:[70,160],   prev:[60,140]  },
+  '앱미경험':   { val:[80,180], prev:[60,160] },
+  '장기미이용': { val:[60,150], prev:[50,130] },
+  '간헐이용':   { val:[70,160], prev:[60,140] },
   'Light':   { val:[100,250],  prev:[90,230]  },
   'Casual':  { val:[80,200],   prev:[70,180]  },
   'Power':   { val:[30,120],   prev:[25,110]  },
@@ -1151,19 +1211,22 @@ function animateTanks() {
   document.querySelectorAll('.tank-wrap').forEach(wrap => {
     animateCard(wrap);
     const card = wrap.querySelector('.tank-card');
-    if (card) card.addEventListener('mouseenter', () => { animateCard(wrap); tickSound(); });
-    wrap.addEventListener('click', () => {
-      if (currentTab === 'lf' && wrap.closest('#ret-tanks')) return;
-      openDetail(wrap.dataset.seg, wrap.dataset.sub);
-    });
+    if (card) {
+      card.addEventListener('mouseenter', () => { animateCard(wrap); tickSound(); });
+      card.addEventListener('click', () => {
+        if (currentTab === 'lf' && wrap.closest('#ret-tanks')) return;
+        openDetail(wrap.dataset.seg, wrap.dataset.sub);
+      });
+    }
   });
 }
 
 function buildTanks(tanks, containerId) {
   document.getElementById(containerId).innerHTML = tanks.map(t => {
-    const isGood   = t.invertSign ? !t.positive : t.positive;
-    const indClass = isGood ? 'good' : 'bad';
-    const arrow    = t.positive ? '▴' : '▾';
+    // 텍스트 색은 증감 방향 그대로 (+ 녹색 / - 레드). 0만 차이는 중립(흰색 64%).
+    const isZero   = t.deltaV === 0;
+    const indClass = isZero ? 'zero' : (t.positive ? 'good' : 'bad');
+    const arrow    = isZero ? '–' : (t.positive ? '▴' : '▾');
     const sign     = t.positive ? '+' : '-';
     return `
       <div class="tank-wrap${t.alert ? ' alert' : ''}" data-seg="${t.seg}" data-sub="${t.sub}">
@@ -1186,8 +1249,8 @@ function buildTanks(tanks, containerId) {
             <div class="tank-indicator ${indClass}">
               <span class="tank-arrow-sym">${arrow}</span>
               <span class="tank-delta"><span class="delta-num" data-t="${t.deltaV}">0</span>만</span>
-              <span class="tank-pct">${sign}<span class="pct-num" data-t="${t.pct}">0.0</span>%</span>
-              ${t.alert ? '<span class="alert-badge">이상</span>' : ''}
+              ${isZero ? '' : `<span class="tank-pct">${sign}<span class="pct-num" data-t="${t.pct}">0.0</span>%</span>`}
+              ${t.alert ? '<span class="alert-badge">이상</span>' : '<span class="alert-badge placeholder" aria-hidden="true">이상</span>'}
             </div>
           </div>
         </div>
@@ -1307,9 +1370,49 @@ function toggleTheme() {
 }
 
 // ── CSV 데이터 폴더 로더 ──
+// 한글/영문 헤더 통합 매핑 (CSV 헤더가 어느 쪽이든 동일 필드명으로 인식)
+const CSV_HEADER_MAP = {
+  // seg_status
+  '세그': 'seg', '세그구분': 'seg', '세그명': 'seg',
+  '트랙': 'track', '트랙구분': 'track',
+  '서브': 'sub', '설명': 'sub', '세그설명': 'sub',
+  '값': 'value', '당월값': 'value',
+  '전월마감': 'prev_close', '전월값': 'prev_close',
+  '증가여부': 'positive', '양의방향': 'positive',
+  '부호반전': 'invert_sign', '감소가좋음': 'invert_sign',
+  '경고': 'alert', '이상여부': 'alert',
+  '유입': 'inflow', '이탈': 'outflow',
+  // seg_panel
+  '기간': 'period', '라벨': 'label', '지표명': 'label',
+  '증감': 'delta', '변화': 'delta',
+  // seg_visit (LF)
+  '추출일': 'extract_date', '데이터추출일': 'extract_date', '데이터추출일자': 'extract_date',
+  '세그정의': 'seg_def', '로그인일수전월_마감': 'seg_def',
+  '당월전체수': 'cur_total', '로그인인수': 'cur_total',
+  '당월평균': 'cur_mean', '당월평균로그인': 'cur_mean',
+  '전월평균': 'prev_mean', '전월평균로그인': 'prev_mean',
+  // 일별 11버킷 (0일, 1일, ..., 9일, 10일+)
+  '당월_0일': 'cur_0', '당월_1일': 'cur_1', '당월_2일': 'cur_2', '당월_3일': 'cur_3', '당월_4일': 'cur_4',
+  '당월_5일': 'cur_5', '당월_6일': 'cur_6', '당월_7일': 'cur_7', '당월_8일': 'cur_8', '당월_9일': 'cur_9',
+  '당월_10일+': 'cur_10plus', '당월_10일이상': 'cur_10plus',
+  '전월_0일': 'prev_0', '전월_1일': 'prev_1', '전월_2일': 'prev_2', '전월_3일': 'prev_3', '전월_4일': 'prev_4',
+  '전월_5일': 'prev_5', '전월_6일': 'prev_6', '전월_7일': 'prev_7', '전월_8일': 'prev_8', '전월_9일': 'prev_9',
+  '전월_10일+': 'prev_10plus', '전월_10일이상': 'prev_10plus',
+  // 공백 변형 (당월 로그인_0일 등)
+  '당월 로그인_0일': 'cur_0', '당월 로그인_1일': 'cur_1', '당월 로그인_2일': 'cur_2', '당월 로그인_3일': 'cur_3',
+  '당월 로그인_4일': 'cur_4', '당월 로그인_5일': 'cur_5', '당월 로그인_6일': 'cur_6', '당월 로그인_7일': 'cur_7',
+  '당월 로그인_8일': 'cur_8', '당월 로그인_9일': 'cur_9', '당월 로그인_10일+': 'cur_10plus',
+  '전월 로그인_0일': 'prev_0', '전월 로그인_1일': 'prev_1', '전월 로그인_2일': 'prev_2', '전월 로그인_3일': 'prev_3',
+  '전월 로그인_4일': 'prev_4', '전월 로그인_5일': 'prev_5', '전월 로그인_6일': 'prev_6', '전월 로그인_7일': 'prev_7',
+  '전월 로그인_8일': 'prev_8', '전월 로그인_9일': 'prev_9', '전월 로그인_10일+': 'prev_10plus',
+  // 평균
+  '평균 로그인 일수_당월': 'cur_mean',
+  '평균 로그인 일수_전월': 'prev_mean',
+};
+
 function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/);
-  const headers = lines[0].split(',').map(h => h.trim());
+  const headers = lines[0].split(',').map(h => h.trim()).map(h => CSV_HEADER_MAP[h] || h);
   return lines.slice(1).filter(l => l.trim()).map(line => {
     const vals = line.split(',').map(v => v.trim());
     const obj = {};
@@ -1318,110 +1421,181 @@ function parseCSV(text) {
   });
 }
 
-function loadDataFolder(files) {
-  const fileMap = {};
-  Array.from(files).forEach(f => {
-    const name = f.name.toLowerCase();
-    if (name === 'seg_status.csv') fileMap.status = f;
-    if (name === 'seg_panel.csv')  fileMap.panel  = f;
-    if (name === 'seg_visit.csv')  fileMap.visit  = f;
-  });
+// 파싱 + 상태 업데이트 + UI 재렌더 (upload/autoFetch 공통)
+function applyCSVResults(results) {
+  if (results.panel) {
+    const rows = parseCSV(results.panel);
+    if (rows[0]?.period) DATA.period = rows[0].period;
+    DATA.metrics = rows.map(r => ({
+      label: r.label, value: r.value, delta: r.delta,
+      positive: r.positive === 'true'
+    }));
+  }
 
-  function readFile(file) {
-    return new Promise(resolve => {
-      const r = new FileReader();
-      r.onload = e => resolve(e.target.result);
-      r.readAsText(file, 'UTF-8');
+  if (results.visit && typeof LF_DATA !== 'undefined') {
+    const rows = parseCSV(results.visit);
+    // extract_date 기준으로 기준일 자동 계산 (당월 1일 ~ 추출일 전일)
+    const first = rows[0];
+    if (first?.extract_date) {
+      const d = new Date(first.extract_date);
+      if (!isNaN(d)) {
+        const m = d.getMonth() + 1;
+        const prevDay = d.getDate() - 1;
+        if (prevDay >= 1) {
+          DATA.period = `${m}. 1 ~ ${m}. ${prevDay}`;
+        } else {
+          // 추출일이 1일이면 전월 마지막 날로
+          const prev = new Date(d.getFullYear(), d.getMonth(), 0);
+          DATA.period = `${prev.getMonth() + 1}. 1 ~ ${prev.getMonth() + 1}. ${prev.getDate()}`;
+        }
+      }
+    }
+    rows.forEach(r => {
+      if (!r.seg || !LF_DATA[r.seg]) return;
+      // 11개 버킷 (0일, 1일, ..., 9일, 10일+) 필드 파싱
+      const readBucket = (r, prefix, key) => {
+        // key가 '10일+'면 cur_10plus / prev_10plus 필드 사용, 아니면 cur_0, cur_1 ...
+        const suffix = key === '10일+' ? '10plus' : key.replace('일','');
+        return parseInt(r[`${prefix}_${suffix}`], 10) || 0;
+      };
+      LF_DATA[r.seg] = {
+        curMean:  parseFloat(r.cur_mean)  || 0,
+        prevMean: parseFloat(r.prev_mean) || 0,
+        current: BUCKETS.reduce((o, k) => (o[k] = readBucket(r, 'cur',  k), o), {}),
+        prev:    BUCKETS.reduce((o, k) => (o[k] = readBucket(r, 'prev', k), o), {}),
+      };
     });
   }
 
-  const promises = [];
-  const keys = [];
-  Object.entries(fileMap).forEach(([k, f]) => { keys.push(k); promises.push(readFile(f)); });
+  if (results.status) {
+    const rows = parseCSV(results.status);
+    const mapRow = (r) => {
+      const v  = parseFloat(r.value);
+      const pc = parseFloat(r.prev_close);
+      const d  = Math.abs(v - pc);
+      return {
+        seg: r.seg, sub: r.sub,
+        value: v, prevClose: pc,
+        deltaV: Math.round(d),
+        pct: parseFloat((d / pc * 100).toFixed(1)),
+        positive: r.positive === 'true',
+        invertSign: r.invert_sign === 'true',
+        alert: r.alert === 'true',
+        inflow: r.inflow ? parseFloat(r.inflow) : null,
+        outflow: r.outflow ? parseFloat(r.outflow) : null,
+      };
+    };
+    const acq = rows.filter(r => r.track === 'acquisition').map(mapRow);
+    const ret = rows.filter(r => r.track === 'retention').map(mapRow);
+    if (acq.length) DATA.acquisition = acq;
+    if (ret.length) DATA.retention   = ret;
+  }
 
-  Promise.all(promises).then(texts => {
-    const results = {};
-    keys.forEach((k, i) => results[k] = texts[i]);
+  // localStorage 캐시 저장 (대시보드 + LF)
+  try {
+    localStorage.setItem('aqua_data', JSON.stringify({
+      period: DATA.period, metrics: DATA.metrics,
+      acquisition: DATA.acquisition, retention: DATA.retention,
+    }));
+    localStorage.setItem('aqua_lf_data_v3', JSON.stringify(LF_DATA));
+  } catch(e) {}
 
-    if (results.panel) {
-      const rows = parseCSV(results.panel);
-      if (rows[0]?.period) DATA.period = rows[0].period;
-      DATA.metrics = rows.map(r => ({
-        label: r.label, value: r.value, delta: r.delta,
-        positive: r.positive === 'true'
-      }));
-    }
-
-    if (results.status) {
-      const rows = parseCSV(results.status);
-      function mapRow(r) {
-        const v  = parseFloat(r.value);
-        const pc = parseFloat(r.prev_close);
-        const d  = Math.abs(v - pc);
-        return {
-          seg:        r.seg,
-          sub:        r.sub,
-          value:      v,
-          prevClose:  pc,
-          deltaV:     Math.round(d),
-          pct:        parseFloat((d / pc * 100).toFixed(1)),
-          positive:   r.positive   === 'true',
-          invertSign: r.invert_sign === 'true',
-          alert:      r.alert       === 'true',
-          inflow:     r.inflow  ? parseFloat(r.inflow)  : null,
-          outflow:    r.outflow ? parseFloat(r.outflow) : null,
-        };
-      }
-      const acq = rows.filter(r => r.track === 'acquisition').map(mapRow);
-      const ret = rows.filter(r => r.track === 'retention').map(mapRow);
-      if (acq.length) DATA.acquisition = acq;
-      if (ret.length) DATA.retention   = ret;
-    }
-
-    // localStorage에 캐시 저장
-    try {
-      localStorage.setItem('aqua_data', JSON.stringify({
-        period:      DATA.period,
-        metrics:     DATA.metrics,
-        acquisition: DATA.acquisition,
-        retention:   DATA.retention,
-      }));
-    } catch(e) {}
-
-    // 재렌더링 (실데이터 → randomize 없음)
-    document.getElementById('period-val').textContent = DATA.period;
+  // UI 재렌더 (DOM 준비된 경우에만)
+  const periodEl = document.getElementById('period-val');
+  if (periodEl) {
+    periodEl.textContent = DATA.period;
     buildMetrics();
     buildTanks(DATA.acquisition, 'acq-tanks');
     buildTanks(DATA.retention,   'ret-tanks');
     animateTanks();
+    if (typeof currentTab !== 'undefined' && currentTab === 'lf') {
+      const prev = currentTab; currentTab = 'seg'; switchTab(prev);
+    }
+  }
+}
 
-    // 버튼 로드 완료 표시
-    const btn = document.getElementById('load-btn');
-    btn.style.opacity = '0.35';
-    btn.title = '데이터 로드 완료';
-    btn.onclick = null;
+// 파일명 한글/영문 키워드 → 내부 타입(panel/status/visit) 매핑
+function identifyCSVType(filename) {
+  const n = filename.toLowerCase().replace(/\.csv$/, '');
+  if (/panel|패널|지표|메트릭|metric/i.test(n)) return 'panel';
+  if (/visit|방문|lf|frequency|빈도|로그인/i.test(n)) return 'visit';
+  if (/status|상태|tank|탱크/i.test(n)) return 'status';
+  return null;
+}
+
+function loadDataFolder(files) {
+  const fileMap = {};
+  Array.from(files).forEach(f => {
+    const type = identifyCSVType(f.name);
+    if (type) fileMap[type] = f;
+  });
+  const readFile = (file) => new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.readAsText(file, 'UTF-8');
+  });
+  const keys = Object.keys(fileMap);
+  Promise.all(keys.map(k => readFile(fileMap[k]))).then(texts => {
+    const results = {};
+    keys.forEach((k, i) => results[k] = texts[i]);
+    applyCSVResults(results);
   });
 }
+
+// 페이지 로드 시 data/*.csv 자동 fetch → applyCSVResults
+(async function autoFetchCSVs() {
+  const fetchText = async (path) => {
+    try { const r = await fetch(path); return r.ok ? await r.text() : null; }
+    catch { return null; }
+  };
+  // 타입별 파일명 후보 (한글/영문, 첫 번째로 성공하는 파일 사용)
+  const CANDIDATES = {
+    panel:  ['seg_panel.csv',  'panel.csv',  '세그_패널.csv',  '패널.csv',  '지표.csv'],
+    status: ['seg_status.csv', 'status.csv', '세그_상태.csv',  '상태.csv',  '탱크.csv'],
+    visit:  ['seg_visit.csv',  'visit.csv',  '세그_방문.csv',  '방문.csv',  '로그인.csv', 'lf.csv'],
+  };
+  const fetchFirst = async (names) => {
+    for (const n of names) {
+      const t = await fetchText('./data/' + n);
+      if (t) return t;
+    }
+    return null;
+  };
+  const [panel, status, visit] = await Promise.all([
+    fetchFirst(CANDIDATES.panel),
+    fetchFirst(CANDIDATES.status),
+    fetchFirst(CANDIDATES.visit),
+  ]);
+  const results = {};
+  if (panel)  results.panel  = panel;
+  if (status) results.status = status;
+  if (visit)  results.visit  = visit;
+  if (!Object.keys(results).length) return;
+  if (document.readyState === 'loading') {
+    await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
+  }
+  requestAnimationFrame(() => applyCSVResults(results));
+})();
 </script>
 
 <script>
 // ══ 세그 상세 데이터 ══
 const SEG_DETAILS = {
-  'No-Show': {
+  '앱미경험': {
     avgCards:'1.2개', avgSpend:'32만원',
-    flow:{ prev:130, curr:150, inflow:35, outflow:15 },
+    flow:{ prev:110, curr:110, inflow:35, outflow:15 },
     ageGroups:[{age:'20대',pct:35},{age:'30대',pct:28},{age:'40대',pct:22},{age:'50대',pct:11},{age:'60대+',pct:4}],
     topCards:[['카드명 A',30],['카드명 B',22],['카드명 C',18],['카드명 D',16],['카드명 E',14]]
   },
-  'Long-D': {
+  '장기미이용': {
     avgCards:'1.4개', avgSpend:'45만원',
-    flow:{ prev:100, curr:120, inflow:28, outflow:8 },
+    flow:{ prev:100, curr:110, inflow:28, outflow:8 },
     ageGroups:[{age:'20대',pct:18},{age:'30대',pct:29},{age:'40대',pct:30},{age:'50대',pct:16},{age:'60대+',pct:7}],
     topCards:[['카드명 B',28],['카드명 A',24],['카드명 C',17],['카드명 F',14],['카드명 D',10]]
   },
-  'On-Off': {
+  '간헐이용': {
     avgCards:'1.6개', avgSpend:'68만원',
-    flow:{ prev:125, curr:140, inflow:22, outflow:7 },
+    flow:{ prev:190, curr:190, inflow:22, outflow:7 },
     ageGroups:[{age:'20대',pct:24},{age:'30대',pct:32},{age:'40대',pct:25},{age:'50대',pct:14},{age:'60대+',pct:5}],
     topCards:[['카드명 B',26],['카드명 A',21],['카드명 E',16],['카드명 C',12],['카드명 G',9]]
   },
@@ -1483,9 +1657,9 @@ function openDetail(seg, sub, fromPlay) {
   const prevPct  = (f.prev / scaleMax * 100).toFixed(1);
   const currPct  = (f.curr / scaleMax * 100).toFixed(1);
   const delta      = f.curr - f.prev;
-  const deltaSign  = delta >= 0 ? '+' : '';
-  const isGood     = tank ? (tank.invertSign ? delta < 0 : delta >= 0) : delta >= 0;
-  const deltaClass = delta === 0 ? 'zero' : (isGood ? 'pos' : 'neg');
+  const deltaSign  = delta > 0 ? '+' : '';
+  // 방향 기반: + 녹색 / - 레드 (이상 여부는 테두리로 표시)
+  const deltaClass = delta === 0 ? 'zero' : (delta > 0 ? 'pos' : 'neg');
 
   document.getElementById('detail-body').innerHTML = `
     <div class="detail-kpi-row">
@@ -1518,7 +1692,7 @@ function openDetail(seg, sub, fromPlay) {
           <div class="delta-hatch ${deltaClass}" id="dc-hatch"></div>
           <div class="delta-badge-wrap" id="dc-badge">
             <div class="delta-badge-arrow ${deltaClass}"></div>
-            <div class="delta-badge ${deltaClass}">${deltaSign}${delta}만</div>
+            <div class="delta-badge ${deltaClass}">${delta === 0 ? `<span style="opacity:0.48">–</span> 0만` : `${deltaSign}${delta}만`}</div>
           </div>
         </div>
       </div>
@@ -1595,19 +1769,38 @@ function openDetail(seg, sub, fromPlay) {
 }
 
 // ══ Login Frequency ══
-const BUCKETS = ['0일','1~2일','3~7일','8일+'];
-const BUCKET_COLORS = { '0일':'#EF4444','1~2일':'#F97316','3~7일':'#4ADE80','8일+':'#38BDF8' };
-const LF_DATA = {
-  Light:  { curMean:1.2, prevMean:1.8,
-            current:{'0일':98,'1~2일':150,'3~7일':35,'8일+':2},
-            prev:   {'0일':82,'1~2일':160,'3~7일':38,'8일+':5} },
-  Casual: { curMean:2.4, prevMean:2.5,
-            current:{'0일':42,'1~2일':153,'3~7일':94,'8일+':9},
-            prev:   {'0일':38,'1~2일':153,'3~7일':100,'8일+':7} },
-  Power:  { curMean:3.2, prevMean:3.6,
-            current:{'0일':12,'1~2일':57,'3~7일':90,'8일+':23},
-            prev:   {'0일':8,'1~2일':50,'3~7일':100,'8일+':24} },
-};
+const BUCKETS = ['0일','1일','2일','3일','4일','5일','6일','7일','8일','9일','10일+'];
+const BUCKET_COLORS = {};
+BUCKETS.forEach((b, i) => {
+  const hue = 210 - (i * 18); // 시각적 단색 스펙트럼 (실제 차트 렌더링에선 단색 계열 사용)
+  BUCKET_COLORS[b] = `hsl(${Math.max(0, hue)},70%,60%)`;
+});
+// LF_DATA: localStorage 캐시가 있으면 복원, 없으면 아래 하드코딩 기본값 사용. autoFetchCSVs/업로드로 갱신됨.
+const LF_DATA = (() => {
+  const mkBuckets = (arr) => BUCKETS.reduce((o, b, i) => (o[b] = arr[i] || 0, o), {});
+  //                          [ 0일, 1일, 2일, 3일, 4일, 5일, 6일, 7일, 8일, 9일, 10일+]
+  const defaults = {
+    Light:  { curMean:1.6, prevMean:1.2,
+              current: mkBuckets([  0,  30, 100,  90,  30,  20,  10,   5,   5,   0,   0]),
+              prev:    mkBuckets([ 50, 110, 100,  10,   6,   3,   5,   6,   0,   0,   0]) },
+    Casual: { curMean:4.6, prevMean:5.7,
+              current: mkBuckets([  0,  50,  30,  50,  30,  60,  30,  10,  20,  10,   5]),
+              prev:    mkBuckets([ 20,  20,  60,  20,  40,  50,  50,  40,   0,   0,   0]) },
+    Power:  { curMean:9.8, prevMean:10.5,
+              current: mkBuckets([ 30,   5,   5,  30,   2,   5,   4,   5,  30,  40,  50]),
+              prev:    mkBuckets([  5,   5,  20,   2,   7,   4,   5,   2,  10,  90,  30]) },
+  };
+  try {
+    const cached = localStorage.getItem('aqua_lf_data_v3');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      Object.keys(defaults).forEach(k => { if (parsed[k]) defaults[k] = parsed[k]; });
+    }
+  } catch(e) {}
+  return defaults;
+})();
+
+// autoLoadLFCSV 제거: 위쪽 autoFetchCSVs가 panel/status/visit 3개 일괄 처리
 
 let _audioCtx = null;
 function tickSound() {
@@ -1658,7 +1851,7 @@ function buildLFContent(seg) {
   const d = LF_DATA[seg];
   if (!d) return '';
   const diff     = +(d.curMean - d.prevMean).toFixed(1);
-  const diffSign = diff > 0 ? '+' : '';
+  const diffSign = diff > 0 ? '+' : diff < 0 ? '-' : '';
   const isWarn   = diff <= -0.3;
   const numClass = isWarn ? 'bad' : diff > 0 ? 'good' : '';
   const SEG_DESC = { Light: '월 1~2회', Casual: '월 3~7회', Power: '월 8회 이상' };
@@ -1679,7 +1872,7 @@ function buildLFContent(seg) {
           <span class="lf-kpi-flat-unit muted">일</span>
         </div>
       </div>
-      <div class="lf-kpi-flat-item">
+      <div class="lf-kpi-flat-item${isWarn ? ' warn' : ''}">
         <div class="lf-kpi-flat-label">전월 대비${isWarn ? ' <span class="lf-warn-chip">이상</span>' : ''}</div>
         <div class="lf-kpi-flat-value-row">
           <span class="lf-kpi-flat-num ${numClass}" id="lf-kpi-diff-${seg}" data-t="${Math.abs(diff)}" data-sign="${diffSign}">0.0</span>
@@ -1689,9 +1882,15 @@ function buildLFContent(seg) {
     </div>
     <hr class="lf-kpi-divider">
     <div class="lf-chart-section-title">구간별 분포</div>
-    <div class="lf-chart-section-sub">전월 vs 당월 동기 (3월/4월 1~5일)</div>
+    <div class="lf-chart-section-sub">전월 vs 당월 동기</div>
     <div class="lf-canvas-wrap">
       <canvas id="lf-canvas-${seg}"></canvas>
+      <div class="lf-tooltip" id="lf-tt-${seg}" aria-hidden="true">
+        <div class="lf-tt-row" data-r="prev">전월 0만</div>
+        <div class="lf-tt-row" data-r="cur">당월 0만</div>
+        <div class="lf-tt-div"></div>
+        <div class="lf-tt-row" data-r="delta">전월 대비 +0만</div>
+      </div>
     </div>
     <div class="lf-xaxis-row">
       ${BUCKETS.map(b => {
@@ -1700,7 +1899,7 @@ function buildLFContent(seg) {
         const sym = bd > 0 ? '▴' : bd < 0 ? '▾' : '';
         return `<div class="lf-xcol">
           <div class="lf-xcol-lbl">${b}</div>
-          <div class="lf-xcol-delta ${cls}">${sym ? `<span class="lf-xcol-sym">${sym}</span>` : ''}${Math.abs(bd)}만</div>
+          <div class="lf-xcol-delta ${cls}">${bd === 0 ? `<span class="lf-xcol-sym zero-dash">–</span>` : `<span class="lf-xcol-sym">${sym}</span>${Math.abs(bd)}만`}</div>
         </div>`;
       }).join('')}
     </div>
@@ -1759,12 +1958,12 @@ function drawLFChart(seg) {
   canvas.width  = W * dpr;
   canvas.height = H * dpr;
 
-  const padL = 52, padR = 8, padT = 10, padB = 8;
+  const padL = 40, padR = 8, padT = 10, padB = 8;
   const chartW = W - padL - padR;
   const chartH = H - padT - padB;
 
-  // ── Y-axis: 40만 단위, min 40px 간격 ──
-  const maxVal   = Math.max(...BUCKETS.flatMap(b => [d.current[b], d.prev[b]]));
+  // ── Y-axis: 40만 단위, min 40px 간격 (전 세그먼트 공통 스케일로 동일선상 비교) ──
+  const maxVal   = Math.max(...Object.values(LF_DATA).flatMap(s => BUCKETS.flatMap(b => [s.current[b], s.prev[b]])));
   const dataStep = 40;
   const topVal   = Math.ceil(maxVal / dataStep) * dataStep;
   const numSteps = topVal / dataStep;
@@ -1806,8 +2005,8 @@ function drawLFChart(seg) {
       const y = padT + chartH - (v / topVal) * chartH;
       ctx.strokeStyle = `rgba(${rgb},0.08)`;
       ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + chartW, y); ctx.stroke();
-      ctx.font = `500 14px SFProDisplay,sans-serif`;
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W, y); ctx.stroke();
+      ctx.font = `400 12px SFProDisplay,sans-serif`;
       ctx.fillStyle = `rgba(${rgb},0.36)`;
       ctx.textAlign = 'left';
       ctx.fillText(v + '만', 0, y + 5);
@@ -1831,15 +2030,18 @@ function drawLFChart(seg) {
         : (isLight ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,1)');
       ctx.beginPath(); ctx.rect(currX, currY, barW, aCurH); ctx.fill();
 
-      // 델타 해치 (호버 시만, 좌우 12px 돌출, 애니메이션)
+      // 델타 해치 (호버 시만, 좌우 12px 돌출; 양끝 버킷은 그리드 끝까지 확장)
       if (hov) {
-        const hatchX = prevX - 12;
-        const hatchW = currX + barW - prevX + 24;
+        const isFirst = i === 0;
+        const isLast  = i === buckets.length - 1;
+        const hatchX  = isFirst ? padL : prevX - 12;
+        const hatchR  = isLast  ? W    : currX + barW + 12;
+        const hatchW  = hatchR - hatchX;
         const hatchY = Math.min(prevY, currY);
         const hatchH = Math.abs(aPvH - aCurH);
         if (hatchH <= 2) {
-          // delta=0: 흰 가로선
-          ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5;
+          // delta=0: 가로선 (라이트모드는 검정)
+          ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5;
           ctx.beginPath(); ctx.moveTo(hatchX, hatchY); ctx.lineTo(hatchX + hatchW, hatchY); ctx.stroke();
         } else {
           const isPos = cur >= pv;
@@ -1851,56 +2053,38 @@ function drawLFChart(seg) {
       }
     });
 
-    // 호버 툴팁 — 바 우측에 위치, 가리지 않음
-    if (hovIdx !== null && hovIdx >= 0) {
-      const bk = buckets[hovIdx];
-      const delta = bk.cur - bk.pv;
-      const dStr  = (delta >= 0 ? '+' : '') + delta + '만';
-      // 순서: 전월 → 당월 → 전월 대비
-      const lines = [`전월 ${bk.pv}만`, `당월 ${bk.cur}만`, `전월 대비 ${dStr}`];
-
-      const fs = 15, lh = fs + 10, px = 16, py = 14, divH = 1, divGap = 10;
-      ctx.font = `700 ${fs}px SFProDisplay,sans-serif`;
-      const tw = Math.max(...lines.map(l => ctx.measureText(l).width)) + px * 2;
-      // th: line0(lh) + line1(lh) + divGap + divH + divGap + fs + py*2
-      const th = py * 2 + lh * 2 + divGap * 2 + divH + fs;
-
-      // 바 우측 배치, 공간 없으면 좌측
-      const hatchExt = 12;
-      let tx = bk.cx + gap / 2 + barW + hatchExt + 8;
-      if (tx + tw > W - padR) tx = bk.cx - gap / 2 - barW - hatchExt - 8 - tw;
-      if (tx < padL) tx = padL;
-
-      // 수직: 가장 높은 바 상단 기준, 캔버스 안으로 클램프
-      let ty = Math.min(padT + chartH - bk.pvH * _barProg, padT + chartH - bk.curH * _barProg);
-      if (ty + th > padT + chartH) ty = padT + chartH - th;
-      if (ty < padT) ty = padT;
-
-      // 흰 배경
-      ctx.shadowColor = 'rgba(0,0,0,0.18)';
-      ctx.shadowBlur = 16;
-      ctx.shadowOffsetY = 4;
-      ctx.fillStyle = '#ffffff';
-      lfRoundRect(ctx, tx, ty, tw, th, 10); ctx.fill();
-      ctx.shadowColor = 'transparent';
-      ctx.shadowBlur = 0;
-      ctx.shadowOffsetY = 0;
-
-      // 모두 검정, 구분선 위아래 divGap 동일
-      ctx.textAlign = 'left';
-      ctx.fillStyle = '#000000';
-      ctx.fillText(lines[0], tx + px, ty + py + fs);           // 전월
-      ctx.fillText(lines[1], tx + px, ty + py + fs + lh);      // 당월
-
-      const divY = ty + py + lh * 2 + divGap;
-      ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(tx + px, divY); ctx.lineTo(tx + tw - px, divY); ctx.stroke();
-
-      ctx.fillStyle = '#000000';
-      ctx.fillText(lines[2], tx + px, divY + divGap + fs);     // 전월 대비
-    }
-
     ctx.restore();
+
+    // 호버 툴팁 (DOM) — 작은 바일 때 그래프 위로 뜨게
+    const tt = document.getElementById('lf-tt-' + seg);
+    if (!tt) return;
+    if (hovIdx === null || hovIdx < 0) { tt.classList.remove('show'); return; }
+    const bk = buckets[hovIdx];
+    const delta = bk.cur - bk.pv;
+    const dStr  = (delta >= 0 ? '+' : '') + delta + '만';
+    tt.querySelector('[data-r="prev"]').textContent  = `전월 ${bk.pv}만`;
+    tt.querySelector('[data-r="cur"]').textContent   = `당월 ${bk.cur}만`;
+    if (delta === 0) {
+      tt.querySelector('[data-r="delta"]').innerHTML = `전월 대비 <span style="opacity:0.48">–</span>`;
+    } else {
+      tt.querySelector('[data-r="delta"]').textContent = `전월 대비 ${dStr}`;
+    }
+    tt.classList.add('show');
+
+    // 위치 계산 (offset 좌표계, 캔버스와 동일 wrap)
+    const ttW = tt.offsetWidth, ttH = tt.offsetHeight;
+    const hatchExt = 12;
+    let tx = bk.cx + gap / 2 + barW + hatchExt + 8;
+    if (tx + ttW > W - padR) tx = bk.cx - gap / 2 - barW - hatchExt - 8 - ttW;
+    if (tx < padL) tx = Math.max(4, bk.cx - ttW / 2);
+
+    // 수직: 가장 높은 바 상단 기준, 차트 영역 안으로 클램프 (원래 캔버스 로직 그대로)
+    const barTop = Math.min(padT + chartH - bk.pvH * _barProg, padT + chartH - bk.curH * _barProg);
+    let ty = barTop;
+    if (ty + ttH > padT + chartH) ty = padT + chartH - ttH;
+    if (ty < padT) ty = padT;
+    tt.style.left = tx + 'px';
+    tt.style.top  = ty + 'px';
   }
 
   // 해치 애니메이션 시작
@@ -1932,11 +2116,23 @@ function drawLFChart(seg) {
 
   render(null);
 
-  const xcolEls = canvas.closest('.tank-lf-content')
-    ? canvas.closest('.tank-lf-content').querySelectorAll('.lf-xcol-lbl') : [];
+  const lfRoot = canvas.closest('.tank-lf-content');
+  const xcolEls = lfRoot ? lfRoot.querySelectorAll('.lf-xcol-lbl') : [];
+  const xcolWraps = lfRoot ? lfRoot.querySelectorAll('.lf-xcol') : [];
 
   function setActiveXcol(hi) {
     xcolEls.forEach((el, i) => el.classList.toggle('active', i === hi));
+  }
+
+  function applyHover(hi) {
+    if (hi !== _hatchIdx) { startHatch(hi); if (hi !== null) tickSound(); }
+    setActiveXcol(hi);
+  }
+
+  function clearHover() {
+    if (_hatchRaf) cancelAnimationFrame(_hatchRaf);
+    _hatchIdx = null; _hatchProg = 0;
+    render(null); setActiveXcol(null);
   }
 
   canvas.onmousemove = (e) => {
@@ -1944,14 +2140,15 @@ function drawLFChart(seg) {
     const mx = e.clientX - rect.left;
     let hi = null;
     buckets.forEach(({ cx }, i) => { if (Math.abs(mx - cx) < groupW / 2) hi = i; });
-    if (hi !== _hatchIdx) { startHatch(hi); if (hi !== null) tickSound(); }
-    setActiveXcol(hi);
+    applyHover(hi);
   };
-  canvas.onmouseleave = () => {
-    if (_hatchRaf) cancelAnimationFrame(_hatchRaf);
-    _hatchIdx = null; _hatchProg = 0;
-    render(null); setActiveXcol(null);
-  };
+  canvas.onmouseleave = clearHover;
+
+  xcolWraps.forEach((el, i) => {
+    el.onmouseenter = () => applyHover(i);
+  });
+  const xaxisRow = lfRoot ? lfRoot.querySelector('.lf-xaxis-row') : null;
+  if (xaxisRow) xaxisRow.onmouseleave = clearHover;
 
   // KPI countUp
   const curEl  = document.getElementById('lf-kpi-cur-'  + seg);
@@ -1988,6 +2185,13 @@ function switchTab(tab) {
     document.querySelectorAll('#ret-tanks .tank-wrap').forEach(wrap => {
       const seg  = wrap.dataset.seg;
       const card = wrap.querySelector('.tank-card');
+      // LF 전용 alert: 전월 대비 음수면 이상. 원본 alert 상태는 dataset에 백업.
+      if (wrap.dataset.origAlert === undefined) {
+        wrap.dataset.origAlert = wrap.classList.contains('alert') ? '1' : '0';
+      }
+      const lfD = LF_DATA[seg];
+      const lfDiff = lfD ? (lfD.curMean - lfD.prevMean) : 0;
+      wrap.classList.toggle('alert', lfDiff < 0);
       // 서브 텍스트 → LF 포맷 변경
       const subEl = wrap.querySelector('.tank-sub');
       if (subEl && !subEl.dataset.origSub) {
@@ -2017,9 +2221,14 @@ function switchTab(tab) {
     ta.classList.remove('lf-mode');
     ta.classList.remove('lf-mode-settled');
     ta.closest('.aquarium-container').classList.remove('aquarium-lf');
-    // 서브 텍스트 복원
-    document.querySelectorAll('#ret-tanks .tank-wrap .tank-sub').forEach(el => {
-      if (el.dataset.origSub) { el.textContent = el.dataset.origSub; delete el.dataset.origSub; }
+    // 서브 텍스트 복원 + alert 상태 원복
+    document.querySelectorAll('#ret-tanks .tank-wrap').forEach(wrap => {
+      const subEl = wrap.querySelector('.tank-sub');
+      if (subEl && subEl.dataset.origSub) { subEl.textContent = subEl.dataset.origSub; delete subEl.dataset.origSub; }
+      if (wrap.dataset.origAlert !== undefined) {
+        wrap.classList.toggle('alert', wrap.dataset.origAlert === '1');
+        delete wrap.dataset.origAlert;
+      }
     });
   }
 }
@@ -2173,6 +2382,147 @@ function copySegData(seg, inflowVal, outflowVal) {
     }, 2000);
   });
 }
+
+// ══════════════════════════════════════════════════════════
+//  키보드 네비게이션
+//   - L/R: 현재 행(row) 내부 이동만
+//   - U/D: 행 간 이동, 마지막 세그 col 기억 (페어 정렬)
+//   - 활성 탭은 포커스 불가 (비활성 탭만)
+// ══════════════════════════════════════════════════════════
+(function () {
+  // 현재 탭 기준 rows 구성. 각 row는 col 순서로 정렬된 node 배열.
+  function getRows() {
+    const isLF = currentTab === 'lf';
+    const inactiveTab = isLF ? 'seg' : 'lf';
+    const rows = {};
+    rows[0] = [{ kind:'tab', id: inactiveTab, row:0, col:0 }];
+    if (!isLF) {
+      rows[1] = [
+        { kind:'seg', id:'앱미경험',   row:1, col:0 },
+        { kind:'seg', id:'장기미이용', row:1, col:1 },
+        { kind:'seg', id:'간헐이용',   row:1, col:2 },
+      ];
+    }
+    rows[2] = [
+      { kind:'seg', id:'Light',  row:2, col:0 },
+      { kind:'seg', id:'Casual', row:2, col:1 },
+      { kind:'seg', id:'Power',  row:2, col:2 },
+    ];
+    return rows;
+  }
+
+  const elFor = (n) => n.kind === 'tab'
+    ? document.querySelectorAll('.tabbar .tab')[n.id === 'seg' ? 0 : 1]
+    : document.querySelector(`.tank-wrap[data-seg="${n.id}"]`);
+
+  let focused = null;
+  let lastSegCol = 0; // U/D 행 이동 시 열 보존용
+
+  function setFocus(node) {
+    const changed = !focused || focused.kind !== node.kind || focused.id !== node.id;
+    focused = node;
+    if (node && node.kind === 'seg') lastSegCol = node.col;
+    render();
+    if (changed && typeof tickSound === 'function') tickSound();
+  }
+
+  function render() {
+    // 브라우저 native :focus 해제 (탭 버튼 클릭 후 남는 포커스 링 제거)
+    if (document.activeElement && document.activeElement !== document.body && document.activeElement.blur) {
+      document.activeElement.blur();
+    }
+    document.querySelectorAll('.kbd-focus').forEach(el => el.classList.remove('kbd-focus'));
+    document.body.classList.toggle('kbd-nav', focused !== null);
+    if (!focused) return;
+    const el = elFor(focused);
+    if (el) {
+      el.classList.add('kbd-focus');
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  // 마우스 이동 시 키보드 네비 모드 해제 (호버 기반 인터랙션으로 복귀)
+  document.addEventListener('mousemove', () => {
+    if (focused !== null) { focused = null; render(); }
+  }, { passive: true });
+
+  function currentNode(rows) {
+    if (!focused) return null;
+    const row = rows[focused.row];
+    if (!row) return null;
+    return row.find(n => n.kind === focused.kind && n.id === focused.id) || null;
+  }
+
+  function nextRowWith(rows, fromRow, dir) {
+    const step = dir === 'down' ? 1 : -1;
+    for (let r = fromRow + step; r >= 0 && r <= 2; r += step) {
+      if (rows[r] && rows[r].length) return rows[r];
+    }
+    return null;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const key = e.key;
+    if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Escape'].includes(key)) return;
+
+    if (key === 'Escape') { e.preventDefault(); focused = null; render(); return; }
+
+    const rows = getRows();
+    const cur = currentNode(rows);
+
+    // 초기 포커스 or 현재 row에서 invalid 상태
+    if (!cur) {
+      e.preventDefault();
+      setFocus(rows[0][0]);
+      return;
+    }
+
+    const rowArr = rows[cur.row];
+    const idx = rowArr.findIndex(n => n.id === cur.id);
+
+    // L/R: 전체 선형 시퀀스 (비활성 탭 + 세그먼트, 행 경계 넘어감)
+    const flat = [0, 1, 2].reduce((acc, r) => rows[r] ? acc.concat(rows[r]) : acc, []);
+    const flatIdx = flat.findIndex(n => n.kind === cur.kind && n.id === cur.id);
+
+    if (key === 'ArrowRight') {
+      e.preventDefault();
+      if (flatIdx < flat.length - 1) setFocus(flat[flatIdx + 1]);
+    } else if (key === 'ArrowLeft') {
+      e.preventDefault();
+      if (flatIdx > 0) setFocus(flat[flatIdx - 1]);
+    } else if (key === 'ArrowDown') {
+      e.preventDefault();
+      const next = nextRowWith(rows, cur.row, 'down');
+      if (!next) return;
+      // acq → ret 이동 시 페어(열 그대로)
+      const targetCol = cur.kind === 'seg' ? cur.col : lastSegCol;
+      setFocus(next[Math.min(targetCol, next.length - 1)]);
+    } else if (key === 'ArrowUp') {
+      e.preventDefault();
+      const next = nextRowWith(rows, cur.row, 'up');
+      if (!next) return;
+      // ret → acq 이동 시 페어(열 그대로)
+      // 세그 → 탭(row 0) 이동 시: 탭은 1칸(비활성)이므로 clamp
+      const targetCol = cur.kind === 'seg' ? cur.col : lastSegCol;
+      setFocus(next[Math.min(targetCol, next.length - 1)]);
+    } else if (key === 'Enter') {
+      e.preventDefault();
+      if (cur.kind === 'tab') {
+        switchTab(cur.id);
+        // 탭 전환 후 새로 비활성이 된 탭으로 포커스 이동
+        focused = { kind:'tab', id: currentTab === 'seg' ? 'lf' : 'seg', row:0, col:0 };
+        render();
+      } else {
+        const wrap = document.querySelector(`.tank-wrap[data-seg="${cur.id}"]`);
+        if (!wrap) return;
+        if (currentTab === 'lf' && wrap.closest('#ret-tanks')) return;
+        openDetail(wrap.dataset.seg, wrap.dataset.sub);
+      }
+    }
+  });
+})();
 </script>
 
 </body>

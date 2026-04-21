@@ -1,13 +1,4 @@
-week,seg,uv_current,uv_prev
-1,No-Show,15,13
-1,Long-D,12,10
-1,On-Off,14,12
-1,Light,20,18
-1,Casual,18,16
-1,Power,9,8
-2,No-Show,16,15
-2,Long-D,11,12
-2,On-Off,15,14
-2,Light,22,20
-2,Casual,19,18
-2,Power,10,9
+extract_date,track,seg,seg_def,cur_total,cur_mean,prev_mean,cur_0,cur_1,cur_2,cur_3,cur_4,cur_5,cur_6,cur_7,cur_8,cur_9,cur_10plus,prev_0,prev_1,prev_2,prev_3,prev_4,prev_5,prev_6,prev_7,prev_8,prev_9,prev_10plus
+2026-04-27,retention,Light,1~2일,290,1.6,1.2,0,30,100,90,30,20,10,5,5,0,0,50,110,100,10,6,3,5,6,0,0,0
+2026-04-27,retention,Casual,3~7일,295,4.6,5.7,0,50,30,50,30,60,30,10,20,10,5,20,20,60,20,40,50,50,40,0,0,0
+2026-04-27,retention,Power,8일~,206,9.8,10.5,30,5,5,30,2,5,4,5,30,40,50,5,5,20,2,7,4,5,2,10,90,30

@@ -74,6 +74,13 @@
 - hover 시 3개 중 나머지 opacity:0.4 fade
 - `.lf-kpi-row margin-bottom: 24px` (KPI행 ↔ 구간별 분포 제목 간격)
 - LF 툴팁(호버 말풍선): 라이트모드에서 shadow `rgba(0,0,0,0.18)` blur:16 offsetY:4
+- **Y축 스케일 공통화**: Light/Casual/Power 세 차트가 `LF_DATA` 전체 최댓값 기준으로 동일 Y축 사용 → 동일 선상 비교
+- LF 탭 alert 토글: `curMean < prevMean`이면 빨간 테두리 (LF 모드에서만), 나가면 origAlert 복구
+- warn 영역(전월 대비 이상): `rgba(var(--clr-bad-rgb),0.08)` 배경 + radius 16, 그리드 정렬
+- 그리드라인/해치 오버레이: 첫·마지막 버킷 경계까지 확장 (좌=padL, 우=W)
+- 0 델타 공통 규칙: `–` (en dash, 48% opacity), "0만" 텍스트 생략 (상세 배지만 "– 0만" 유지)
+- 탱크 인디케이터: `min-height: 24px` + `.alert-badge.placeholder { visibility: hidden }`로 alert 유무와 무관하게 행 높이 고정
+- CSV 데이터 정합성 교정(seg_visit.csv): Light/Casual/Power cur·prev 11버킷 재입력, localStorage 캐시 v3로 bump
 
 #### LF 데이터 구조 (JS 하드코딩, LF_DATA 객체)
 - Light: curMean:1.2 / prevMean:1.8 / buckets: 0일/1~2일/3~7일/8일+

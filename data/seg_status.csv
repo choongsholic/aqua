@@ -1,7 +1,7 @@
 seg,track,sub,value,prev_close,positive,invert_sign,alert,inflow,outflow
-No-Show,acquisition,신규 발급 후 미로그인,150,130,false,true,false,35,15
-Long-D,acquisition,3개월 초과,120,100,true,true,true,28,8
-On-Off,acquisition,3개월 내 방문 연속 방문 X,140,125,false,true,false,22,7
-Light,retention,월 1~2회,200,180,true,false,false,38,18
-Casual,retention,월 3~7회,180,160,true,false,false,42,22
-Power,retention,월 8회 이상,90,80,true,false,false,18,8
+앱미경험,acquisition,앱 미경험 고객,110,110,false,true,false,,
+장기미이용,acquisition,3개월 초과 미이용,110,100,true,true,true,,
+간헐이용,acquisition,간헐적 방문,190,190,false,true,false,,
+Light,retention,월 1~2회,280,290,false,false,false,,
+Casual,retention,월 3~7회,300,300,false,false,false,,
+Power,retention,월 8회 이상,180,180,false,false,false,,
