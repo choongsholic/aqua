@@ -491,7 +491,7 @@ body.light .tank-indicator.zero .tank-pct { color: rgba(0,0,0,0.64); }
   flex-shrink: 0;
   text-align: center;
   padding: 28px 0;
-  font-weight: 500;
+  font-weight: 400;
   font-size: 12px;
   background: transparent;
   color: rgba(255,255,255,0.40);
@@ -2303,7 +2303,7 @@ function initPlayLongPress() {
     longPressTimer = setTimeout(() => {
       longPressActivated = true;
       tip.classList.add('visible');
-    }, 2000);
+    }, 600);
   });
   btn.addEventListener('mouseup',    () => clearTimeout(longPressTimer));
   btn.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
