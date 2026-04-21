@@ -35,7 +35,7 @@
 
 const SLIDE_DATA = {
   meta: {
-    event: "UX2 Team Demo Day",
+    event: "UX2 Team",
     session: "Session 1. Automation",
     // UXI 팀 표준 색상 (변경 불필요)
     accentColor: "#00D56D",
