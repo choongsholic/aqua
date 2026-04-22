@@ -12,6 +12,7 @@
 - `aqua_real_grw.html` — 실데이터 POC 대시보드 (주력 작업 파일)
 - `mau_growth.html` — MAU 클릭 시 이동하는 주간/월간/Growth Metrics 탭 상세 페이지
 - `uxi_aqua.html` — UXI 브랜드 페이지 (aqua_real_grw.html footer "UXI" 링크로 연결)
+- `aqua_v0.8.html` — 0.8 버전 대시보드 (aqua_real_grw.html 복제 + 이탈 조기 경보(LF) 탭 + 휴일차이 자동 계산)
 
 ---
 
@@ -198,6 +199,37 @@
 ### Google Translate 차단
 - `<html lang="en" translate="no">`
 - `<meta name="google" content="notranslate">`
+
+### 라이트 모드 (`?light=1`)
+- aqua_v0.8 / aqua_real_grw에서 라이트 상태면 UXI 링크에 `?light=1` 쿼리 붙여 전달 (`goUXI`)
+- `body.light` → 배경 `#f0f0f0`, 뒤로가기/물고기 stroke `#000`, 물고기 drop-shadow 제거
+- 캔버스 색상: `UXI_INSIDE_COLOR = #000` / `UXI_OUTSIDE_COLOR = #3a3428` (다크 대비 더 진한 회색)
+
+---
+
+## aqua_v0.8.html (0.8 버전 대시보드)
+
+### 파일 개요
+- `aqua_real_grw.html` 복제본, 이탈 조기 경보(LF) 탭 + 휴일차이 자동 계산 추가
+- 세그 현황판 ↔ 이탈 조기 경보 탭 전환 (period-sub 텍스트 scramble 애니메이션)
+
+### 레이아웃
+- LF 전용 레전드 + 휴일차이 박스는 `ret-section` 내부(track-label 자리)에 배치
+  - `max-height: 0 ↔ 60` + opacity 페이드 전환
+  - **absolute 금지** — aquarium-container 바닥 absolute는 카드 겹침/튐 이슈 반복, ret-section 내부가 최종 정답
+- `.dc-period-lbl` margin-left: 8px / `.dc-val` font-weight: 500
+
+### 휴일차이 자동 계산 (`updateDaycount`)
+- `#period-val` 텍스트(예: "4. 1 ~ 4. 26") 파싱 → 당월/전월 같은 범위(1~endDay) 평일/휴일 카운트
+- `KR_HOLIDAYS` Set: 2025·2026 공휴일 하드코딩 (대체공휴일 포함) — **매년 초 다음해 분 수동 추가 필요**
+- 부호별 색상: +초록 / −빨강 / 0 흰색 (`applyDiffSign`)
+- `MutationObserver`로 `#period-val` 변경 시 자동 재계산
+
+### 풋터 / 테마
+- dashboard-footer 64px 고정, load-btn-wrap bottom 16px (위아래 16 균등)
+- `footer-uxi` margin-left: 4px, 라이트모드 hover `#000`
+- 라이트 테마 `localStorage('aqua_theme')` 영속화 → UXI 왕복 시 유지
+- `goUXI(e)`: 라이트 상태면 `uxi_aqua.html?light=1`로 이동
 
 ---
 

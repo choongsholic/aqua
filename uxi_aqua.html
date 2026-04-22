@@ -8,6 +8,7 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html.controlled, html.controlled * { cursor: none !important; }
 html, body { background: #060606; overflow: hidden; width: 100vw; height: 100vh; }
+body.light, html:has(body.light) { background: #f0f0f0; }
 canvas { display: block; }
 #back-btn {
   position: fixed; top: 12px; left: 12px;
@@ -19,6 +20,7 @@ canvas { display: block; }
   background: none; border: none; padding: 0;
 }
 #back-btn:hover { opacity: 1; }
+body.light #back-btn svg path { stroke: #000 !important; }
 #fish {
   position: fixed; pointer-events: none;
   width: 36px; height: 36px;
@@ -26,6 +28,8 @@ canvas { display: block; }
   filter: drop-shadow(0 0 4px rgba(255,255,255,0.4));
   transform: translate(-50%, -50%);
 }
+body.light #fish { filter: none; }
+body.light #fish svg path { stroke: #000 !important; }
 </style>
 </head>
 <body>
@@ -41,6 +45,12 @@ canvas { display: block; }
   </svg>
 </div>
 <script>
+// 라이트 모드 진입: ?light=1 쿼리로 전달받아 body.light 클래스 + 색상 반전
+const LIGHT = new URLSearchParams(location.search).get('light') === '1';
+if (LIGHT) document.body.classList.add('light');
+const UXI_INSIDE_COLOR  = LIGHT ? '#000000' : '#ffffff';
+const UXI_OUTSIDE_COLOR = LIGHT ? '#3a3428' : '#9a8f7e';
+
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
 const fishEl = document.getElementById('fish');
@@ -304,7 +314,7 @@ class Row {
       const CHAOS_DUR   = 220;
       const SETTLE_DUR  = 350;
       let renderAlpha   = alpha;
-      let renderColor   = inside ? '#ffffff' : '#9a8f7e';
+      let renderColor   = inside ? UXI_INSIDE_COLOR : UXI_OUTSIDE_COLOR;
 
       if (introAge < introDur) {
         const birth    = this.birthTimes[ci % this.birthTimes.length];
@@ -314,16 +324,16 @@ class Row {
           // 아직 태어나지 않음
           renderAlpha = 0;
         } else if (cellAge < CHAOS_DUR) {
-          // 카오스 플리커: 매 프레임 랜덤 문자, 흰색
+          // 카오스 플리커: 매 프레임 랜덤 문자
           ch = CHARS_CHAOS[Math.floor(Math.random() * CHARS_CHAOS.length)];
-          renderColor = '#ffffff';
+          renderColor = UXI_INSIDE_COLOR;
           renderAlpha = 0.5 + Math.random() * 0.5; // 깜빡임
         } else if (cellAge < CHAOS_DUR + SETTLE_DUR) {
           // 정착 중: 확률적으로 점점 고정 문자로
           const sp = (cellAge - CHAOS_DUR) / SETTLE_DUR;
           if (Math.random() > sp) {
             ch = CHARS_CHAOS[Math.floor(Math.random() * CHARS_CHAOS.length)];
-            renderColor = '#ffffff';
+            renderColor = UXI_INSIDE_COLOR;
           }
           renderAlpha = alpha;
         }
