@@ -10,6 +10,7 @@
 - `dp-aqua-guide.md` — 구현 가이드 (전체 스펙 정리)
 - `gm_dashboard.html` — 업무망 배포용 실전 대시보드 (파티클 제거, 로컬 폰트 적용)
 - `aqua_real_grw.html` — 실데이터 POC 대시보드 (주력 작업 파일)
+- `mau_growth.html` — MAU 클릭 시 이동하는 주간/월간/Growth Metrics 탭 상세 페이지
 - `uxi_aqua.html` — UXI 브랜드 페이지 (aqua_real_grw.html footer "UXI" 링크로 연결)
 
 ---
@@ -96,9 +97,16 @@
 - `SEG_DETAILS` 객체: No-Show/Long-D/On-Off/Light/Casual/Power 정의
 
 #### 데이터
-- `DATA` 객체 수동 입력 + `randomizeTanks()`로 랜덤 분산
-- CSV 폴더 업로드: seg_status.csv / seg_panel.csv / seg_visit.csv
-- localStorage 캐싱
+- **모든 하드코딩 샘플 제거** — DATA/LF_DATA/SEG_DETAILS는 빈값으로 초기화, CSV가 채움
+- CSV 구조 재정비 (업무망 실제 포맷에 맞춤):
+  - `data/total.csv` — 상단 대시보드 지표 (MAU/MAU 기여수/PUSH/Echo) *신규 분리*
+  - `data/seg_panel.csv` — 세그 상세(연령대/보유카드 TOP5/평균카드보유/월평균결제). 한글 헤더 풀스키마
+  - `data/seg_status.csv` — 세그 현황(한글 풀스키마: 데이터 추출일/트랙구분/세그구분/당월_진행/전월_동기/전월_마감)
+  - `data/seg_visit.csv` — 로그인 빈도(피벗 레이아웃: A열=필드명, B~D열=Light/Casual/Power)
+- 헤더 매핑(`CSV_HEADER_MAP`) 대폭 확장, 한글/영문 공존 지원
+- 방문 CSV 피벗 자동 감지(`isPivotVisit`) + 전용 파서(`parsePivotVisit`)
+- seg_status alert 자동 판정 (invertSign 기반 '나쁜 방향 변동' 감지)
+- localStorage 캐싱: DATA(`aqua_data`) + LF_DATA(`aqua_lf_data_v3`) + SEG_DETAILS(`aqua_seg_details_v1`)
 
 #### 기타
 - Footer: "Digital Product · App User Quantitative Analysis · by UXI"
@@ -106,10 +114,34 @@
   - 호버 시 흰색, underline 없음
 
 ### 다음 세션 작업 후보
-- [ ] Acquisition 이상징후 자동 판단 (value > prev_close → alert 자동)
-- [ ] Retention 이상징후: avg_login_current, avg_login_prev 컬럼 추가 + 자동 판단
-- [ ] 기준일(period) 실데이터로 교체
-- [ ] LF 데이터 CSV 연동 (현재 JS 하드코딩)
+- [x] Acquisition/Retention 이상징후 자동 판단 (invertSign 기반 완료)
+- [x] 기준일(period) 실데이터 교체 (seg_visit/status extract_date 기반 자동 계산)
+- [x] LF 데이터 CSV 연동 완료 (seg_visit.csv 피벗 파서)
+- [ ] 업무망 실CSV 연결 후 실 수치 검증
+- [ ] mau_growth.html 차트 데이터 CSV 연동 (현재 하드코딩 샘플)
+- [ ] DATA_LAG_DAYS 상수(현재 10) — 실제 데이터 파이프라인 지연에 맞춰 조정
+
+---
+
+## mau_growth.html (MAU 상세 추이 페이지)
+
+### 파일 개요
+- `dp-aqua_growth.html` 기반으로 복사 후 단독 페이지화
+- 상단 대시보드의 MAU 카드 클릭 시 진입 (`onclick="location.href='mau_growth.html'"`)
+- 탭 3개: 주간 / 월간 / Growth Metrics (구 "연간")
+
+### 핵심 로직
+- **cutoff 기준일**: `seg_visit.csv`의 `extract_date` − `DATA_LAG_DAYS(=10)` = 실제 마지막 데이터 날짜
+- **주간**: prev(전월)는 1~5주차 전체, cur(당월)는 lastWeek(=ceil(lastDataDay/7))까지만. KPI는 당주/전주/전주대비
+- **월간**: prev(전년)는 Jan-Dec 전체, cur(당년)는 1~CURRENT_MONTH까지만. 값 갭은 미세(~10)로 YoY 성장 추이 표현
+- **Growth Metrics**: 2026.4 기준 MAU/DAU 성장 정적 차트
+
+### 구조 변경 지점
+- `anchors` / `WEEK_DAYS` / `WEEK_XS` / `ANCHOR_DAYS` — 전체 유지, buildPts에서만 cur 절단
+- `makeDot(types=['cur','prev'])` — types 파라미터로 cur 도트 주차 제한 구현
+- `monthlyAnchors` 값 재조정 (전년 대비 미세 차이)
+- `yearlyRangeStart=96` (Jan 2026) — 당년 1월부터 기준
+- 오버라이드 스크립트: 캔버스 숨김 + `hideDetailPage()` → `location.href='aqua_real_grw.html'` + 로드 후 auto-open
 
 ---
 

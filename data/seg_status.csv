@@ -1,7 +1,7 @@
-seg,track,sub,value,prev_close,positive,invert_sign,alert,inflow,outflow
-앱미경험,acquisition,앱 미경험 고객,110,110,false,true,false,,
-장기미이용,acquisition,3개월 초과 미이용,110,100,true,true,true,,
-간헐이용,acquisition,간헐적 방문,190,190,false,true,false,,
-Light,retention,월 1~2회,280,290,false,false,false,,
-Casual,retention,월 3~7회,300,300,false,false,false,,
-Power,retention,월 8회 이상,180,180,false,false,false,,
+데이터 추출일,트랙구분,세그구분,당월_진행,전월_동기,전월_마감
+2026-04-27,Acquisition,앱미경험,110,110,110
+2026-04-27,Acquisition,장기미이용,110,120,100
+2026-04-27,Acquisition,간헐이용,190,230,190
+2026-04-27,Retention,Light,280,350,290
+2026-04-27,Retention,Casual,300,240,300
+2026-04-27,Retention,Power,180,120,180
