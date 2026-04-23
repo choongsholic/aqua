@@ -13,6 +13,7 @@
 - `mau_growth.html` — MAU 클릭 시 이동하는 주간/월간/Growth Metrics 탭 상세 페이지
 - `uxi_aqua.html` — UXI 브랜드 페이지 (aqua_real_grw.html footer "UXI" 링크로 연결)
 - `aqua_v0.8.html` — 0.8 버전 대시보드 (aqua_real_grw.html 복제 + 이탈 조기 경보(LF) 탭 + 휴일차이 자동 계산)
+- `aqua_v0.82.html` — 0.82 버전 (v0.8 복제 + 레전드/일수카운트를 ret-section 하단으로 이동 → 세그현황판에서도 공통 노출, LF 모드에서 레전드만 페이드인)
 
 ---
 
@@ -204,6 +205,27 @@
 - aqua_v0.8 / aqua_real_grw에서 라이트 상태면 UXI 링크에 `?light=1` 쿼리 붙여 전달 (`goUXI`)
 - `body.light` → 배경 `#f0f0f0`, 뒤로가기/물고기 stroke `#000`, 물고기 drop-shadow 제거
 - 캔버스 색상: `UXI_INSIDE_COLOR = #000` / `UXI_OUTSIDE_COLOR = #3a3428` (다크 대비 더 진한 회색)
+
+---
+
+## aqua_v0.82.html (0.82 버전 대시보드)
+
+### 파일 개요
+- `aqua_v0.8.html` 복제본. 레전드 + 일수카운트 영역을 **ret-section 하단**(tanks-row 뒤)으로 이동 — 세그현황판/LF 양 모드 공통 노출
+- LF 모드에서는 레전드(전월/당월)만 페이드인(opacity 0→1, 0.32s), 일수카운트 박스는 상시 노출 → 탭 전환 시 위치 튐 없음
+
+### 일수카운트 박스 스타일 (v0.8/v0.82 공통)
+- 전월 박스: `.dc-dim` — 숫자 opacity 0.42, 라벨 opacity 0.62
+- 당월/휴일차이 박스: `.dc-emph` — 테두리 `var(--border-emph)` (base 0.34)
+- 안쪽 세로 구분선: `.dc-cell::after` 1px, 위아래 8px inset, `var(--border-inner)` (base 0.10)
+- 새 CSS 변수 `--border-emph` / `--border-inner` 추가, `STROKE_BASE`에 등록해 슬라이더가 같이 스케일
+
+### 트랙 라벨
+- `.track-label` height 44→52px, font-size 10→13px (가독성 향상)
+- 탱크 카드 호버/액티브/kbd-focus 시 해당 트랙 라벨이 `var(--white)`로 전환 (`:has` 셀렉터)
+
+### 좌상단 기능버튼 그리드
+- `.lnb-bottom` bottom 24→16px로 내림 — 우측 업로드 버튼(`.load-btn-wrap` bottom:16px)과 세로 중심선 일치
 
 ---
 
