@@ -37,7 +37,7 @@
   11. **Auto-play on speed pick** — `setPlayInterval` 재생 중이 아닐 땐 자동으로 `togglePlay()` 호출. Delay 툴팁에서 초 선택만으로 즉시 재생
   - 데이터: `seg_status.csv` / `seg_visit.csv` 미세 보정 (마케터 미팅용 샘플)
   - 보류: 카드별 한 단어 라벨, 샘플 데이터 명시, LF 차트 백그라운드 존 — 노이즈 우려 / 1.0 미룸
-  - **마케터 미팅(월요일)**: `memory/project_aqua_marketer_discussion.md` 4개 포인트 (이상 임계 −0.3 / 점선 / LF 시각신호 / 저빈도·활성 명명) + 1·4주차 데이터 불일치 함께 검증
+  - **마케터 미팅(월요일)**: `memory/project_aqua_marketer_discussion.md` 5개 포인트 (이상 임계 −0.3 / 점선 / LF 시각신호 / 저빈도·활성 명명 / **휴일차이 비교 범위 — 진행 동기간 vs 캘린더 전월전체**) + 1·4주차 데이터 불일치 함께 검증
 
 ---
 
