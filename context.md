@@ -14,6 +14,30 @@
 - `uxi_aqua.html` — UXI 브랜드 페이지 (aqua_real_grw.html footer "UXI" 링크로 연결)
 - `aqua_v0.8.html` — 0.8 버전 대시보드 (aqua_real_grw.html 복제 + 이탈 조기 경보(LF) 탭 + 휴일차이 자동 계산)
 - `aqua_v0.82.html` — 0.82 버전 (v0.8 복제 + 레전드/일수카운트를 ret-section 하단으로 이동 → 세그현황판에서도 공통 노출, LF 모드에서 레전드만 페이드인)
+- `aqua_v0.84.html` — 0.84 버전 (현 운영 안정화 버전)
+- `aqua_v0.85.html` — **v0.84 + LF 모드 5가지 보정 (2026-04-25)**:
+  1. **3단계 심각도** (호전/주의/이상) — `.lf-state-good/warn/danger` 클래스로 테두리·KPI숫자·뱃지를 같은 색 계열로 통일. `--clr-warn: #FFB020` 신규
+  2. **0일 그룹 분리 narrative** — `buildLFContent`에서 0일(휴면)을 1-2일과 분리해 "단, 0일 그룹 +XX만 신규 휴면" cue 자동 추가 (Light 평균-narrative 모순 해소)
+  3. **분포 방향 화살표** — narrative line2 앞에 →(초록 = 우측 이동) / ←(빨강 = 좌측 이동) 직접 표시
+  4. **호전 시각 강조** — diff ≥ +0.3이면 초록 "호전" 칩 (Casual +0.7 케이스 대응)
+  5. **delta 폰트** — `.lf-xcol-delta` 14px/400 → 15px/500
+  - 진입/종료 시 LF state 클래스 toggle은 line ~2557 (entry) / ~2557 (exit) 추가됨
+  - 임계값: `diff >= 0.3` good / `diff <= -0.3` danger / `0 > diff > -0.3` warn / 그 외 중립
+- `aqua_v0.86.html` — **v0.85 + 비마케터 가독성 / 마케터 스캔 효율 개선 (2026-04-26)**:
+  1. **부제 강화** — `.period-sub` muted → 0.6 / weight 600. 키워드 맨 앞 재배치: "인원 규모 — 6개 세그…" / "평균 로그인 일수 — 전월 마감 세그…" — 두 탭 *기준 차이* 즉시 인지
+  2. **Track footer hint** — Acquisition `증가 = 활성 미전환` / Retention `감소 = 이탈 우려` — `.track-footer-hint` (12px/0.5/우측정렬), 탭 라벨 옆이 아닌 카드 하단 우측에 부착. LF 모드 진입 시 `opacity:0 + max-height:0`로 페이드아웃
+  3. **Tier 테두리 슬라이더 연동** — `--tier-bad-border / -hover / -active`(0.40/0.85/1) + warn(0.45/0.9/1) + good(0.40/0.85/1) CSS 변수 9개. JS `applyStrokeScale()`에 `TIER_BORDERS` 맵 추가 → 슬라이더로 노랑/빨강/초록 테두리 투명도 같이 조정 가능 (이전엔 검정선만 반응)
+  4. **CSV-driven tank-sub** — `CSV_HEADER_MAP`에 `로그인일수_기준` → `sub` 추가, fallback `r.sub || r.seg` → `r.sub || ''`로 변경. `.tank-sub:empty { display:none }`. 기존 카드 동어반복 제거
+  5. **LF 분포 점선 boundary** — `drawLFChart`에서 2일↔3일 사이 수직 점선 (rgba 0.14, dash [2,3]) → 저빈도(1-2일) / 활성(3일+) 구분 가이드
+  6. **LF narrative 명명** — `저빈도(1-2일) / 활성(3일+)` 채택. *마케터 스캔 효율 위해 의미 기반 2그룹*이 *순수 일수* 또는 *3그룹*보다 우위. "활성"은 narrative 한정 nickname (CSV/Retention 라벨엔 미사용)
+  7. **Detail panel 재구성** — `전월 비교 chart` ↑ KPI row ↑ 프로필 순으로 재배치. "전월 비교" 타이틀 제거(바만으로 비교 충분). 첫 섹션 `padding-top:8px`
+  8. **Delta bar 비율 정리** — bar/label 16→12px, font 16→14, weight 500→400, gap 14→12. `.delta-hatch` top:4/height:52로 대칭 8px 삐져나옴 (zero 케이스 `top:0` override 제거)
+  9. **Tab / Track-label 톤** — 탭 36→40px, font 14→16. `.track-label` 유앤아이 서체 15px / height 56px (액큐지션·리텐션 가독성)
+  10. **Tanks-row max-height 280** — 카드 높이와 일치, lf-mode `tanks-row max-height: none` override (LF 차트 클립 방지)
+  11. **Auto-play on speed pick** — `setPlayInterval` 재생 중이 아닐 땐 자동으로 `togglePlay()` 호출. Delay 툴팁에서 초 선택만으로 즉시 재생
+  - 데이터: `seg_status.csv` / `seg_visit.csv` 미세 보정 (마케터 미팅용 샘플)
+  - 보류: 카드별 한 단어 라벨, 샘플 데이터 명시, LF 차트 백그라운드 존 — 노이즈 우려 / 1.0 미룸
+  - **마케터 미팅(월요일)**: `memory/project_aqua_marketer_discussion.md` 4개 포인트 (이상 임계 −0.3 / 점선 / LF 시각신호 / 저빈도·활성 명명) + 1·4주차 데이터 불일치 함께 검증
 
 ---
 

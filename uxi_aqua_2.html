@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en" translate="no">
+<head>
+<meta charset="UTF-8">
+<meta name="google" content="notranslate">
+<title>AQUA · UXI</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html.controlled, html.controlled * { cursor: none !important; }
+html, body { background: #060606; overflow: hidden; width: 100vw; height: 100vh; }
+canvas { display: block; }
+#back-btn {
+  position: fixed; top: 12px; left: 12px;
+  width: 64px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 20;
+  opacity: 0.4;
+  transition: opacity 0.2s;
+  background: none; border: none; padding: 0;
+}
+#back-btn:hover { opacity: 1; }
+#fish {
+  position: fixed; pointer-events: none;
+  width: 36px; height: 36px;
+  z-index: 10;
+  filter: drop-shadow(0 0 4px rgba(255,255,255,0.4));
+  transform: translate(-50%, -50%);
+}
+</style>
+</head>
+<body>
+<button id="back-btn" onclick="history.back()">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</button>
+<canvas id="c"></canvas>
+<div id="fish">
+  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 15.9997C2 15.9997 11 0.999684 22 11.9997C11 22.9997 2 7.99968 2 7.99968" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const fishEl = document.getElementById('fish');
+
+const CHARS_IN    = 'AppUserQuantitativeAnalysisAppUserQuantitativeAnalysis';
+const CHARS_OUT   = '0123456789';
+const CHARS_CHAOS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+const FONT_MASK   = 'Georgia, serif';
+const FONT_FAM    = "'SF Mono', Menlo, Monaco, 'Cascadia Code', monospace";
+
+let W, H, mask, mask800, rows = [], cellW = 13, cellH = 20;
+const introStart = performance.now();
+const introDur   = 2000;
+
+// ── 800 Gather state ──────────────────────────────────────────────
+let gatherParticles = [];
+let gatherActive   = false;   // 파티클 모드 on/off (true면 행 그리드 대신 파티클 렌더)
+let gatherReturnT  = -1;      // 풀린 뒤 복귀 시작 시각
+
+// ── Fish state ────────────────────────────────────────────────────
+let fishX = 400, fishY = 300;
+let fishVX = 1.5, fishVY = 0.8;
+let fishTargetX = 400, fishTargetY = 300;
+let fishTargetTimer = 0;
+let fishWiggleT = 0;
+let fishAngle = 0;
+let controlled = false;
+const CATCH_RADIUS = 55;
+
+// ── Mouse ─────────────────────────────────────────────────────────
+let mouseX = -999, mouseY = -999;
+let mousePrevX = -999, mousePrevY = -999;
+let mouseSpeedX = 0, mouseSpeedY = 0;
+let lastDirX = 0, lastDirY = 0;
+let shakeTimes = []; // 방향 반전 타임스탬프
+
+document.addEventListener('mousemove', e => {
+  if (mousePrevX !== -999) {
+    mouseSpeedX = e.clientX - mousePrevX;
+    mouseSpeedY = e.clientY - mousePrevY;
+  }
+  mousePrevX = mouseX; mousePrevY = mouseY;
+  mouseX = e.clientX; mouseY = e.clientY;
+
+  if (!controlled) return;
+
+  const spd = Math.sqrt(mouseSpeedX ** 2 + mouseSpeedY ** 2);
+  if (spd < 6) return;
+
+  // 수평/수직 중 더 큰 축 기준 방향 반전 감지
+  const dx = Math.abs(mouseSpeedX), dy = Math.abs(mouseSpeedY);
+  const dirX = Math.sign(mouseSpeedX), dirY = Math.sign(mouseSpeedY);
+  let reversed = false;
+  if (dx >= dy && dirX !== 0 && dirX !== lastDirX && lastDirX !== 0) reversed = true;
+  if (dy > dx  && dirY !== 0 && dirY !== lastDirY && lastDirY !== 0) reversed = true;
+  if (dx >= dy) lastDirX = dirX; else lastDirY = dirY;
+
+  if (reversed) {
+    const now = performance.now();
+    shakeTimes.push(now);
+    shakeTimes = shakeTimes.filter(t => now - t < 700); // 700ms 창
+    if (shakeTimes.length >= 3) {
+      shakeTimes = [];
+      controlled = false;
+      document.documentElement.classList.remove('controlled');
+      // 300px 이상 벗어나도록 강한 속도
+      const angle = Math.random() * Math.PI * 2;
+      fishVX = Math.cos(angle) * 20;
+      fishVY = Math.sin(angle) * 20;
+      fishTargetX    = 80 + Math.random() * (W - 160);
+      fishTargetY    = 80 + Math.random() * (H - 160);
+      fishTargetTimer = 2500;
+    }
+  }
+});
+document.addEventListener('mouseleave', () => {
+  mouseX = -999; mouseY = -999;
+  if (controlled) {
+    controlled = false;
+    document.documentElement.classList.remove('controlled');
+  }
+});
+
+// ── Sound ─────────────────────────────────────────────────────────
+let _audioCtx = null;
+function tickSound() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_audioCtx.state === 'suspended') _audioCtx.resume();
+  const t = _audioCtx.currentTime;
+  const o = _audioCtx.createOscillator();
+  const g = _audioCtx.createGain();
+  o.connect(g); g.connect(_audioCtx.destination);
+  o.type = 'sine';
+  o.frequency.setValueAtTime(140, t);
+  o.frequency.exponentialRampToValueAtTime(80, t + 0.04);
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(0.05, t + 0.008);
+  g.gain.linearRampToValueAtTime(0.0001, t + 0.04);
+  o.start(t); o.stop(t + 0.045);
+}
+
+// ── Click chaos ───────────────────────────────────────────────────
+let clicks = [];
+let clickBounceT = -9999;
+let catchBounceT = -9999;
+
+document.addEventListener('click', e => {
+  if (controlled) {
+    // 잡힌 상태에서만 카오스 + 도망
+    tickSound();
+    clicks.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+    clickBounceT = performance.now();
+    controlled = false;
+    document.documentElement.classList.remove('controlled');
+    const fdx = fishX - e.clientX, fdy = fishY - e.clientY;
+    const fd  = Math.sqrt(fdx * fdx + fdy * fdy) || 1;
+    fishVX += (fdx / fd) * 9;
+    fishVY += (fdy / fd) * 9;
+    fishTargetX    = 80 + Math.random() * (W - 160);
+    fishTargetY    = 80 + Math.random() * (H - 160);
+    fishTargetTimer = 2000;
+  }
+});
+
+
+// ── Build mask (UXI 또는 다른 텍스트) ────────────────────────────
+function buildMask(text) {
+  text = text || 'UXI';
+  const off  = document.createElement('canvas');
+  off.width  = W; off.height = H;
+  const octx = off.getContext('2d');
+  let fs = 200;
+  octx.font = `900 ${fs}px ${FONT_MASK}`;
+  const mw = octx.measureText(text).width || 1;
+  const ratio = (W * 0.92) / mw;
+  fs = Math.min(fs * ratio, H * 0.78);
+  if (!isFinite(fs) || fs <= 0) fs = H * 0.6;
+  octx.fillStyle = '#fff';
+  octx.font      = `900 ${fs}px ${FONT_MASK}`;
+  octx.textAlign = 'center';
+  octx.textBaseline = 'middle';
+  octx.fillText(text, W / 2, H / 2);
+  return octx.getImageData(0, 0, W, H).data;
+}
+
+function inMask(x, y) {
+  const px = Math.min(W - 1, Math.max(0, Math.round(x)));
+  const py = Math.min(H - 1, Math.max(0, Math.round(y)));
+  return mask[(py * W + px) * 4 + 3] > 60;
+}
+function inMaskOf(x, y, m) {
+  const px = Math.min(W - 1, Math.max(0, Math.round(x)));
+  const py = Math.min(H - 1, Math.max(0, Math.round(y)));
+  return m[(py * W + px) * 4 + 3] > 60;
+}
+
+// ── GatherParticle: 그리드 원위치에서 시작해 목표로 이동 ──────
+class GatherParticle {
+  constructor(origX, origY, ch) {
+    this.origX = origX; this.origY = origY;
+    this.x = origX;     this.y = origY;
+    this.tx = origX;    this.ty = origY;       // 목표 (시작 시 원위치)
+    this.vx = 0;        this.vy = 0;
+    this.ch = ch;
+    this.assigned = false;                      // 800에 할당된 파티클인가
+    this.friction  = 0.82 + Math.random() * 0.08;
+    this.resistant = Math.random() < 0.1;
+  }
+  update() {
+    // 마우스 반발
+    if (mouseX !== -999) {
+      const rdx = this.x - mouseX;
+      const rdy = this.y - mouseY;
+      const rd  = Math.sqrt(rdx * rdx + rdy * rdy);
+      const RAD = 180;
+      if (rd < RAD && rd > 0) {
+        const f = (RAD - rd) / RAD;
+        const mult = this.resistant ? 0.12 : 1;
+        this.vx += (rdx / rd) * f * 2.0 * mult;
+        this.vy += (rdy / rd) * f * 2.0 * mult;
+      }
+    }
+    // 스프링 → 목표
+    const sx = (this.tx - this.x) * 0.08;
+    const sy = (this.ty - this.y) * 0.08;
+    this.vx = (this.vx + sx) * this.friction;
+    this.vy = (this.vy + sy) * this.friction;
+    this.x += this.vx;
+    this.y += this.vy;
+  }
+  draw(ctx) {
+    // 할당 파티클: 항상 밝음 / 미할당: 원위치에서 멀어질수록 페이드
+    let alpha = 1;
+    if (!this.assigned) {
+      const d = Math.sqrt((this.x - this.origX) ** 2 + (this.y - this.origY) ** 2);
+      alpha = Math.max(0, 1 - d / 260);
+    }
+    if (alpha < 0.03) return;
+    ctx.globalAlpha = alpha;
+    ctx.fillText(this.ch, this.x, this.y);
+  }
+}
+
+function sample800Positions() {
+  // 800 형체 샘플링 (그리드와 동일 밀도 → 원래 숫자 밀도 유지)
+  const pts = [];
+  for (let y = cellH / 2; y < H; y += cellH) {
+    for (let x = cellW / 2; x < W; x += cellW) {
+      if (inMaskOf(x, y, mask800)) pts.push({ x, y });
+    }
+  }
+  return pts;
+}
+
+function buildGatherParticles() {
+  // 전체 그리드 셀 → 파티클 (원위치 + 현재 문자)
+  const cells = [];
+  for (let gy = cellH / 2; gy < H; gy += cellH) {
+    for (let gx = cellW / 2; gx < W; gx += cellW) {
+      const ins = inMaskOf(gx, gy, mask);
+      const ch  = ins
+        ? CHARS_IN[Math.floor(Math.random() * CHARS_IN.length)]
+        : CHARS_OUT[Math.floor(Math.random() * CHARS_OUT.length)];
+      cells.push({ x: gx, y: gy, ch });
+    }
+  }
+  // 랜덤 셔플 → 카오스 모임 느낌
+  for (let i = cells.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [cells[i], cells[j]] = [cells[j], cells[i]];
+  }
+
+  const positions = sample800Positions();
+  gatherParticles = cells.map((c, i) => {
+    const p = new GatherParticle(c.x, c.y, c.ch);
+    if (i < positions.length) {
+      p.tx = positions[i].x;
+      p.ty = positions[i].y;
+      p.assigned = true;
+    } else {
+      // 미할당 → 가장 가까운 화면 밖으로 흘러나감
+      const dL = c.x, dR = W - c.x, dT = c.y, dB = H - c.y;
+      const minD = Math.min(dL, dR, dT, dB);
+      if      (minD === dL) { p.tx = -80;     p.ty = c.y; }
+      else if (minD === dR) { p.tx = W + 80;  p.ty = c.y; }
+      else if (minD === dT) { p.tx = c.x;     p.ty = -80; }
+      else                  { p.tx = c.x;     p.ty = H + 80; }
+      p.assigned = false;
+    }
+    return p;
+  });
+}
+
+function releaseGather() {
+  // 모든 파티클 목표 → 원위치
+  for (const p of gatherParticles) {
+    p.tx = p.origX;
+    p.ty = p.origY;
+    p.assigned = true;   // 복귀 중에도 밝게 보이도록
+  }
+}
+
+// ── Row class ─────────────────────────────────────────────────────
+class Row {
+  constructor(rowIndex) {
+    this.y      = rowIndex * cellH + cellH / 2;
+    this.cols   = Math.ceil(W / cellW) + 6;
+    this.dir    = rowIndex % 2 === 0 ? 1 : -1;
+    this.offset = Math.floor(Math.random() * this.cols) * cellW;
+    const pause = 4 + (rowIndex % 4);
+    const rest  = 30 + (rowIndex % 7) * 6;
+    this.sequence  = [1, pause, 1, pause, 1, pause, 1, pause, 1, rest];
+    this.seqIdx    = Math.floor(Math.random() * this.sequence.length);
+    this.seqTimer  = 0;
+    this.chars     = Array.from({ length: this.cols * 2 }, () =>
+      CHARS_IN[Math.floor(Math.random() * CHARS_IN.length)]);
+    this.charsOut  = Array.from({ length: this.cols * 2 }, () =>
+      CHARS_OUT[Math.floor(Math.random() * CHARS_OUT.length)]);
+    this.flipTimers = Array.from({ length: this.cols * 2 }, () =>
+      Math.floor(Math.random() * 120));
+    // 인트로: 각 셀이 랜덤 시점에 등장
+    this.birthTimes = Array.from({ length: this.cols * 2 }, () =>
+      Math.random() * 1400);
+  }
+
+  update() {
+    this.seqTimer++;
+    const cur = this.sequence[this.seqIdx];
+    if (this.seqTimer >= cur) {
+      this.seqTimer = 0;
+      this.seqIdx = (this.seqIdx + 1) % this.sequence.length;
+    }
+    if (cur === 1) this.offset += this.dir * (cellW / 3);
+    for (let i = 0; i < this.flipTimers.length; i++) {
+      this.flipTimers[i]--;
+      if (this.flipTimers[i] <= 0) {
+        this.chars[i]    = CHARS_IN[Math.floor(Math.random() * CHARS_IN.length)];
+        this.charsOut[i] = CHARS_OUT[Math.floor(Math.random() * CHARS_OUT.length)];
+        this.flipTimers[i] = 30 + Math.floor(Math.random() * 60);
+      }
+    }
+  }
+
+  draw(t) {
+    const totalW = this.cols * cellW;
+    const base   = ((this.offset % totalW) + totalW) % totalW;
+    const now    = performance.now();
+
+    for (let ci = 0; ci < this.cols + 2; ci++) {
+      const rawX = ci * cellW - base;
+      const x    = ((rawX % totalW) + totalW) % totalW;
+      const cy   = this.y;
+      const inside = inMask(x, cy);
+
+      // chaos wave
+      let chaos = 0;
+      for (const ck of clicks) {
+        const age = now - ck.t;
+        if (age > 1400) continue;
+        const waveFront = age * 0.55;
+        const waveW     = 160 + age * 0.08;
+        const cd        = Math.sqrt((x - ck.x) ** 2 + (cy - ck.y) ** 2);
+        const fromWave  = Math.abs(cd - waveFront);
+        const inWave    = fromWave < waveW ? (1 - fromWave / waveW) : 0;
+        chaos = Math.max(chaos, inWave * Math.pow(1 - age / 1400, 1.2));
+      }
+
+      let ch = inside
+        ? this.chars[ci % this.chars.length]
+        : this.charsOut[ci % this.charsOut.length];
+      if (chaos > 0.05) ch = CHARS_CHAOS[Math.floor(Math.random() * CHARS_CHAOS.length)];
+
+      // proximity to fish
+      const dx   = x - fishX;
+      const dy   = cy - fishY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const near = Math.max(0, 1 - dist / 520);
+
+      let alpha, size;
+      if (inside) {
+        alpha = 0.65 + near * 0.35 + Math.sin(t * 0.001 + x * 0.02 + cy * 0.03) * 0.06;
+        size  = cellH * 0.72 + near * 3;
+      } else {
+        alpha = 0.10 + near * 0.62;
+        size  = cellH * 0.60;
+      }
+
+      if (chaos > 0) {
+        alpha = Math.min(1, alpha + chaos * 0.75);
+        size  = size + chaos * cellH * 0.5;
+      }
+
+      // repulsion from fish
+      let dispX = 0, dispY = 0;
+      const rdx = x - fishX, rdy = cy - fishY;
+      const rd  = Math.sqrt(rdx * rdx + rdy * rdy);
+      if (rd < 520 && rd > 0) {
+        const force = Math.pow(1 - rd / 520, 2) * 48;
+        dispX = (rdx / rd) * force;
+        dispY = (rdy / rd) * force;
+      }
+
+      if (chaos > 0) {
+        for (const ck of clicks) {
+          const age = performance.now() - ck.t;
+          if (age > 1400) continue;
+          const sdx = x - ck.x, sdy = cy - ck.y;
+          const sd  = Math.sqrt(sdx * sdx + sdy * sdy) || 1;
+          const waveFront = age * 0.55;
+          const waveW     = 160 + age * 0.08;
+          const cd        = Math.sqrt((x - ck.x) ** 2 + (cy - ck.y) ** 2);
+          const c = Math.max(0, 1 - Math.abs(cd - waveFront) / waveW) * Math.pow(1 - age / 1400, 1.2);
+          dispX += (sdx / sd) * c * 28 + (Math.random() - 0.5) * c * 14;
+          dispY += (sdy / sd) * c * 28 + (Math.random() - 0.5) * c * 14;
+        }
+      }
+
+      // ── intro: terminal flicker ──
+      const introAge    = now - introStart;
+      const CHAOS_DUR   = 220;
+      const SETTLE_DUR  = 350;
+      let renderAlpha   = alpha;
+      let renderColor   = inside ? '#ffffff' : '#9a8f7e';
+
+      if (introAge < introDur) {
+        const birth    = this.birthTimes[ci % this.birthTimes.length];
+        const cellAge  = introAge - birth;
+
+        if (cellAge < 0) {
+          // 아직 태어나지 않음
+          renderAlpha = 0;
+        } else if (cellAge < CHAOS_DUR) {
+          // 카오스 플리커: 매 프레임 랜덤 문자, 흰색
+          ch = CHARS_CHAOS[Math.floor(Math.random() * CHARS_CHAOS.length)];
+          renderColor = '#ffffff';
+          renderAlpha = 0.5 + Math.random() * 0.5; // 깜빡임
+        } else if (cellAge < CHAOS_DUR + SETTLE_DUR) {
+          // 정착 중: 확률적으로 점점 고정 문자로
+          const sp = (cellAge - CHAOS_DUR) / SETTLE_DUR;
+          if (Math.random() > sp) {
+            ch = CHARS_CHAOS[Math.floor(Math.random() * CHARS_CHAOS.length)];
+            renderColor = '#ffffff';
+          }
+          renderAlpha = alpha;
+        }
+      }
+
+      ctx.globalAlpha = Math.min(1, renderAlpha);
+      ctx.fillStyle   = renderColor;
+      ctx.font        = `${size.toFixed(1)}px ${FONT_FAM}`;
+      ctx.fillText(ch, x + dispX, cy + dispY);
+    }
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────
+function init() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  fishX = W / 2; fishY = H / 2;
+  fishTargetX = W * 0.3; fishTargetY = H * 0.35;
+  mask    = buildMask('UXI');
+  mask800 = buildMask('800');
+  const numRows = Math.ceil(H / cellH) + 1;
+  rows = Array.from({ length: numRows }, (_, i) => new Row(i));
+  gatherParticles = [];
+  gatherT = 0; gatherTarget = 0;
+}
+
+// ── Loop ──────────────────────────────────────────────────────────
+let last = 0;
+function animate(t) {
+  const dt  = Math.min(t - last, 50); last = t;
+  const now = performance.now();
+
+  clicks = clicks.filter(ck => now - ck.t < 1400);
+
+  // ── Catch detection ──
+  if (!controlled && mouseX !== -999) {
+    const distToFish = Math.sqrt((mouseX - fishX) ** 2 + (mouseY - fishY) ** 2);
+    if (distToFish < CATCH_RADIUS) {
+      controlled = true;
+      catchBounceT = performance.now();
+      document.documentElement.classList.add('controlled');
+    }
+  }
+
+  // ── 800 Gather 상태 전환 ──
+  if (controlled && !gatherActive) {
+    // 물고기 잡힘 → 그리드 셀들을 파티클로 변환, 800 위치로 이동
+    buildGatherParticles();
+    gatherActive = true;
+    gatherReturnT = -1;
+  }
+  if (!controlled && gatherActive && gatherReturnT < 0) {
+    // 풀려남 → 모든 파티클 원위치로 복귀 시작
+    releaseGather();
+    gatherReturnT = now;
+  }
+  // 복귀 완료 판정: 모든 파티클이 원위치 근처에 도달
+  if (gatherReturnT > 0) {
+    let maxD2 = 0;
+    for (const p of gatherParticles) {
+      const dx2 = p.x - p.origX, dy2 = p.y - p.origY;
+      const d2 = dx2 * dx2 + dy2 * dy2;
+      if (d2 > maxD2) maxD2 = d2;
+    }
+    if (maxD2 < 4 || now - gatherReturnT > 2500) {
+      gatherActive = false;
+      gatherReturnT = -1;
+      gatherParticles = [];
+    }
+  }
+
+  // ── Fish physics ──
+  if (controlled && mouseX !== -999) {
+    // lerp toward cursor — 진동 없이 부드럽게 따라옴
+    const prevFX = fishX, prevFY = fishY;
+    fishX += (mouseX - fishX) * 0.18;
+    fishY += (mouseY - fishY) * 0.18;
+    fishVX = fishX - prevFX;
+    fishVY = fishY - prevFY;
+  } else if (!controlled) {
+    // autonomous
+    fishTargetTimer -= dt;
+    const tdx = fishTargetX - fishX;
+    const tdy = fishTargetY - fishY;
+    const td  = Math.sqrt(tdx * tdx + tdy * tdy);
+
+    if (fishTargetTimer <= 0 || td < 40) {
+      fishTargetX    = 80 + Math.random() * (W - 160);
+      fishTargetY    = 80 + Math.random() * (H - 160);
+      fishTargetTimer = 1200 + Math.random() * 2200;
+    }
+
+    if (td > 5) {
+      fishVX += (tdx / td) * 0.14;
+      fishVY += (tdy / td) * 0.14;
+    }
+
+    // 커서가 가까워지면 도망
+    if (mouseX !== -999) {
+      const mdx = fishX - mouseX, mdy = fishY - mouseY;
+      const md  = Math.sqrt(mdx * mdx + mdy * mdy);
+      const FLEE_R = 300;
+      if (md < FLEE_R && md > 0) {
+        const flee = Math.pow(1 - md / FLEE_R, 1.4) * 2.8;
+        fishVX += (mdx / md) * flee;
+        fishVY += (mdy / md) * flee;
+      }
+    }
+  }
+
+  if (!controlled) {
+    fishVX *= 0.955;
+    fishVY *= 0.955;
+    const fspd0 = Math.sqrt(fishVX * fishVX + fishVY * fishVY);
+    if (fspd0 > 7) { fishVX = (fishVX / fspd0) * 7; fishVY = (fishVY / fspd0) * 7; }
+    fishX += fishVX;
+    fishY += fishVY;
+  }
+
+  // wiggle
+  const fspd = Math.sqrt(fishVX * fishVX + fishVY * fishVY);
+  fishWiggleT += dt * 0.009;
+  const spd = fspd || 1;
+  const wiggleAmp = Math.min(fspd * 2.2, 9);
+  const wx = fishX + Math.sin(fishWiggleT) * wiggleAmp * (-fishVY / spd);
+  const wy = fishY + Math.sin(fishWiggleT) * wiggleAmp * ( fishVX / spd);
+
+  fishAngle = Math.atan2(fishVY, fishVX) * 180 / Math.PI;
+
+  // bounce — click 또는 catch
+  const bounceElapsed = Math.min(now - clickBounceT, now - catchBounceT);
+  let bScale = 1;
+  if (bounceElapsed < 480) {
+    const p = bounceElapsed / 480;
+    bScale = 1 + Math.sin(p * Math.PI) * 1.8 * Math.exp(-p * 3.0);
+  }
+
+  fishEl.style.left      = wx + 'px';
+  fishEl.style.top       = wy + 'px';
+  fishEl.style.transform = `translate(-50%, -50%) rotate(${fishAngle}deg) scale(${bScale})`;
+
+  // ── Canvas draw ──
+  ctx.clearRect(0, 0, W, H);
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+
+  // gatherActive면 행 그리드 대신 파티클 모드 렌더
+  if (gatherActive) {
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `${(cellH * 0.72).toFixed(1)}px ${FONT_FAM}`;
+    for (const p of gatherParticles) {
+      p.update();
+      p.draw(ctx);
+    }
+  } else {
+    for (const row of rows) {
+      row.update();
+      row.draw(t);
+    }
+  }
+
+  ctx.globalAlpha = 1;
+  requestAnimationFrame(animate);
+}
+
+window.addEventListener('resize', init);
+init();
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>

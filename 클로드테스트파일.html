@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>aqua v0.85 — 마케터용 세그 카드 시안</title>
+<style>
+  :root {
+    --clr-good: #00D56D;
+    --clr-good-rgb: 0,213,109;
+    --clr-bad: #FF0238;
+    --clr-bad-rgb: 255,2,56;
+    --clr-warn: #FFB020;
+    --clr-warn-rgb: 255,176,32;
+    --bg: #000;
+    --card: rgba(255,255,255,0.04);
+    --card-hover: rgba(255,255,255,0.06);
+    --line: rgba(255,255,255,0.08);
+    --white: #fff;
+    --muted: rgba(255,255,255,0.45);
+    --muted-2: rgba(255,255,255,0.28);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--white); }
+  body {
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+    font-feature-settings: 'tnum';
+    min-height: 100vh;
+    padding: 56px 40px 80px;
+  }
+
+  /* ── 헤더 ── */
+  .page-head { max-width: 1480px; margin: 0 auto 40px; }
+  .crumbs { display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .crumbs a { color: var(--muted); text-decoration: none; transition: color .15s; }
+  .crumbs a:hover { color: var(--white); }
+  .crumbs .sep { opacity: 0.4; }
+  h1 { font-size: 36px; font-weight: 700; margin: 0 0 12px; letter-spacing: -0.01em; }
+  .lede { font-size: 15px; line-height: 1.6; color: var(--muted); max-width: 760px; margin: 0; }
+  .lede b { color: var(--white); font-weight: 600; }
+
+  /* ── 컨텍스트 줄 ── */
+  .context-row {
+    max-width: 1480px;
+    margin: 36px auto 28px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .context-row .period { font-size: 26px; font-weight: 700; }
+  .context-row .period-sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .context-row .total {
+    font-size: 13px; color: var(--muted); text-align: right;
+  }
+  .context-row .total b { color: var(--white); font-weight: 600; }
+
+  /* ── 우선순위 요약 ── */
+  .priority-bar {
+    max-width: 1480px;
+    margin: 0 auto 32px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .pri-item {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .pri-rank {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-size: 15px; font-weight: 800;
+    flex-shrink: 0;
+  }
+  .pri-item.crit .pri-rank { background: rgba(var(--clr-bad-rgb),0.16); color: var(--clr-bad); }
+  .pri-item.warn .pri-rank { background: rgba(var(--clr-warn-rgb),0.16); color: var(--clr-warn); }
+  .pri-item.good .pri-rank { background: rgba(var(--clr-good-rgb),0.16); color: var(--clr-good); }
+  .pri-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .pri-label { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .pri-line { font-size: 14px; font-weight: 600; line-height: 1.35; }
+  .pri-line .seg-name { color: var(--white); }
+
+  /* ── 카드 그리드 ── */
+  .grid {
+    max-width: 1480px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1100px) {
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 720px) {
+    body { padding: 32px 16px 56px; }
+    .priority-bar { grid-template-columns: 1fr; }
+    .grid { grid-template-columns: 1fr; }
+    .context-row { flex-direction: column; align-items: flex-start; }
+    .context-row .total { text-align: left; }
+  }
+
+  /* ── 카드 ── */
+  .card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px 22px 22px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: background .2s, border-color .2s, transform .2s;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  .card:hover { background: var(--card-hover); border-color: rgba(255,255,255,0.18); transform: translateY(-2px); }
+
+  /* 좌측 severity 막대 (테두리 빨강 대신 이걸 사용) */
+  .card::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; bottom: 0;
+    width: 4px;
+    background: transparent;
+    transition: background .25s;
+  }
+  .card.sev-crit::before { background: var(--clr-bad); }
+  .card.sev-warn::before { background: var(--clr-warn); }
+  .card.sev-watch::before { background: rgba(var(--clr-warn-rgb),0.45); }
+  .card.sev-good::before { background: var(--clr-good); }
+
+  /* 카드 헤드 */
+  .card-head {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 12px;
+  }
+  .card-title { display: flex; flex-direction: column; gap: 2px; }
+  .seg-name { font-size: 19px; font-weight: 700; letter-spacing: -0.005em; }
+  .seg-metric { font-size: 12px; color: var(--muted); letter-spacing: 0.02em; }
+
+  /* 우선순위 칩 */
+  .pri-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .pri-chip .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+  .card.sev-crit  .pri-chip { background: rgba(var(--clr-bad-rgb),0.14);  color: var(--clr-bad); }
+  .card.sev-crit  .pri-chip .dot { background: var(--clr-bad); }
+  .card.sev-warn  .pri-chip { background: rgba(var(--clr-warn-rgb),0.14); color: var(--clr-warn); }
+  .card.sev-warn  .pri-chip .dot { background: var(--clr-warn); }
+  .card.sev-watch .pri-chip { background: rgba(255,255,255,0.06); color: var(--muted); }
+  .card.sev-watch .pri-chip .dot { background: rgba(255,255,255,0.4); }
+  .card.sev-good  .pri-chip { background: rgba(var(--clr-good-rgb),0.14); color: var(--clr-good); }
+  .card.sev-good  .pri-chip .dot { background: var(--clr-good); }
+
+  /* KPI 영역 */
+  .kpi {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .kpi-num {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--white);
+  }
+  .card.sev-crit .kpi-num { color: var(--clr-bad); }
+  .card.sev-good .kpi-num { color: var(--clr-good); }
+  .kpi-unit { font-size: 16px; font-weight: 600; color: var(--muted); margin-left: -4px; }
+
+  .kpi-delta {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 9px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .kpi-delta.neg { background: rgba(var(--clr-bad-rgb),0.14);  color: var(--clr-bad); }
+  .kpi-delta.pos { background: rgba(var(--clr-good-rgb),0.14); color: var(--clr-good); }
+  .kpi-delta.flat { background: rgba(255,255,255,0.06); color: var(--muted); }
+
+  .kpi-vs {
+    font-size: 12px; color: var(--muted); margin-left: auto;
+  }
+
+  /* 인사이트 한 줄 */
+  .insight {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: rgba(255,255,255,0.85);
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+  }
+  .insight .ico {
+    font-size: 14px; line-height: 1.4; flex-shrink: 0;
+  }
+  .insight b { color: var(--white); font-weight: 700; }
+  .card.sev-crit .insight { background: rgba(var(--clr-bad-rgb),0.06); border-color: rgba(var(--clr-bad-rgb),0.2); }
+  .card.sev-good .insight { background: rgba(var(--clr-good-rgb),0.06); border-color: rgba(var(--clr-good-rgb),0.2); }
+
+  /* 분포 막대 */
+  .dist {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .dist-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 11px; color: var(--muted); letter-spacing: 0.02em;
+  }
+  .dist-head .legend { display: flex; gap: 10px; }
+  .dist-head .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .dist-head .legend .sw { width: 10px; height: 10px; border-radius: 2px; }
+  .dist-head .legend .sw.prev { background: rgba(255,255,255,0.25); }
+  .dist-head .legend .sw.cur { background: var(--white); }
+  .dist-bars {
+    display: grid;
+    grid-template-columns: repeat(11, 1fr);
+    gap: 4px;
+    height: 70px;
+    align-items: end;
+    padding: 0 2px;
+  }
+  .bar-col {
+    display: flex; flex-direction: column; align-items: stretch;
+    gap: 2px; height: 100%; justify-content: flex-end;
+    position: relative;
+  }
+  .bar-pair { display: flex; gap: 2px; flex: 1; align-items: flex-end; }
+  .bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 1px; }
+  .bar.prev { background: rgba(255,255,255,0.22); }
+  .bar.cur  { background: var(--white); }
+  .bar-label { font-size: 9px; color: var(--muted-2); text-align: center; line-height: 1; }
+  .bar-delta {
+    font-size: 9px; font-weight: 700; text-align: center; line-height: 1;
+    height: 11px;
+  }
+  .bar-delta.pos { color: var(--clr-good); }
+  .bar-delta.neg { color: var(--clr-bad); }
+  .bar-delta.zero { color: rgba(255,255,255,0.18); }
+
+  /* 추세 sparkline */
+  .trend {
+    display: flex; align-items: center; gap: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .trend-label { font-size: 11px; color: var(--muted); letter-spacing: 0.02em; flex-shrink: 0; }
+  .trend-svg { flex: 1; height: 28px; display: block; }
+  .trend-now {
+    font-size: 12px; font-weight: 700;
+    padding: 2px 6px; border-radius: 4px;
+    line-height: 1; flex-shrink: 0;
+  }
+  .card.sev-crit .trend-now { color: var(--clr-bad); background: rgba(var(--clr-bad-rgb),0.12); }
+  .card.sev-warn .trend-now { color: var(--clr-warn); background: rgba(var(--clr-warn-rgb),0.12); }
+  .card.sev-watch .trend-now { color: var(--muted); background: rgba(255,255,255,0.05); }
+  .card.sev-good .trend-now { color: var(--clr-good); background: rgba(var(--clr-good-rgb),0.12); }
+
+  /* CTA 행 */
+  .cta-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+  .cta {
+    flex: 1; min-width: 0;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 11px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    text-align: left;
+    line-height: 1.3;
+  }
+  .cta:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.2); }
+  .cta .arrow { color: var(--muted); margin-right: 4px; }
+
+  /* 디자인 가이드 푸터 */
+  .design-notes {
+    max-width: 1480px;
+    margin: 60px auto 0;
+    padding: 24px 28px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: rgba(255,255,255,0.75);
+  }
+  .design-notes h2 { font-size: 14px; font-weight: 700; color: var(--white); margin: 0 0 12px; letter-spacing: 0.02em; text-transform: uppercase; }
+  .design-notes ul { margin: 0; padding-left: 18px; }
+  .design-notes li { margin: 4px 0; }
+  .design-notes code {
+    font-family: 'SF Mono', Menlo, monospace; font-size: 12px;
+    background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px;
+    color: rgba(255,255,255,0.9);
+  }
+  .design-notes b { color: var(--white); }
+</style>
+</head>
+<body>
+
+<header class="page-head">
+  <div class="crumbs">
+    <a href="aqua_v0.84.html">aqua v0.84</a>
+    <span class="sep">›</span>
+    <span>v0.85 — 마케터용 시안</span>
+  </div>
+  <h1>지금, 무엇부터 봐야 하는가</h1>
+  <p class="lede">
+    카드를 마주한 마케터가 <b>3초 안에</b> 답을 찾도록 재설계.
+    "이 세그 위험"이라는 이진 신호를 <b>심각도(4단계)</b>·<b>우선순위 랭크</b>·<b>한 줄 인사이트</b>·<b>다음 액션</b>으로 분리해서 노이즈를 줄였습니다.
+  </p>
+</header>
+
+<div class="context-row">
+  <div>
+    <div class="period">2026. 4. 1 ~ 4. 25</div>
+    <div class="period-sub">6개 세그 · 당월 진행률 83%</div>
+  </div>
+  <div class="total">
+    당월 총 활성 <b>187만</b> · 전월 동기 대비 <b>−4만</b> (−2.1%)
+  </div>
+</div>
+
+<!-- 우선순위 요약 -->
+<div class="priority-bar">
+  <div class="pri-item crit">
+    <div class="pri-rank">1</div>
+    <div class="pri-text">
+      <div class="pri-label">시급 — 즉시 조치</div>
+      <div class="pri-line"><span class="seg-name">Light</span> · 저빈도 이탈 10만명, 분포 좌측 이동</div>
+    </div>
+  </div>
+  <div class="pri-item warn">
+    <div class="pri-rank">2</div>
+    <div class="pri-text">
+      <div class="pri-label">주의 — 추세 관찰</div>
+      <div class="pri-line"><span class="seg-name">Mid</span> · 평균 −1.2일, 휴일 영향 가능</div>
+    </div>
+  </div>
+  <div class="pri-item good">
+    <div class="pri-rank">★</div>
+    <div class="pri-text">
+      <div class="pri-label">호조 — 모멘텀 활용</div>
+      <div class="pri-line"><span class="seg-name">Heavy</span> · 활성 +12만, 충성도 강화 캠페인 적기</div>
+    </div>
+  </div>
+</div>
+
+<!-- 카드 그리드 -->
+<div class="grid">
+
+  <!-- 1. Light - 시급 -->
+  <article class="card sev-crit">
+    <div class="card-head">
+      <div class="card-title">
+        <div class="seg-name">Light</div>
+        <div class="seg-metric">평균 로그인 일수</div>
+      </div>
+      <span class="pri-chip"><span class="dot"></span>1순위 시급</span>
+    </div>
+
+    <div class="kpi">
+      <span class="kpi-num">0.7</span>
+      <span class="kpi-unit">일</span>
+      <span class="kpi-delta neg">▼ 0.2일 (−22%)</span>
+      <span class="kpi-vs">vs 전월 0.9일</span>
+    </div>
+
+    <div class="insight">
+      <span class="ico">📉</span>
+      <span><b>저빈도(0–2일)로 10만명 이동</b> · 활성(3일+)에서 10만명 유출. 분포가 좌측으로 밀려 점화 위험.</span>
+    </div>
+
+    <div class="dist">
+      <div class="dist-head">
+        <span>로그인 빈도 분포</span>
+        <div class="legend"><span><i class="sw prev"></i>전월</span><span><i class="sw cur"></i>당월</span></div>
+      </div>
+      <div class="dist-bars">
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:80%"></div><div class="bar cur" style="height:95%"></div></div><div class="bar-delta pos">+20</div><div class="bar-label">0일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:65%"></div><div class="bar cur" style="height:60%"></div></div><div class="bar-delta neg">−10</div><div class="bar-label">1일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:30%"></div><div class="bar cur" style="height:18%"></div></div><div class="bar-delta neg">−20</div><div class="bar-label">2일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:5%"></div><div class="bar cur" style="height:8%"></div></div><div class="bar-delta pos">+10</div><div class="bar-label">3일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:3%"></div><div class="bar cur" style="height:3%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">4일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:2%"></div><div class="bar cur" style="height:2%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">5일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:1%"></div><div class="bar cur" style="height:1%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">6일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:1%"></div><div class="bar cur" style="height:1%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">7일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:1%"></div><div class="bar cur" style="height:1%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">8일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:1%"></div><div class="bar cur" style="height:1%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">9일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:1%"></div><div class="bar cur" style="height:1%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">10+</div></div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <button class="cta"><span class="arrow">→</span> 저빈도 이탈 방어 캠페인</button>
+      <button class="cta"><span class="arrow">→</span> 세그 상세 보기</button>
+    </div>
+
+    <div class="trend">
+      <span class="trend-label">6개월 추세</span>
+      <svg class="trend-svg" viewBox="0 0 200 28" preserveAspectRatio="none">
+        <polyline fill="none" stroke="rgba(255,2,56,0.85)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  points="0,8 40,10 80,9 120,12 160,18 200,22"/>
+        <circle cx="200" cy="22" r="2.5" fill="#FF0238"/>
+      </svg>
+      <span class="trend-now">0.7</span>
+    </div>
+  </article>
+
+  <!-- 2. Mid - 주의 -->
+  <article class="card sev-warn">
+    <div class="card-head">
+      <div class="card-title">
+        <div class="seg-name">Mid</div>
+        <div class="seg-metric">평균 로그인 일수</div>
+      </div>
+      <span class="pri-chip"><span class="dot"></span>2순위 주의</span>
+    </div>
+
+    <div class="kpi">
+      <span class="kpi-num">3.1</span>
+      <span class="kpi-unit">일</span>
+      <span class="kpi-delta neg">▼ 1.2일 (−28%)</span>
+      <span class="kpi-vs">vs 전월 4.3일</span>
+    </div>
+
+    <div class="insight">
+      <span class="ico">⚠️</span>
+      <span>활성 분포 폭이 줄어듦. <b>휴일 영향 −0.3일</b> 보정 시 실제 변동 −0.9일.</span>
+    </div>
+
+    <div class="dist">
+      <div class="dist-head">
+        <span>로그인 빈도 분포</span>
+        <div class="legend"><span><i class="sw prev"></i>전월</span><span><i class="sw cur"></i>당월</span></div>
+      </div>
+      <div class="dist-bars">
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:15%"></div><div class="bar cur" style="height:18%"></div></div><div class="bar-delta pos">+5</div><div class="bar-label">0일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:25%"></div><div class="bar cur" style="height:30%"></div></div><div class="bar-delta pos">+8</div><div class="bar-label">1일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:40%"></div><div class="bar cur" style="height:50%"></div></div><div class="bar-delta pos">+12</div><div class="bar-label">2일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:60%"></div><div class="bar cur" style="height:55%"></div></div><div class="bar-delta neg">−4</div><div class="bar-label">3일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:75%"></div><div class="bar cur" style="height:60%"></div></div><div class="bar-delta neg">−10</div><div class="bar-label">4일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:85%"></div><div class="bar cur" style="height:65%"></div></div><div class="bar-delta neg">−15</div><div class="bar-label">5일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:70%"></div><div class="bar cur" style="height:50%"></div></div><div class="bar-delta neg">−12</div><div class="bar-label">6일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:50%"></div><div class="bar cur" style="height:35%"></div></div><div class="bar-delta neg">−8</div><div class="bar-label">7일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:30%"></div><div class="bar cur" style="height:22%"></div></div><div class="bar-delta neg">−5</div><div class="bar-label">8일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:18%"></div><div class="bar cur" style="height:14%"></div></div><div class="bar-delta neg">−3</div><div class="bar-label">9일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:10%"></div><div class="bar cur" style="height:8%"></div></div><div class="bar-delta neg">−2</div><div class="bar-label">10+</div></div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <button class="cta"><span class="arrow">→</span> 활성 유지 리텐션 푸시</button>
+      <button class="cta"><span class="arrow">→</span> 세그 상세 보기</button>
+    </div>
+
+    <div class="trend">
+      <span class="trend-label">6개월 추세</span>
+      <svg class="trend-svg" viewBox="0 0 200 28" preserveAspectRatio="none">
+        <polyline fill="none" stroke="rgba(255,176,32,0.85)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  points="0,6 40,8 80,7 120,10 160,16 200,19"/>
+        <circle cx="200" cy="19" r="2.5" fill="#FFB020"/>
+      </svg>
+      <span class="trend-now">3.1</span>
+    </div>
+  </article>
+
+  <!-- 3. Hi-Light - 관찰 -->
+  <article class="card sev-watch">
+    <div class="card-head">
+      <div class="card-title">
+        <div class="seg-name">Hi-Light</div>
+        <div class="seg-metric">평균 로그인 일수</div>
+      </div>
+      <span class="pri-chip"><span class="dot"></span>관찰</span>
+    </div>
+
+    <div class="kpi">
+      <span class="kpi-num">2.0</span>
+      <span class="kpi-unit">일</span>
+      <span class="kpi-delta flat">▼ 0.1일 (−5%)</span>
+      <span class="kpi-vs">vs 전월 2.1일</span>
+    </div>
+
+    <div class="insight">
+      <span class="ico">💬</span>
+      <span>큰 변동 없음. 분포 모양 유지, 경계 세그 진입 압박 미미.</span>
+    </div>
+
+    <div class="dist">
+      <div class="dist-head">
+        <span>로그인 빈도 분포</span>
+        <div class="legend"><span><i class="sw prev"></i>전월</span><span><i class="sw cur"></i>당월</span></div>
+      </div>
+      <div class="dist-bars">
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:30%"></div><div class="bar cur" style="height:32%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">0일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:55%"></div><div class="bar cur" style="height:58%"></div></div><div class="bar-delta pos">+2</div><div class="bar-label">1일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:80%"></div><div class="bar cur" style="height:78%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">2일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:50%"></div><div class="bar cur" style="height:48%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">3일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:25%"></div><div class="bar cur" style="height:22%"></div></div><div class="bar-delta neg">−2</div><div class="bar-label">4일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:12%"></div><div class="bar cur" style="height:10%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">5일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:5%"></div><div class="bar cur" style="height:4%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">6일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:3%"></div><div class="bar cur" style="height:3%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">7일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:2%"></div><div class="bar cur" style="height:2%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">8일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:1%"></div><div class="bar cur" style="height:1%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">9일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:1%"></div><div class="bar cur" style="height:1%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">10+</div></div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <button class="cta"><span class="arrow">→</span> 세그 상세 보기</button>
+    </div>
+
+    <div class="trend">
+      <span class="trend-label">6개월 추세</span>
+      <svg class="trend-svg" viewBox="0 0 200 28" preserveAspectRatio="none">
+        <polyline fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  points="0,12 40,11 80,13 120,12 160,13 200,13"/>
+        <circle cx="200" cy="13" r="2.5" fill="rgba(255,255,255,0.6)"/>
+      </svg>
+      <span class="trend-now">2.0</span>
+    </div>
+  </article>
+
+  <!-- 4. Heavy - 호조 -->
+  <article class="card sev-good">
+    <div class="card-head">
+      <div class="card-title">
+        <div class="seg-name">Heavy</div>
+        <div class="seg-metric">평균 로그인 일수</div>
+      </div>
+      <span class="pri-chip"><span class="dot"></span>호조</span>
+    </div>
+
+    <div class="kpi">
+      <span class="kpi-num">7.8</span>
+      <span class="kpi-unit">일</span>
+      <span class="kpi-delta pos">▲ 0.5일 (+7%)</span>
+      <span class="kpi-vs">vs 전월 7.3일</span>
+    </div>
+
+    <div class="insight">
+      <span class="ico">🚀</span>
+      <span><b>활성 +12만명</b> · 분포 우측 이동, 충성도 강화 캠페인 적기.</span>
+    </div>
+
+    <div class="dist">
+      <div class="dist-head">
+        <span>로그인 빈도 분포</span>
+        <div class="legend"><span><i class="sw prev"></i>전월</span><span><i class="sw cur"></i>당월</span></div>
+      </div>
+      <div class="dist-bars">
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:5%"></div><div class="bar cur" style="height:3%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">0일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:5%"></div><div class="bar cur" style="height:3%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">1일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:8%"></div><div class="bar cur" style="height:6%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">2일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:15%"></div><div class="bar cur" style="height:12%"></div></div><div class="bar-delta neg">−2</div><div class="bar-label">3일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:25%"></div><div class="bar cur" style="height:22%"></div></div><div class="bar-delta neg">−2</div><div class="bar-label">4일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:40%"></div><div class="bar cur" style="height:42%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">5일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:55%"></div><div class="bar cur" style="height:60%"></div></div><div class="bar-delta pos">+4</div><div class="bar-label">6일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:70%"></div><div class="bar cur" style="height:78%"></div></div><div class="bar-delta pos">+8</div><div class="bar-label">7일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:80%"></div><div class="bar cur" style="height:90%"></div></div><div class="bar-delta pos">+10</div><div class="bar-label">8일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:60%"></div><div class="bar cur" style="height:75%"></div></div><div class="bar-delta pos">+12</div><div class="bar-label">9일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:35%"></div><div class="bar cur" style="height:45%"></div></div><div class="bar-delta pos">+8</div><div class="bar-label">10+</div></div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <button class="cta"><span class="arrow">→</span> VIP 모멘텀 강화 캠페인</button>
+      <button class="cta"><span class="arrow">→</span> 세그 상세 보기</button>
+    </div>
+
+    <div class="trend">
+      <span class="trend-label">6개월 추세</span>
+      <svg class="trend-svg" viewBox="0 0 200 28" preserveAspectRatio="none">
+        <polyline fill="none" stroke="rgba(0,213,109,0.85)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  points="0,18 40,16 80,15 120,12 160,9 200,6"/>
+        <circle cx="200" cy="6" r="2.5" fill="#00D56D"/>
+      </svg>
+      <span class="trend-now">7.8</span>
+    </div>
+  </article>
+
+  <!-- 5. Hi-Heavy - 관찰 -->
+  <article class="card sev-watch">
+    <div class="card-head">
+      <div class="card-title">
+        <div class="seg-name">Hi-Heavy</div>
+        <div class="seg-metric">평균 로그인 일수</div>
+      </div>
+      <span class="pri-chip"><span class="dot"></span>관찰</span>
+    </div>
+
+    <div class="kpi">
+      <span class="kpi-num">12.4</span>
+      <span class="kpi-unit">일</span>
+      <span class="kpi-delta flat">▴ 0.1일 (+1%)</span>
+      <span class="kpi-vs">vs 전월 12.3일</span>
+    </div>
+
+    <div class="insight">
+      <span class="ico">💬</span>
+      <span>안정적 유지. 최상위 충성층, 추가 자극보다는 <b>특별 혜택 유지</b>가 핵심.</span>
+    </div>
+
+    <div class="dist">
+      <div class="dist-head">
+        <span>로그인 빈도 분포</span>
+        <div class="legend"><span><i class="sw prev"></i>전월</span><span><i class="sw cur"></i>당월</span></div>
+      </div>
+      <div class="dist-bars">
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:2%"></div><div class="bar cur" style="height:2%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">0일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:2%"></div><div class="bar cur" style="height:2%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">1일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:3%"></div><div class="bar cur" style="height:3%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">2일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:4%"></div><div class="bar cur" style="height:4%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">3일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:6%"></div><div class="bar cur" style="height:6%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">4일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:10%"></div><div class="bar cur" style="height:9%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">5일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:18%"></div><div class="bar cur" style="height:18%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">6일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:30%"></div><div class="bar cur" style="height:32%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">7일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:55%"></div><div class="bar cur" style="height:58%"></div></div><div class="bar-delta pos">+3</div><div class="bar-label">8일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:75%"></div><div class="bar cur" style="height:74%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">9일</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:95%"></div><div class="bar cur" style="height:96%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">10+</div></div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <button class="cta"><span class="arrow">→</span> 세그 상세 보기</button>
+    </div>
+
+    <div class="trend">
+      <span class="trend-label">6개월 추세</span>
+      <svg class="trend-svg" viewBox="0 0 200 28" preserveAspectRatio="none">
+        <polyline fill="none" stroke="rgba(255,255,255,0.45)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  points="0,4 40,5 80,4 120,5 160,4 200,4"/>
+        <circle cx="200" cy="4" r="2.5" fill="rgba(255,255,255,0.6)"/>
+      </svg>
+      <span class="trend-now">12.4</span>
+    </div>
+  </article>
+
+  <!-- 6. Inactive - 시급 -->
+  <article class="card sev-crit">
+    <div class="card-head">
+      <div class="card-title">
+        <div class="seg-name">Inactive</div>
+        <div class="seg-metric">미접속 인원</div>
+      </div>
+      <span class="pri-chip"><span class="dot"></span>3순위 시급</span>
+    </div>
+
+    <div class="kpi">
+      <span class="kpi-num">28</span>
+      <span class="kpi-unit">만명</span>
+      <span class="kpi-delta neg">▲ 5만 (+22%)</span>
+      <span class="kpi-vs">vs 전월 23만</span>
+    </div>
+
+    <div class="insight">
+      <span class="ico">🚨</span>
+      <span><b>5만명 신규 휴면 진입</b> · Light에서의 이탈과 연결 가능, 30일 이내 복귀 캠페인 우선.</span>
+    </div>
+
+    <div class="dist">
+      <div class="dist-head">
+        <span>휴면 기간 분포 (일)</span>
+        <div class="legend"><span><i class="sw prev"></i>전월</span><span><i class="sw cur"></i>당월</span></div>
+      </div>
+      <div class="dist-bars">
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:30%"></div><div class="bar cur" style="height:55%"></div></div><div class="bar-delta neg">+22</div><div class="bar-label">30</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:50%"></div><div class="bar cur" style="height:60%"></div></div><div class="bar-delta neg">+10</div><div class="bar-label">60</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:65%"></div><div class="bar cur" style="height:62%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">90</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:80%"></div><div class="bar cur" style="height:75%"></div></div><div class="bar-delta neg">−5</div><div class="bar-label">120</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:90%"></div><div class="bar cur" style="height:85%"></div></div><div class="bar-delta neg">−5</div><div class="bar-label">150</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:75%"></div><div class="bar cur" style="height:70%"></div></div><div class="bar-delta neg">−5</div><div class="bar-label">180</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:55%"></div><div class="bar cur" style="height:50%"></div></div><div class="bar-delta neg">−5</div><div class="bar-label">210</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:35%"></div><div class="bar cur" style="height:32%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">240</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:20%"></div><div class="bar cur" style="height:18%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">270</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:10%"></div><div class="bar cur" style="height:10%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">300</div></div>
+        <div class="bar-col"><div class="bar-pair"><div class="bar prev" style="height:5%"></div><div class="bar cur" style="height:5%"></div></div><div class="bar-delta zero">–</div><div class="bar-label">365+</div></div>
+      </div>
+    </div>
+
+    <div class="cta-row">
+      <button class="cta"><span class="arrow">→</span> 30일 윈도우 복귀 캠페인</button>
+      <button class="cta"><span class="arrow">→</span> 세그 상세 보기</button>
+    </div>
+
+    <div class="trend">
+      <span class="trend-label">6개월 추세</span>
+      <svg class="trend-svg" viewBox="0 0 200 28" preserveAspectRatio="none">
+        <polyline fill="none" stroke="rgba(255,2,56,0.85)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                  points="0,20 40,18 80,17 120,15 160,10 200,4"/>
+        <circle cx="200" cy="4" r="2.5" fill="#FF0238"/>
+      </svg>
+      <span class="trend-now">28만</span>
+    </div>
+  </article>
+
+</div>
+
+<!-- 디자인 가이드 -->
+<section class="design-notes">
+  <h2>디자인 의도 메모</h2>
+  <ul>
+    <li><b>이진 alert → 4단계 심각도</b>: <code>sev-crit</code> / <code>sev-warn</code> / <code>sev-watch</code> / <code>sev-good</code> · 카드 전체를 빨갛게 두르는 대신 <b>좌측 4px 색 막대</b>로 톤 다운 (alert fatigue 방지)</li>
+    <li><b>우선순위 칩</b> (1순위 시급 / 2순위 주의 / 관찰 / 호조): 6개 중 어디부터 봐야 할지 1초에 답</li>
+    <li><b>한 줄 인사이트</b>: 분포 narrative를 텍스트 블록으로 격상 (이전엔 페이지 위쪽 보조 텍스트라 시선 유실)</li>
+    <li><b>delta 색 통일</b>: KPI 큰 숫자도 심각도와 같은 색 계열 → "테두리 빨강 vs 숫자 흰색" 어긋남 해소</li>
+    <li><b>다음 액션 CTA</b>: 단순 "세그 상세 보기"만 아니라 시급도에 맞는 캠페인 액션 제시 (마케터의 의사결정 비용 ↓)</li>
+    <li><b>6개월 추세 sparkline</b>: 이번 달이 일시적 노이즈인지 추세인지 즉시 판단</li>
+    <li><b>카드 간 연결</b>: 상단 우선순위 요약 + 인사이트 텍스트로 "Light 이탈 → Inactive 증가" 같은 세그 간 연쇄를 명시</li>
+  </ul>
+</section>
+
+</body>
+</html>

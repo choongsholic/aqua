@@ -1,0 +1,5 @@
+period,label,value,delta,positive
+5. 1 ~ 5. 15,MAU,763만,+30000,true
+5. 1 ~ 5. 15,MAU 기여수,40000,+2000,true
+5. 1 ~ 5. 15,PUSH 열람률,4.6%,+6.1% p,true
+5. 1 ~ 5. 15,Echo 열람률,13.6%,+6.1% p,true

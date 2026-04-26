@@ -1,0 +1,2826 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DP-AQUA · Real Growth Dashboard</title>
+<style>
+@font-face {
+  font-family: 'YouandiNewKrTitle';
+  font-weight: 700;
+  src: url('fonts/YouandiNewKrTitle-Bold.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'SFProDisplay';
+  font-weight: 700;
+  src: url('fonts/SF-Pro-Display-Bold.otf') format('opentype');
+}
+@font-face {
+  font-family: 'SFProDisplay';
+  font-weight: 500;
+  src: url('fonts/SF-Pro-Display-Medium.otf') format('opentype');
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --clr-good:        #00D56D;
+  --clr-good-rgb:    0,213,109;
+  --clr-bad:         #FF0238;
+  --clr-bad-rgb:     255,2,56;
+  --green:           var(--clr-good);
+  --red:             var(--clr-bad);
+  --white:           #ffffff;
+  --black:           #000000;
+  --bg:              #000000;
+  --fg:              #ffffff;
+  --border:          rgba(255,255,255,0.10);
+  --border-aquarium: rgba(255,255,255,0.14);
+  --border-card:     rgba(255,255,255,0.10);
+  --border-divider:  rgba(255,255,255,0.12);
+  --border-emph:     rgba(255,255,255,0.34);
+  --border-inner:    rgba(255,255,255,0.10);
+  --border-tabbar:   rgba(255,255,255,0.08);
+  --muted:           rgba(255,255,255,0.35);
+  --card-bg:         rgba(255,255,255,0.08);
+  --font-sf:         'SFProDisplay', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+  --font-yu:         'YouandiNewKrTitle', 'Apple SD Gothic Neo', sans-serif;
+}
+
+/* ── Light mode ── */
+body.light {
+  --bg:              #f0f0f0;
+  --fg:              #000000;
+  --border:          rgba(0,0,0,0.10);
+  --border-aquarium: rgba(0,0,0,0.14);
+  --border-card:     rgba(0,0,0,0.20);
+  --border-divider:  rgba(0,0,0,0.12);
+  --border-emph:     rgba(0,0,0,0.34);
+  --border-inner:    rgba(0,0,0,0.10);
+  --muted:           rgba(0,0,0,0.35);
+  --card-bg:         #ffffff;
+  --white:           #000000;
+}
+body.light .darkmode-btn { background: rgba(0,0,0,0.08); border-color: rgba(0,0,0,0.15); color: rgba(0,0,0,0.7); }
+body.light .darkmode-btn:hover { background: rgba(0,0,0,0.15); }
+body.light .tabbar { background: rgba(0,0,0,0.08); }
+body.light .tab.active { background: #000; color: #fff; border-color: #000; }
+body.light .tab:hover:not(.active) { color: rgba(0,0,0,0.6); }
+body.light .tank-wrap:not(.alert) .tank-card:hover { border-color: rgba(0,0,0,0.4); }
+body.light .alert-badge { background: var(--red); color: #fff; }
+body.light .toggle-bar::before { background: rgba(0,0,0,0.15); }
+body.light .toggle-knob { background: rgba(0,0,0,0.4); }
+body.light .toggle-bar:hover .toggle-knob { background: rgba(0,0,0,1); }
+body.light .toggle-knob { background: rgba(0,0,0,0.4); }
+body.light .dashboard-footer { color: rgba(0,0,0,0.40); }
+body.light .lnb-item:hover:not(.active) { color: rgba(0,0,0,0.5); }
+
+/* ── Theme transition ── */
+body,
+.topbar, .lnb, .main,
+.aquarium-container, .aquarium-header, .aquarium-divider,
+.tabbar, .tab,
+.track-label, .track-divider,
+.tank-card, .tank-name, .tank-sub, .tank-number, .tank-unit, .tank-prev,
+.period-key, .period-val,
+.lnb-item, .darkmode-btn,
+.dashboard-footer {
+  transition: background-color 0.4s ease, background 0.4s ease,
+              border-color 0.4s ease, color 0.4s ease;
+}
+
+:root {
+  --panel-w: 0px;
+}
+body.detail-open {
+  --panel-w: 360px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--font-sf);
+  height: 100vh;
+  min-width: 1080px;
+  min-height: 520px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+}
+
+/* ══ Content Wrap (topbar + page-body) ══ */
+.content-wrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ══ Top Bar ══ */
+.topbar {
+  flex-shrink: 0;
+  height: 72px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar-title {
+  font-family: var(--font-yu);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--white);
+  line-height: 1;
+}
+
+.topbar-daycount { display: flex; align-items: center; gap: 10px; }
+
+/* ══ Body ══ */
+.page-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ══ Left Nav ══ */
+.lnb {
+  flex-shrink: 0;
+  width: 220px;
+  padding: 26px 0 16px;
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  transition: width 0.35s ease;
+}
+body.lnb-collapsed .lnb { width: 0; }
+body.lnb-collapsed .lnb-nav { opacity: 0; transform: translateX(-16px); pointer-events: none; }
+.lnb-nav { display: flex; flex-direction: column; transition: opacity 0.3s ease, transform 0.3s ease; }
+
+.lnb-item {
+  padding: 10px 24px;
+  font-family: var(--font-yu);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.lnb-item.active { color: var(--white); }
+.lnb-item:hover:not(.active) { color: rgba(255,255,255,0.6); }
+
+.lnb-bottom {
+  position: fixed;
+  bottom: 16px;
+  left: 0;
+  width: 240px;
+  padding: 0 16px 0 24px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: transparent;
+  z-index: 100;
+}
+
+.darkmode-btn {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.8);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.darkmode-btn:hover { background: rgba(255,255,255,0.12); }
+.darkmode-btn svg { opacity: 0.7; }
+
+.toggle-bar {
+  flex: 1;
+  height: 6px;
+  background: none;
+  position: relative;
+  cursor: pointer;
+  padding: 12px 0;
+  margin: -12px 0;
+  box-sizing: content-box;
+}
+.toggle-bar::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0;
+  top: 50%; transform: translateY(-50%);
+  height: 6px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+  transition: height 0.18s ease, border-radius 0.18s ease;
+  pointer-events: none;
+}
+.toggle-bar:hover::before { height: 10px; border-radius: 5px; }
+.toggle-knob {
+  width: 50%;
+  min-width: 6px;
+  height: 6px;
+  position: absolute;
+  top: 50%; left: 0;
+  transform: translateY(-50%);
+  background: rgba(255,255,255,0.5);
+  border-radius: 99px;
+  transition: background 0.15s, height 0.18s ease;
+  pointer-events: none;
+}
+.toggle-bar:hover .toggle-knob { background: rgba(255,255,255,1); height: 10px; }
+
+/* ══ Main ══ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 24px 0;
+  overflow-y: auto;
+  gap: 0;
+}
+
+/* ══ Aquarium Container (rounded border) ══ */
+.aquarium-container {
+  flex: 1;
+  border: 1px solid var(--border-aquarium);
+  border-radius: 32px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* 공통 하단 풋터 (좌 레전드 / 우 일수 카운트) — ret-section tanks-row 뒤, 양 모드 공통 */
+.aquarium-lf-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 16px 6px 0;
+}
+
+/* 레전드 (좌측) — LF 모드에서만 페이드인 */
+.aquarium-lf-legend {
+  display: flex; align-items: center; gap: 16px;
+  font-size: 14px; font-weight: 400; color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.32s ease;
+}
+.lf-mode .aquarium-lf-legend { opacity: 1; pointer-events: auto; }
+
+/* 단위 표기 (우측) — LF 모드에서만 페이드인 */
+.aquarium-lf-unit {
+  font-size: 14px; font-weight: 400; color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.32s ease;
+}
+.lf-mode .aquarium-lf-unit { opacity: 1; }
+.lf-legend-item { display: flex; align-items: center; gap: 6px; }
+.lf-legend-dot { width: 6px; height: 6px; border-radius: 2px; display: inline-block; }
+.lf-legend-dot.prev { background: rgba(255,255,255,0.20); }
+.lf-legend-dot.cur  { background: rgba(255,255,255,1); }
+body.light .lf-legend-dot.prev { background: rgba(0,0,0,0.20); }
+body.light .lf-legend-dot.cur  { background: rgba(0,0,0,0.75); }
+
+/* 일수 카운트 (우측) */
+.aquarium-lf-daycount { display: flex; align-items: center; gap: 10px; }
+.dc-period-lbl { color: var(--muted); font-size: 12px; font-weight: 500; margin-left: 8px; }
+.dc-box { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.dc-cell {
+  padding: 6px 12px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  min-width: 36px;
+  border-right: 1px solid var(--border);
+}
+.dc-cell:last-child { border-right: none; }
+.dc-lbl { font-size: 11px; color: var(--muted); font-weight: 500; line-height: 1.2; }
+.dc-val { font-size: 14px; color: var(--white); font-weight: 500; line-height: 1.2; }
+.dc-val.dc-diff { color: var(--clr-good); }
+.dc-val.dc-diff.neg { color: var(--clr-bad); }
+.dc-val.dc-diff.zero { color: var(--white); }
+.dc-lbl { color: rgba(255,255,255,0.58); }
+body.light .dc-lbl { color: rgba(0,0,0,0.58); }
+.dc-box.dc-dim .dc-val { opacity: 0.42; }
+.dc-box.dc-dim .dc-lbl { opacity: 0.62; }
+.dc-box.dc-emph { border-color: var(--border-emph); }
+.dc-box .dc-cell { border-right-color: transparent; position: relative; }
+.dc-box .dc-cell:not(:last-child)::after {
+  content: ''; position: absolute; right: 0; top: 8px; bottom: 8px; width: 1px;
+  background: var(--border-inner);
+}
+
+/* Header row inside container */
+.aquarium-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 14px 24px;
+  flex-shrink: 0;
+}
+
+.period-wrap { display: flex; flex-direction: column; gap: 4px; }
+.period-label { display: flex; align-items: baseline; gap: 8px; }
+.period-key { font-weight: 700; font-size: 16px; color: var(--white); }
+.period-val { font-weight: 700; font-size: 18px; color: var(--white); }
+.period-sub { font-size: 12px; font-weight: 500; color: var(--muted); }
+
+/* Tabs — no container bg, just pill vs text */
+.tabbar { display: flex; align-items: center; gap: 0; background: rgba(255,255,255,0.08); border-radius: 24px; padding: 0; margin: 6px 0; }
+
+.tab {
+  height: 36px;
+  padding: 0 20px;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: var(--font-sf);
+  white-space: nowrap;
+}
+/* 비활성 탭 hover/focus 시 탭바 전체 배경을 16%로 (비활성 영역 연속 표시) */
+.tabbar:has(.tab:hover:not(.active)),
+.tabbar:has(.tab.kbd-focus:not(.active)) { background: rgba(255,255,255,0.16); transition: background 0.15s; }
+body.light .tabbar:has(.tab:hover:not(.active)),
+body.light .tabbar:has(.tab.kbd-focus:not(.active)) { background: rgba(0,0,0,0.16); }
+/* kbd-nav 모드에서는 hover 무시, kbd-focus만 */
+body.kbd-nav .tabbar:has(.tab:hover:not(.active)):not(:has(.tab.kbd-focus:not(.active))) { background: rgba(255,255,255,0.08); }
+body.light.kbd-nav .tabbar:has(.tab:hover:not(.active)):not(:has(.tab.kbd-focus:not(.active))) { background: rgba(0,0,0,0.08); }
+.tab.active {
+  background: var(--white);
+  color: #000;
+  border-color: var(--white);
+}
+.tab:hover:not(.active) { color: rgba(255,255,255,0.7); }
+
+/* Divider between header and tracks */
+.aquarium-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+/* ══ Track Section ══ */
+.tracks-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 16px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.track-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.track-label {
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.48);
+  transition: color 0.18s ease;
+}
+body.light .track-label { color: rgba(0,0,0,0.48); }
+#acq-section:has(.tank-card:hover) > .track-label,
+#acq-section:has(.tank-card.active) > .track-label,
+#acq-section:has(.tank-card.kbd-focus) > .track-label,
+#ret-section:has(.tank-card:hover) > .track-label,
+#ret-section:has(.tank-card.active) > .track-label,
+#ret-section:has(.tank-card.kbd-focus) > .track-label { color: var(--white); }
+
+.tank-spacer { flex: 1; min-height: 20px; }
+
+.track-divider {
+  border: none;
+  border-top: 1px dashed var(--border-divider);
+  margin: 0 0 0;
+  flex-shrink: 0;
+}
+
+.tanks-row {
+  flex: 1;
+  display: flex;
+  gap: 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ══ Tank Wrap ══ */
+.tank-wrap {
+  flex: 1;
+  border-radius: 25px;
+  min-height: 0;
+}
+.tank-card:hover .tank-caret { color: var(--white); }
+.tank-card:hover { border-color: rgba(255,255,255,0.80); }
+
+/* 이상 탱크 */
+.tank-wrap.alert .tank-card { border-color: rgba(var(--clr-bad-rgb),0.40); }
+.tank-wrap.alert .tank-card:hover { border-color: rgba(var(--clr-bad-rgb),0.8); }
+
+/* ══ Tank Card ══ */
+.tank-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-card);
+  border-radius: 24px;
+  padding: 18px 20px 16px;
+  height: 100%;
+  position: relative;
+  max-height: 260px;
+  min-height: 80px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  transition: border-color 0.25s ease, max-height 0.42s cubic-bezier(0.4,0,0.2,1), min-height 0.42s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* Tank top */
+.tank-top { display: flex; flex-direction: column; gap: 5px; }
+
+.tank-name-row { display: flex; align-items: center; gap: 4px; }
+.tank-name  { font-weight: 700; font-size: 17px; color: var(--white); opacity: 0.64; transition: opacity 0.2s, font-size 0.42s cubic-bezier(0.4,0,0.2,1); }
+.tank-caret { font-size: 15px; color: var(--muted); transition: opacity 0.2s; }
+.tank-card:hover .tank-name  { opacity: 1; }
+.tank-card:hover .tank-caret { opacity: 1; }
+
+.tank-sub {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+  display: none;
+}
+
+/* Tank bottom */
+.tank-bottom { display: flex; flex-direction: column; gap: 5px; }
+
+.tank-number-row { display: flex; align-items: flex-end; gap: 2px; }
+.tank-number {
+  font-family: 'YouandiNewKrTitle', 'Apple SD Gothic Neo', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 54px;
+  color: var(--white);
+  line-height: 1;
+}
+.tank-unit {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--white);
+  padding-bottom: 4px;
+}
+
+.tank-prev {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 0;
+}
+
+/* Indicator row — arrow + delta + pct + optional badge inline */
+.tank-indicator { display: flex; align-items: center; gap: 4px; min-height: 24px; margin-bottom: 2px; }
+.tank-arrow-sym { font-size: 24px; font-weight: 700; line-height: 1; }
+.tank-delta     { font-weight: 500; font-size: 17px; line-height: 1; }
+.tank-pct       { font-weight: 500; font-size: 17px; line-height: 1; }
+
+.tank-indicator.good .tank-arrow-sym,
+.tank-indicator.good .tank-delta,
+.tank-indicator.good .tank-pct { color: var(--green); }
+
+.tank-indicator.bad .tank-arrow-sym,
+.tank-indicator.bad .tank-delta,
+.tank-indicator.bad .tank-pct  { color: var(--red); }
+
+.tank-indicator.zero .tank-arrow-sym,
+.tank-indicator.zero .tank-delta,
+.tank-indicator.zero .tank-pct { color: rgba(255,255,255,0.64); }
+.tank-indicator.zero .tank-arrow-sym { font-size: 16px; color: rgba(255,255,255,0.4); }
+body.light .tank-indicator.zero .tank-arrow-sym { color: rgba(0,0,0,0.4); }
+body.light .tank-indicator.zero .tank-arrow-sym,
+body.light .tank-indicator.zero .tank-delta,
+body.light .tank-indicator.zero .tank-pct { color: rgba(0,0,0,0.64); }
+
+/* Alert badge — inline after pct */
+.alert-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--red);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+.alert-badge.placeholder { visibility: hidden; }
+
+/* ══ Load Button (우측 하단 고정) ══ */
+.load-btn-wrap {
+  position: fixed;
+  bottom: 16px;
+  right: calc(var(--panel-w) + 24px);
+  z-index: 100;
+  transition: right 0.35s cubic-bezier(0.4,0,0.2,1);
+}
+.load-btn-wrap .darkmode-btn { min-width: 32px; min-height: 32px; }
+
+/* ══ Footer ══ */
+.dashboard-footer {
+  flex-shrink: 0;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 400;
+  font-size: 12px;
+  background: transparent;
+  color: rgba(255,255,255,0.40);
+  letter-spacing: 0.06em;
+}
+
+/* ══ Detail Panel ══ */
+.detail-panel {
+  flex-shrink: 0;
+  width: 0;
+  overflow: hidden;
+  transition: width 0.35s cubic-bezier(0.4,0,0.2,1);
+  background: #000000;
+  display: flex; flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+}
+.detail-panel.open { width: 360px; }
+#detail-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.18) transparent;
+}
+#detail-body::-webkit-scrollbar { width: 6px; }
+#detail-body::-webkit-scrollbar-track { background: transparent; }
+#detail-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18);
+  border-radius: 3px;
+}
+#detail-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.32); }
+#detail-body::-webkit-scrollbar-button { display: none; height: 0; width: 0; }
+
+/* Header */
+.detail-header {
+  padding: 20px 24px;
+  display: flex; justify-content: space-between; align-items: center;
+  min-width: 360px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: #000000;
+  z-index: 10;
+}
+.detail-seg-name { font-family: var(--font-yu); font-weight: 700; font-size: 28px; color: #fff; line-height: 1.2; }
+.detail-seg-sub  { font-size: 12px; color: rgba(255,255,255,0.4); margin-top: 4px; display: none; }
+.detail-close, .detail-play-btn {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(255,255,255,0.12); border: none;
+  color: #fff; font-size: 14px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: background 0.15s;
+}
+.detail-close:hover, .detail-play-btn:hover { background: rgba(255,255,255,0.22); }
+.detail-play-btn.playing { background: rgba(255,255,255,0.18); }
+.detail-play-btn.playing:hover { background: rgba(255,255,255,0.26); }
+.detail-header-btns { display: flex; gap: 12px; align-items: center; position: relative; }
+
+/* 인터벌 툴팁 */
+.play-interval-tip {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: rgba(30,30,30,0.97);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 20px;
+  padding: 8px 12px;
+  white-space: nowrap;
+  z-index: 100;
+  gap: 6px;
+  align-items: center;
+}
+.play-interval-tip.visible { display: flex; }
+.play-interval-tip-label { font-size: 11px; color: rgba(255,255,255,0.4); margin-right: 4px; }
+.play-interval-opt {
+  width: 32px; height: 28px;
+  border-radius: 14px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.5);
+  font-size: 12px; font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s;
+}
+.play-interval-opt:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.play-interval-opt.active { background: #fff; color: #000; }
+
+/* 탱크 활성화 상태 (플레이 중) */
+.tank-card.active {
+  border-width: 1px;
+  border-color: rgba(255,255,255,1);
+}
+.tank-card.active .tank-name  { opacity: 1; color: #fff; }
+.tank-card.active .tank-caret { opacity: 1; color: #fff; }
+body.light .tank-card.active .tank-name  { color: #000; }
+body.light .tank-card.active .tank-caret { color: #000; }
+.tank-wrap.alert .tank-card.active { border-color: rgba(var(--clr-bad-rgb),1); }
+body.light .tank-wrap:not(.alert) .tank-card.active { border-color: rgba(0,0,0,1); }
+
+/* KPI row (no card boxes) */
+.detail-kpi-row {
+  display: flex; gap: 49px;
+  padding: 12px 24px;
+  min-width: 360px;
+  flex-shrink: 0;
+}
+.detail-kpi-item { display: flex; flex-direction: column; gap: 4px; }
+.detail-kpi-label { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.36); }
+.detail-kpi-value-row { display: flex; align-items: baseline; gap: 2px; }
+.detail-kpi-num  { font-family: var(--font-sf); font-weight: 700; font-size: 34px; color: #fff; line-height: 1; }
+.detail-kpi-unit { font-family: var(--font-sf); font-weight: 700; font-size: 16px; color: #fff; line-height: 1; transform: translateY(-1px); }
+
+/* Content sections */
+.detail-section {
+  padding: 32px 24px;
+  min-width: 360px;
+  flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.detail-section-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 0; }
+
+/* Bar rows (연령대) */
+.detail-bar-row {
+  display: flex; align-items: center; gap: 0;
+  height: 36px;
+}
+.detail-bar-label {
+  width: 52px; flex-shrink: 0;
+  font-size: 16px; font-weight: 500;
+  color: rgba(255,255,255,0.4);
+}
+.detail-bar-label.active { color: #fff; }
+.detail-bar-track {
+  width: 200px; flex-shrink: 0; height: 6px;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(255,255,255,0.18) 0, rgba(255,255,255,0.18) 1.5px,
+    transparent 1.5px, transparent 4px
+  );
+  position: relative; overflow: hidden;
+}
+.detail-bar-fill {
+  position: absolute; left: 0; top: 0; height: 100%;
+  background: var(--clr-good);
+  width: 0; transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+}
+.detail-bar-pct {
+  width: 60px; flex-shrink: 0; text-align: right;
+  font-size: 16px; font-weight: 500;
+  color: rgba(255,255,255,0.4);
+}
+.detail-bar-pct.active { color: #fff; }
+
+/* Card rows (보유 카드) */
+.detail-card-row {
+  display: flex; align-items: center; gap: 0;
+  min-height: 50px;
+}
+.detail-rank-num {
+  width: 32px; flex-shrink: 0;
+  font-size: 20px; font-weight: 300;
+  color: #fff;
+}
+.detail-rank-num.dim { color: rgba(255,255,255,0.4); }
+.detail-card-col {
+  width: 220px; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.detail-card-name {
+  font-size: 16px; font-weight: 500; color: #fff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.detail-card-name.dim { color: rgba(255,255,255,0.4); }
+.detail-card-pct {
+  width: 60px; flex-shrink: 0; text-align: right;
+  font-size: 16px; font-weight: 500; color: #fff;
+}
+.detail-card-pct.dim { color: rgba(255,255,255,0.4); }
+
+/* ══ Delta Chart (전월 비교) ══ */
+.delta-inner { display: flex; align-items: flex-start; gap: 16px; }
+.delta-labels { flex-shrink: 0; display: flex; flex-direction: column; padding-top: 12px; }
+.delta-lbl {
+  height: 16px; display: flex; align-items: center;
+  font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.36); white-space: nowrap;
+}
+.delta-lbl + .delta-lbl { margin-top: 14px; }
+.delta-lbl.curr { color: #fff; }
+
+.delta-area {
+  flex: 1; position: relative;
+  padding-top: 12px; padding-bottom: 50px;
+}
+.delta-bar {
+  height: 16px; width: 0;
+  transition: width 0.75s cubic-bezier(0.4,0,0.2,1);
+  position: relative; z-index: 1;
+}
+.delta-bar + .delta-bar { margin-top: 14px; }
+.delta-bar.prev-bar { background: rgba(255,255,255,0.28); }
+.delta-bar.curr-bar { background: #fff; }
+
+/* 해칭 영역 — top:0 = padding-top 시작점 = 바 8px 위 */
+.delta-hatch {
+  position: absolute; top: 0;
+  height: 70px; /* 12 + 16 + 14 + 16 + 12 */
+  left: 0; width: 0;
+  z-index: 2;
+  transition: left 0.75s cubic-bezier(0.4,0,0.2,1),
+              width 0.75s cubic-bezier(0.4,0,0.2,1);
+}
+.delta-hatch.pos {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(var(--clr-good-rgb),0.28) 0, rgba(var(--clr-good-rgb),0.28) 1.5px,
+    transparent 1.5px, transparent 4px
+  );
+  border-left: 1.5px solid rgba(var(--clr-good-rgb),0.7);
+  border-right: 1.5px solid rgba(var(--clr-good-rgb),0.7);
+}
+.delta-hatch.neg {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(var(--clr-bad-rgb),0.28) 0, rgba(var(--clr-bad-rgb),0.28) 1.5px,
+    transparent 1.5px, transparent 4px
+  );
+  border-left: 1.5px solid rgba(var(--clr-bad-rgb),0.8);
+  border-right: 1.5px solid rgba(var(--clr-bad-rgb),0.8);
+}
+.delta-hatch.zero {
+  background: none;
+  border-right: none;
+  border-top: none;
+  border-left: 2px solid rgba(255,255,255,0.8);
+  height: 70px;
+  top: 0;
+  transform: translateX(-1px);
+}
+
+/* 배지 (말풍선) */
+.delta-badge-wrap {
+  position: absolute; bottom: 0; left: 0;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  z-index: 3;
+  transition: left 0.75s cubic-bezier(0.4,0,0.2,1);
+}
+.delta-badge-arrow {
+  width: 0; height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+}
+.delta-badge-arrow.pos  { border-bottom: 5px solid var(--clr-good); }
+.delta-badge-arrow.neg  { border-bottom: 5px solid rgba(var(--clr-bad-rgb),0.9); }
+.delta-badge-arrow.zero { display: none; }
+.delta-badge {
+  font-size: 13px; font-weight: 700;
+  padding: 5px 13px; border-radius: 20px;
+  white-space: nowrap;
+}
+.delta-badge.pos  { background: var(--clr-good); color: #000; }
+.delta-badge.neg  { background: rgba(var(--clr-bad-rgb),0.9); color: #fff; }
+.delta-badge.zero { background: rgba(255,255,255,0.15); color: #fff; }
+/* ══ Login Frequency Tab 전환 ══ */
+/* LF 모드: overflow 해제만, flex 구조는 유지 (카드가 높이 fill) */
+.aquarium-container.aquarium-lf { overflow: visible; }
+.lf-mode { overflow: visible; }
+.lf-mode #ret-section { overflow: visible; }
+.lf-mode #ret-section .tanks-row { overflow: visible; }
+
+/* acq 동시 축소 */
+#acq-section {
+  max-height: 600px; overflow: hidden;
+  transition: opacity 0.35s ease, transform 0.35s ease, max-height 0.42s cubic-bezier(0.4,0,0.2,1), margin 0.42s cubic-bezier(0.4,0,0.2,1);
+}
+.lf-mode #acq-section {
+  opacity: 0; transform: translateY(-16px) scale(0.9);
+  max-height: 0 !important; margin: 0 !important; overflow: hidden; pointer-events: none;
+}
+#acq-ret-divider { transition: opacity 0.3s ease, max-height 0.35s ease, margin 0.35s ease; }
+.lf-mode #acq-ret-divider { opacity: 0; max-height: 0; margin: 0; overflow: hidden; }
+#ret-section .track-label { transition: opacity 0.25s ease, max-height 0.3s ease, margin 0.3s ease; }
+.lf-mode #ret-section .track-label { opacity: 0; max-height: 0; overflow: hidden; margin: 0; }
+/* ret 카드: min-height 트랜지션으로 동시 성장, max-height 해제로 가용 높이 풀 사용 */
+.lf-mode #ret-section .tank-card { max-height: 2000px; min-height: 400px; }
+/* animation 완료 후: min-height 제거해 복귀 시 자연스럽게 축소 */
+.lf-mode-settled #ret-section .tank-card { min-height: 0; }
+.lf-mode #ret-section .tank-caret { opacity: 0; pointer-events: none; }
+.lf-mode #ret-section .tank-name { opacity: 1; }
+
+/* seg 콘텐츠 ↔ LF 콘텐츠 전환 */
+.tank-seg-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+/* LF 모드: 타이틀(tank-top)은 유지, 숫자 영역만 숨김 */
+.lf-mode #ret-section .tank-seg-content { flex: 0 0 auto; }
+.lf-mode #ret-section .tank-seg-content .tank-spacer,
+.lf-mode #ret-section .tank-seg-content .tank-bottom { display: none; }
+.tank-lf-content { display: none; flex-direction: column; flex: 1; min-height: 0; }
+@keyframes lfContentIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.lf-mode #ret-section .tank-lf-content { display: flex; animation: lfContentIn 0.32s ease 0.22s both; }
+
+/* LF 내부 레이아웃 */
+.lf-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-shrink: 0; }
+.lf-seg-desc { font-size: 12px; color: rgba(255,255,255,0.36); }
+.lf-warning-badge { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 10px; background: rgba(var(--clr-bad-rgb),0.15); color: rgba(var(--clr-bad-rgb),0.9); }
+.lf-kpi-row { display: flex; gap: 8px; flex-shrink: 0; margin-bottom: 24px; }
+.lf-kpi-card { flex: 1; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 12px 10px; display: flex; flex-direction: column; gap: 5px; }
+.lf-kpi-card.warn { background: rgba(var(--clr-bad-rgb),0.08); }
+.lf-kpi-label { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.3; }
+.lf-kpi-val { font-size: 26px; font-weight: 700; line-height: 1; color: #fff; }
+.lf-kpi-val.muted { color: rgba(255,255,255,0.45); }
+.lf-kpi-val.good { color: var(--clr-good); }
+.lf-kpi-val.bad { color: rgba(var(--clr-bad-rgb),0.9); }
+.lf-kpi-sub { font-size: 10px; color: rgba(255,255,255,0.25); }
+.lf-chart-title { font-size: 11px; color: rgba(255,255,255,0.3); margin-bottom: 6px; flex-shrink: 0; }
+.lf-canvas-wrap { flex: 1; min-height: 120px; position: relative; }
+.lf-canvas-wrap canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.lf-tooltip { position: absolute; pointer-events: none; background: #fff; color: #000; border-radius: 10px; padding: 14px 16px; font-family: 'SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif; font-weight: 700; font-size: 15px; line-height: 25px; white-space: nowrap; box-shadow: 0 4px 16px rgba(0,0,0,0.18); opacity: 0; transition: opacity 0.14s ease; z-index: 20; left: 0; top: 0; }
+.lf-tooltip.show { opacity: 1; }
+.lf-tt-div { height: 1px; background: rgba(0,0,0,0.15); margin: 10px -4px; }
+body:not(.light) .lf-tooltip { box-shadow: 0 6px 24px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.45); }
+.lf-legend { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-top: 6px; }
+.lf-legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.lf-legend-dot.curr { background: rgba(255,255,255,0.9); }
+.lf-legend-dot.prev { background: rgba(255,255,255,0.22); }
+.lf-legend-lbl { font-size: 10px; color: rgba(255,255,255,0.35); margin-right: 6px; }
+.lf-delta-row { display: flex; gap: 6px; flex-shrink: 0; margin-top: 8px; }
+.lf-delta-chip { flex: 1; background: rgba(255,255,255,0.04); border-radius: 8px; padding: 5px 4px; text-align: center; }
+.lf-delta-blabel { font-size: 10px; font-weight: 500; color: rgba(255,255,255,0.4); }
+.lf-delta-num { font-size: 11px; font-weight: 700; margin-top: 2px; }
+.lf-delta-num.pos { color: var(--clr-good); }
+.lf-delta-num.neg { color: rgba(var(--clr-bad-rgb),0.9); }
+.lf-delta-num.zero { color: rgba(255,255,255,0.3); }
+
+/* ── LF Flat KPI (detail-kpi 스타일) ── */
+.lf-warn-top { display: flex; justify-content: flex-end; margin-bottom: 8px; flex-shrink: 0; }
+.lf-kpi-flat { display: flex; flex-shrink: 0; margin-top: 20px; margin-bottom: 16px; margin-left: -14px; margin-right: 0; }
+.lf-summary { font-size: 14px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; flex-shrink: 0; }
+.lf-summary b { color: var(--white); font-weight: 600; }
+.lf-kpi-flat-item { flex: 1; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 16px; }
+.lf-kpi-flat-item.warn { background: rgba(var(--clr-bad-rgb),0.08); }
+.lf-kpi-flat-label { font-size: 14px; font-weight: 500; color: var(--white); }
+.lf-kpi-flat-value-row { display: flex; align-items: baseline; gap: 3px; }
+.lf-kpi-flat-num { font-family: 'YouandiNewKrTitle', sans-serif; font-weight: 600; font-size: 34px; color: var(--white); line-height: 1; }
+.lf-kpi-flat-num.muted { color: var(--muted); }
+.lf-kpi-flat-num.good  { color: var(--clr-good); }
+.lf-kpi-flat-num.bad   { color: var(--clr-bad); }
+.lf-kpi-flat-unit { font-weight: 500; font-size: 13px; color: var(--white); line-height: 1; align-self: flex-end; margin-bottom: 3px; }
+.lf-kpi-flat-unit.muted { color: var(--muted); }
+.lf-kpi-flat-unit.good  { color: var(--clr-good); }
+.lf-kpi-flat-unit.bad   { color: var(--clr-bad); }
+
+/* X축 레이블 + 델타 (HTML, 캔버스 외부) */
+.lf-xaxis-row { display: flex; flex-shrink: 0; padding-right: 8px; margin-top: 8px; margin-bottom: 12px; align-items: flex-start; }
+.lf-xaxis-yname { width: 48px; flex-shrink: 0; font-size: 14px; font-weight: 400; color: var(--muted); white-space: nowrap; }
+.lf-xcol { flex: 1; display: flex; flex-direction: column; align-items: stretch; gap: 8px; min-width: 0; }
+.lf-xcol-lbl { font-size: 14px; font-weight: 400; color: var(--muted); white-space: nowrap; text-align: center; }
+.lf-xcol-lbl.active { color: var(--white); font-weight: 700; }
+.lf-xcol-delta { font-size: 14px; font-weight: 400; display: flex; align-items: center; justify-content: center; gap: 1px; min-height: 20px; white-space: nowrap; }
+.lf-xcol-delta.pos  { color: var(--clr-good); }
+.lf-xcol-delta.neg  { color: var(--clr-bad); }
+.lf-xcol-delta.zero { color: var(--muted); }
+.lf-xcol-sym { font-size: 14px; font-weight: 400; }
+.lf-xcol-sym.zero-dash { opacity: 0.48; }
+
+/* LF: 카드 타이틀 */
+.lf-mode #ret-section .tank-name { font-size: 28px; font-weight: 600; }
+
+/* LF: 복사 버튼 */
+.lf-copy-btn {
+  display: none;
+  position: absolute; top: 18px; right: 18px;
+  width: 32px; height: 32px;
+  align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.08); border: none;
+  border-radius: 50%; cursor: pointer;
+  color: rgba(255,255,255,0.5);
+  transition: background 0.15s, color 0.15s;
+  z-index: 2;
+}
+.lf-copy-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.lf-copy-btn.copied { color: var(--clr-good); }
+.lf-mode #ret-section .tank-card:hover .lf-copy-btn,
+.lf-mode #ret-section .lf-copy-btn.copied { display: flex; }
+body.light .lf-copy-btn { background: rgba(0,0,0,0.06); color: rgba(0,0,0,0.4); }
+body.light .lf-copy-btn:hover { background: rgba(0,0,0,0.1); color: #000; }
+body.light .lf-copy-btn.copied { color: var(--clr-good); }
+
+/* LF: 호버 시 나머지 카드 페이드아웃 */
+.lf-mode #ret-section .tanks-row .tank-wrap { transition: opacity 0.25s ease; }
+.lf-mode #ret-section .tanks-row:has(.tank-wrap:hover) .tank-wrap:not(:hover) { opacity: 0.4; }
+
+/* LF: 차트 섹션 */
+.lf-kpi-divider { display: none; }
+.lf-chart-section-title { font-size: 20px; font-weight: 700; color: var(--white); margin-bottom: 4px; flex-shrink: 0; }
+.lf-chart-section-sub   { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 20px; flex-shrink: 0; }
+.lf-warn-chip {
+  display: inline-flex; align-items: center;
+  background: var(--clr-bad); color: #fff;
+  font-size: 12px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px; margin-left: 6px;
+  vertical-align: middle; position: relative; top: -2px;
+}
+
+/* ── LF Light mode 반전 ── */
+body.light .lf-kpi-flat-label   { color: rgba(0,0,0,0.36); }
+body.light .lf-kpi-flat-num     { color: #000; }
+body.light .lf-kpi-flat-num.muted { color: rgba(0,0,0,0.4); }
+body.light .lf-kpi-flat-num.good  { color: var(--clr-good); }
+body.light .lf-kpi-flat-num.bad   { color: var(--clr-bad); }
+body.light .lf-kpi-flat-unit    { color: rgba(0,0,0,0.5); }
+body.light .lf-kpi-flat-unit.muted { color: rgba(0,0,0,0.3); }
+body.light .lf-kpi-flat-unit.good  { color: var(--clr-good); }
+body.light .lf-kpi-flat-unit.bad   { color: var(--clr-bad); }
+body.light .lf-chart-title      { color: rgba(0,0,0,0.3); }
+body.light .lf-legend-dot.curr  { background: rgba(0,0,0,0.65); }
+body.light .lf-legend-dot.prev  { background: rgba(0,0,0,0.2); }
+body.light .lf-legend-lbl       { color: rgba(0,0,0,0.35); }
+body.light .lf-delta-chip       { background: rgba(0,0,0,0.04); }
+body.light .lf-delta-blabel     { color: rgba(0,0,0,0.4); }
+body.light .lf-delta-num.zero   { color: rgba(0,0,0,0.3); }
+body.light .lf-warning-badge    { background: rgba(var(--clr-bad-rgb),0.12); color: rgba(var(--clr-bad-rgb),0.9); }
+
+/* 복사 버튼 */
+.detail-copy-wrap {
+  display: flex; justify-content: center;
+  padding: 20px 24px 60px;
+}
+.detail-copy-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 20px; border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.7);
+  font-size: 14px; font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.detail-copy-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.footer-uxi { color: inherit; text-decoration: none; margin-left: 4px; transition: text-decoration 0.15s; }
+.footer-uxi:hover { color: #fff; }
+body.light .footer-uxi:hover { color: #000; }
+.detail-copy-btn.copied { border-color: rgba(var(--clr-good-rgb),0.5); color: var(--clr-good); background: rgba(var(--clr-good-rgb),0.08); }
+
+/* ══ 키보드 네비게이션 포커스 = 호버 상태 재사용 ══ */
+.tab.kbd-focus:not(.active) { color: rgba(255,255,255,0.7); }
+body.light .tab.kbd-focus:not(.active) { color: rgba(0,0,0,0.6); }
+.tank-wrap.kbd-focus .tank-card { border-color: rgba(255,255,255,0.80); }
+.tank-wrap.kbd-focus .tank-card .tank-name,
+.tank-wrap.kbd-focus .tank-card .tank-caret { opacity: 1; }
+.tank-wrap.kbd-focus .tank-card .tank-caret { color: var(--white); }
+.tank-wrap.alert.kbd-focus .tank-card { border-color: rgba(var(--clr-bad-rgb),0.8); }
+body.light .tank-wrap:not(.alert).kbd-focus .tank-card { border-color: rgba(0,0,0,0.4); }
+/* LF 모드: 포커스된 카드 외 나머지 페이드 (호버와 동일) */
+.lf-mode #ret-section .tanks-row:has(.tank-wrap.kbd-focus) .tank-wrap:not(.kbd-focus) { opacity: 0.4; }
+.lf-mode #ret-section .tank-wrap.kbd-focus .lf-copy-btn { display: flex; }
+/* 키보드 네비 모드: 호버 효과 억제 (kbd-focus만 반영) */
+body.kbd-nav .tab:hover:not(.active) { color: var(--muted); }
+body.light.kbd-nav .tab:hover:not(.active) { color: rgba(0,0,0,0.35); }
+body.kbd-nav .tank-card:hover { border-color: var(--border-card); }
+body.kbd-nav .tank-card:hover .tank-name  { opacity: 0.64; }
+body.kbd-nav .tank-card:hover .tank-caret { opacity: 1; color: var(--muted); }
+body.kbd-nav .tank-wrap.alert .tank-card:hover { border-color: rgba(var(--clr-bad-rgb),0.40); }
+body.kbd-nav .lf-mode #ret-section .tanks-row:has(.tank-wrap:hover) .tank-wrap:not(:hover) { opacity: 1; }
+body.kbd-nav .lf-mode #ret-section .tank-card:hover .lf-copy-btn:not(.copied) { display: none; }
+/* kbd-focus는 계속 적용 */
+body.kbd-nav .tank-wrap.kbd-focus .tank-card { border-color: rgba(255,255,255,0.80); }
+body.light.kbd-nav .tank-wrap:not(.alert).kbd-focus .tank-card { border-color: rgba(0,0,0,0.4); }
+body.kbd-nav .tank-wrap.alert.kbd-focus .tank-card { border-color: rgba(var(--clr-bad-rgb),0.8); }
+body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-name,
+body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-caret { opacity: 1; }
+body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-caret { color: var(--white); }
+body.light.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-caret { color: #000; }
+body.kbd-nav .lf-mode #ret-section .tanks-row:has(.tank-wrap.kbd-focus) .tank-wrap:not(.kbd-focus) { opacity: 0.4; }
+body.kbd-nav .lf-mode #ret-section .tank-wrap.kbd-focus .lf-copy-btn { display: flex; }
+</style>
+</head>
+<body class="lnb-collapsed">
+
+<!-- 우측 하단 데이터 불러오기 버튼 -->
+<div class="load-btn-wrap">
+  <div class="darkmode-btn" id="load-btn" onclick="document.getElementById('folder-input').click()" title="데이터 폴더 불러오기">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M3 19V7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M13 15l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="16" y1="12" x2="16" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <input type="file" id="folder-input" webkitdirectory style="display:none" onchange="loadDataFolder(this.files)">
+</div>
+
+<!-- Bottom controls: 스크립트보다 앞에 위치, overflow:hidden 밖 -->
+<div class="lnb-bottom">
+  <div class="darkmode-btn" id="sidebar-btn" onclick="toggleSidebar()" style="flex-shrink:0">
+    <svg id="sidebar-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <line x1="4" y1="8" x2="20" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <line x1="4" y1="14" x2="16" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </div>
+  <div class="darkmode-btn" id="fullscreen-btn" onclick="toggleFullscreen()" style="flex-shrink:0" title="전체화면">
+    <svg id="fs-icon-expand" width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <svg id="fs-icon-shrink" width="18" height="18" viewBox="0 0 24 24" fill="none" style="display:none">
+      <path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </div>
+  <div class="darkmode-btn" id="darkmode-btn" onclick="toggleTheme()" style="flex-shrink:0">
+    <svg id="theme-icon" width="18" height="18" viewBox="0 0 24 24" fill="none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="currentColor"/>
+    </svg>
+  </div>
+  <div class="toggle-bar"><div class="toggle-knob"></div></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+// ★ 데이터 입력 영역 — 매주 이 부분만 수정하세요
+// ══════════════════════════════════════════════════════════
+// 모든 데이터는 CSV에서 주입됨. total.csv → metrics, seg_status.csv → acquisition/retention, seg_visit.csv → period
+const DATA = {
+  period: '',
+  metrics: [],
+  acquisition: [],
+  retention: [],
+};
+// ══════════════════════════════════════════════════════════
+</script>
+
+<!-- Content Wrap (topbar + page-body — shrinks when detail panel opens) -->
+<div class="content-wrap">
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="topbar-title">DP-AQUA</div>
+    <div class="topbar-daycount">
+      <span class="dc-period-lbl">전월</span>
+      <div class="dc-box dc-dim">
+        <div class="dc-cell"><div class="dc-lbl">평일</div><div class="dc-val" id="dc-prev-wd">12</div></div>
+        <div class="dc-cell"><div class="dc-lbl">휴일</div><div class="dc-val" id="dc-prev-we">3</div></div>
+      </div>
+      <span class="dc-period-lbl">당월</span>
+      <div class="dc-box dc-emph">
+        <div class="dc-cell"><div class="dc-lbl">평일</div><div class="dc-val" id="dc-cur-wd">7</div></div>
+        <div class="dc-cell"><div class="dc-lbl">휴일</div><div class="dc-val" id="dc-cur-we">8</div></div>
+      </div>
+      <div class="dc-box dc-emph">
+        <div class="dc-cell"><div class="dc-lbl">휴일 차이</div><div class="dc-val dc-diff" id="dc-holiday-diff">+5</div></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="page-body">
+
+    <!-- Left Nav -->
+    <nav class="lnb">
+      <div class="lnb-nav">
+        <div class="lnb-item active">HOME</div>
+        <div class="lnb-item">MENU 1</div>
+        <div class="lnb-item">MENU 2</div>
+        <div class="lnb-item">MENU 3</div>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="main">
+
+      <div class="aquarium-container">
+
+        <!-- Header -->
+        <div class="aquarium-header">
+          <div class="period-wrap">
+            <div class="period-label">
+              <span class="period-key">기준일 :</span>
+              <span class="period-val" id="period-val"></span>
+            </div>
+            <div class="period-sub" id="period-sub">6개 세그별 당월 진행 현황 및 전월 동기 비교</div>
+          </div>
+          <div class="tabbar">
+            <button class="tab active">세그 현황판</button>
+            <button class="tab">이탈 조기 경보</button>
+          </div>
+        </div>
+
+        <hr class="aquarium-divider">
+
+        <!-- Tracks -->
+        <div class="tracks-area">
+
+          <section class="track-section" id="acq-section">
+            <div class="track-label">Acquisition Track</div>
+            <div class="tanks-row" id="acq-tanks"></div>
+          </section>
+
+          <hr class="track-divider" id="acq-ret-divider" style="margin: 20px 0 0;">
+
+          <section class="track-section" id="ret-section">
+            <div class="track-label">Retention Track</div>
+            <div class="tanks-row" id="ret-tanks"></div>
+            <div class="aquarium-lf-footer">
+              <div class="aquarium-lf-legend">
+                <span class="lf-legend-item"><span class="lf-legend-dot prev"></span>전월</span>
+                <span class="lf-legend-item"><span class="lf-legend-dot cur"></span>당월</span>
+              </div>
+              <div class="aquarium-lf-unit">(단위 : 만)</div>
+            </div>
+          </section>
+
+        </div>
+
+      </div>
+
+      <div class="dashboard-footer">Digital Product · App User Quantitative Analysis · by <a href="uxi_aqua.html" class="footer-uxi" onclick="return goUXI(event)">UXI</a></div>
+
+    </main>
+
+  </div><!-- /page-body -->
+
+</div><!-- /content-wrap -->
+
+<!-- Detail Panel (body-level flex sibling) -->
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-header">
+    <div>
+      <div class="detail-seg-name" id="detail-seg-name"></div>
+      <div class="detail-seg-sub"  id="detail-seg-sub"></div>
+    </div>
+    <div class="detail-header-btns">
+      <div class="play-interval-tip" id="play-interval-tip">
+        <span class="play-interval-tip-label">Delay</span>
+        <button class="play-interval-opt" data-sec="2" onclick="setPlayInterval(2)">2s</button>
+        <button class="play-interval-opt" data-sec="4" onclick="setPlayInterval(4)">4s</button>
+        <button class="play-interval-opt active" data-sec="6" onclick="setPlayInterval(6)">6s</button>
+        <button class="play-interval-opt" data-sec="8" onclick="setPlayInterval(8)">8s</button>
+        <button class="play-interval-opt" data-sec="10" onclick="setPlayInterval(10)">10s</button>
+      </div>
+      <button class="detail-play-btn" id="detail-play-btn">
+        <svg id="play-icon" width="10" height="12" viewBox="0 0 12 14" fill="none">
+          <path d="M1 1l10 6-10 6V1z" fill="currentColor"/>
+        </svg>
+        <svg id="pause-icon" width="10" height="12" viewBox="0 0 12 14" fill="none" style="display:none">
+          <rect x="1" y="1" width="3.5" height="12" rx="1" fill="currentColor"/>
+          <rect x="7.5" y="1" width="3.5" height="12" rx="1" fill="currentColor"/>
+        </svg>
+      </button>
+      <button class="detail-close" onclick="closeDetail()">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M1 1l10 10M11 1L1 11" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div id="detail-body"></div>
+</div>
+
+<script>
+// ── 랜덤 데이터 생성 ──
+const RANGES = {
+  '앱미경험':   { val:[80,180], prev:[60,160] },
+  '장기미이용': { val:[60,150], prev:[50,130] },
+  '간헐이용':   { val:[70,160], prev:[60,140] },
+  'Light':   { val:[100,250],  prev:[90,230]  },
+  'Casual':  { val:[80,200],   prev:[70,180]  },
+  'Power':   { val:[30,120],   prev:[25,110]  },
+};
+function ri(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function randomizeTanks(arr) {
+  return arr.map(t => {
+    const r  = RANGES[t.seg] || { val:[50,200], prev:[40,180] };
+    const pc = ri(r.prev[0], r.prev[1]);
+    const mag = ri(3, 28); // 등락 크기만 랜덤 (방향은 DATA positive 유지)
+    const v  = t.positive ? pc + mag : pc - mag;
+    const d  = v - pc;
+    return { ...t,
+      value:     Math.max(1, v),
+      prevClose: pc,
+      deltaV:    Math.abs(d),
+      pct:       parseFloat(Math.abs(d / pc * 100).toFixed(1)),
+    };
+  });
+}
+
+// ── 카운트업 애니메이션 ──
+function countUp(el, target, decimals, duration, fmt) {
+  const start = performance.now();
+  (function tick() {
+    const p = Math.min((performance.now() - start) / duration, 1);
+    const e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+    const v = decimals > 0 ? (e * target).toFixed(decimals) : Math.round(e * target);
+    el.textContent = fmt ? fmt(v) : v;
+    if (p < 1) requestAnimationFrame(tick);
+  })();
+}
+
+function scrambleText(el, target, duration) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-';
+  const len = target.length;
+  const resolved = new Array(len).fill(false);
+  const start = performance.now();
+  (function tick() {
+    const p = Math.min((performance.now() - start) / duration, 1);
+    // 앞에서부터 easeOut 비율로 resolve
+    const resolvedCount = Math.floor((1 - Math.pow(1 - p, 2)) * len);
+    for (let i = 0; i < resolvedCount; i++) resolved[i] = true;
+    el.textContent = target.split('').map((ch, i) => {
+      if (resolved[i]) return ch;
+      if (ch === ' ') return ' ';
+      return chars[Math.floor(Math.random() * chars.length)];
+    }).join('');
+    if (p < 1) requestAnimationFrame(tick);
+    else el.textContent = target;
+  })();
+}
+function animateCard(wrap) {
+  const dur = 800;
+  wrap.querySelectorAll('.tank-number[data-t]').forEach(el  => countUp(el, +el.dataset.t, 0, dur));
+  wrap.querySelectorAll('.prev-num[data-t]').forEach(el     => countUp(el, +el.dataset.t, 0, dur));
+  wrap.querySelectorAll('.delta-num[data-t]').forEach(el    => countUp(el, +el.dataset.t, 0, dur));
+  wrap.querySelectorAll('.pct-num[data-t]').forEach(el      => countUp(el, +el.dataset.t, 1, dur));
+}
+
+function animateTanks() {
+  document.querySelectorAll('.tank-wrap').forEach(wrap => {
+    animateCard(wrap);
+    const card = wrap.querySelector('.tank-card');
+    if (card) {
+      card.addEventListener('mouseenter', () => { animateCard(wrap); tickSound(); });
+      card.addEventListener('click', () => {
+        if (currentTab === 'lf' && wrap.closest('#ret-tanks')) return;
+        openDetail(wrap.dataset.seg, wrap.dataset.sub);
+      });
+    }
+  });
+}
+
+function buildTanks(tanks, containerId) {
+  document.getElementById(containerId).innerHTML = tanks.map(t => {
+    // 텍스트 색은 증감 방향 그대로 (+ 녹색 / - 레드). 0만 차이는 중립(흰색 64%).
+    const isZero   = t.deltaV === 0;
+    const indClass = isZero ? 'zero' : (t.positive ? 'good' : 'bad');
+    const arrow    = isZero ? '–' : (t.positive ? '▴' : '▾');
+    const sign     = t.positive ? '+' : '-';
+    return `
+      <div class="tank-wrap${t.alert ? ' alert' : ''}" data-seg="${t.seg}" data-sub="${t.sub}">
+      <div class="tank-card">
+        <div class="tank-seg-content">
+          <div class="tank-top">
+            <div class="tank-name-row">
+              <span class="tank-name">${t.seg}</span>
+              <span class="tank-caret">›</span>
+            </div>
+            <div class="tank-sub">${t.sub}</div>
+          </div>
+          <div class="tank-spacer"></div>
+          <div class="tank-bottom">
+            <div class="tank-number-row">
+              <span class="tank-number" data-t="${t.value}">0</span>
+              <span class="tank-unit">만</span>
+            </div>
+            <div class="tank-prev">전월 마감 <span class="prev-num" data-t="${t.prevClose}">0</span>만</div>
+            <div class="tank-indicator ${indClass}">
+              <span class="tank-arrow-sym">${arrow}</span>
+              <span class="tank-delta"><span class="delta-num" data-t="${t.deltaV}">0</span>만</span>
+              ${isZero ? '' : `<span class="tank-pct">${sign}<span class="pct-num" data-t="${t.pct}">0.0</span>%</span>`}
+              ${t.alert ? '<span class="alert-badge">이상</span>' : '<span class="alert-badge placeholder" aria-hidden="true">이상</span>'}
+            </div>
+          </div>
+        </div>
+      </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// localStorage 캐시 로드 시도
+let dataFromCSV = false;
+(function loadFromCache() {
+  try {
+    const cached = localStorage.getItem('aqua_data');
+    if (cached) {
+      const d = JSON.parse(cached);
+      if (d.period)      DATA.period      = d.period;
+      if (d.metrics)     DATA.metrics     = d.metrics;
+      if (d.acquisition) DATA.acquisition = d.acquisition;
+      if (d.retention)   DATA.retention   = d.retention;
+      dataFromCSV = true;
+    }
+  } catch(e) {}
+})();
+
+if (!dataFromCSV) {
+  DATA.acquisition = randomizeTanks(DATA.acquisition);
+  DATA.retention   = randomizeTanks(DATA.retention);
+  try { localStorage.setItem('aqua_data', JSON.stringify({ period: DATA.period, metrics: DATA.metrics, acquisition: DATA.acquisition, retention: DATA.retention })); } catch(e) {}
+}
+
+document.getElementById('period-val').textContent = DATA.period;
+buildTanks(DATA.acquisition, 'acq-tanks');
+buildTanks(DATA.retention,   'ret-tanks');
+document.fonts.ready.then(() => {
+  animateTanks();
+  initPlayLongPress();
+  document.querySelectorAll('.tab').forEach((btn, i) => {
+    btn.addEventListener('click', () => switchTab(i === 0 ? 'seg' : 'lf'));
+  });
+});
+
+// ── 테마 상태 (applyStrokeScale에서 참조하므로 먼저 선언) ──
+let isLight = (() => { try { return localStorage.getItem('aqua_theme') === 'light'; } catch(e) { return false; } })();
+if (isLight) document.body.classList.add('light');
+// SUN_SVG는 아래에 선언되므로 DOM 준비 후 아이콘 교체
+if (isLight) document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('theme-icon').innerHTML = SUN_SVG;
+}, { once: true });
+
+// ── 선 밝기 슬라이더 ──
+// 100%(슬라이더 오른쪽 끝) = 흰색 1.0 기준, 나머지는 비율 유지
+const STROKE_BASE = {
+  '--border':           0.10,
+  '--border-aquarium':  0.14,
+  '--border-card':      0.10,
+  '--border-divider':   0.12,
+  '--border-emph':      0.34,
+  '--border-inner':     0.10,
+};
+const MAX_BASE = 0.14; // 기준값 (가장 큰 값 = 100%일 때 1.0)
+
+function applyStrokeScale(S) {
+  const rgb = isLight ? '0,0,0' : '255,255,255';
+  Object.entries(STROKE_BASE).forEach(([key, base]) => {
+    if (isLight && key === '--border-card') base = 0.20;
+    const opacity = Math.min(1, base / MAX_BASE * S).toFixed(3);
+    document.body.style.setProperty(key, `rgba(${rgb},${opacity})`);
+  });
+}
+
+(function initSlider() {
+  const bar   = document.querySelector('.toggle-bar');
+  const knob  = document.querySelector('.toggle-knob');
+  let scale   = 0.14; // 기본값: 현재 디자인 값에 해당
+
+  function setScale(S) {
+    scale = Math.max(0, Math.min(1, S));
+    knob.style.width = (scale * 100) + '%';
+    applyStrokeScale(scale);
+  }
+
+  setScale(scale); // 초기 적용
+
+  bar.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const move = (me) => {
+      const rect = bar.getBoundingClientRect();
+      setScale((me.clientX - rect.left) / rect.width);
+    };
+    const up = () => {
+      document.removeEventListener('mousemove', move);
+      document.removeEventListener('mouseup', up);
+    };
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+    move(e);
+  });
+})();
+
+// ── 다크/라이트 테마 전환 ──
+const MOON_SVG = `<path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" fill="currentColor"/>`;
+const SUN_SVG  = `<circle cx="12" cy="12" r="5" fill="currentColor"/><g stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></g>`;
+
+const SIDEBAR_OPEN_SVG = `<rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="1.5"/><line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" stroke-width="1.5"/>`;
+const SIDEBAR_CLOSED_SVG = `<line x1="4" y1="8" x2="20" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="14" x2="16" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>`;
+
+let isSidebarCollapsed = true;
+function toggleSidebar() {
+  isSidebarCollapsed = !isSidebarCollapsed;
+  document.body.classList.toggle('lnb-collapsed', isSidebarCollapsed);
+  document.getElementById('sidebar-icon').innerHTML = isSidebarCollapsed ? SIDEBAR_CLOSED_SVG : SIDEBAR_OPEN_SVG;
+}
+
+function toggleTheme() {
+  isLight = !isLight;
+  document.body.classList.toggle('light', isLight);
+  try { localStorage.setItem('aqua_theme', isLight ? 'light' : 'dark'); } catch(e) {}
+  document.getElementById('theme-icon').innerHTML = isLight ? SUN_SVG : MOON_SVG;
+  const bar  = document.querySelector('.toggle-bar');
+  const knob = document.querySelector('.toggle-knob');
+  const S    = parseFloat(knob.style.width) / 100 || 0.14;
+  applyStrokeScale(S);
+  if (currentTab === 'lf') ['Light','Casual','Power'].forEach(drawLFChart);
+}
+
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen().catch(() => {});
+  }
+}
+function goUXI(e) {
+  e.preventDefault();
+  location.href = 'uxi_aqua.html' + (isLight ? '?light=1' : '');
+  return false;
+}
+document.addEventListener('fullscreenchange', () => {
+  const expand = document.getElementById('fs-icon-expand');
+  const shrink = document.getElementById('fs-icon-shrink');
+  const on = !!document.fullscreenElement;
+  expand.style.display = on ? 'none' : '';
+  shrink.style.display = on ? '' : 'none';
+});
+
+// 휴일 차이 부호별 색상 자동 적용 (+ 초록, - 빨강, 0 흰색)
+function applyDiffSign(el) {
+  if (!el) return;
+  const n = parseInt(el.textContent.replace(/[^\d-]/g, ''), 10) || 0;
+  el.classList.toggle('neg', n < 0);
+  el.classList.toggle('zero', n === 0);
+}
+
+// 한국 공휴일 (대체공휴일 포함, 필요시 연도 갱신)
+const KR_HOLIDAYS = new Set([
+  // 2025
+  '2025-01-01','2025-01-28','2025-01-29','2025-01-30',
+  '2025-03-01','2025-03-03','2025-05-05','2025-05-06',
+  '2025-06-06','2025-08-15','2025-10-03','2025-10-06',
+  '2025-10-07','2025-10-08','2025-10-09','2025-12-25',
+  // 2026
+  '2026-01-01','2026-02-16','2026-02-17','2026-02-18',
+  '2026-03-01','2026-03-02','2026-05-05','2026-05-24',
+  '2026-05-25','2026-06-06','2026-08-15','2026-08-17',
+  '2026-09-24','2026-09-25','2026-09-26','2026-10-03',
+  '2026-10-05','2026-10-09','2026-12-25',
+]);
+
+function _iso(y, m, d) {
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+function countDays(y, m, startDay, endDay) {
+  let wd = 0, we = 0;
+  const lastDay = new Date(y, m, 0).getDate();
+  const end = Math.min(endDay, lastDay);
+  for (let d = startDay; d <= end; d++) {
+    const dow = new Date(y, m - 1, d).getDay();
+    const isHoliday = KR_HOLIDAYS.has(_iso(y, m, d));
+    if (dow === 0 || dow === 6 || isHoliday) we++;
+    else wd++;
+  }
+  return { wd, we };
+}
+function updateDaycount() {
+  const periodEl = document.getElementById('period-val');
+  const period = periodEl ? periodEl.textContent : '';
+  if (!period) return;
+  const match = period.match(/(\d+)\.\s*(\d+)\s*~\s*(\d+)\.\s*(\d+)/);
+  if (!match) return;
+  const curMonth = +match[3], endDay = +match[4];
+  const year = new Date().getFullYear();
+  const prevMonth = curMonth === 1 ? 12 : curMonth - 1;
+  const prevYear  = curMonth === 1 ? year - 1 : year;
+  const cur  = countDays(year, curMonth, 1, endDay);
+  const prev = countDays(prevYear, prevMonth, 1, endDay);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  set('dc-prev-wd', prev.wd);
+  set('dc-prev-we', prev.we);
+  set('dc-cur-wd',  cur.wd);
+  set('dc-cur-we',  cur.we);
+  const diff = cur.we - prev.we;
+  const diffEl = document.getElementById('dc-holiday-diff');
+  if (diffEl) {
+    diffEl.textContent = diff > 0 ? `+${diff}` : `${diff}`;
+    applyDiffSign(diffEl);
+  }
+}
+updateDaycount();
+// period-val이 나중에 갱신될 때도 자동 반영
+new MutationObserver(updateDaycount).observe(
+  document.getElementById('period-val'),
+  { childList: true, characterData: true, subtree: true }
+);
+
+// ── CSV 데이터 폴더 로더 ──
+// 한글/영문 헤더 통합 매핑 (CSV 헤더가 어느 쪽이든 동일 필드명으로 인식)
+const CSV_HEADER_MAP = {
+  // seg_status
+  '세그': 'seg', '세그구분': 'seg', '세그명': 'seg',
+  '트랙': 'track', '트랙구분': 'track',
+  '서브': 'sub', '설명': 'sub', '세그설명': 'sub',
+  '값': 'value', '당월값': 'value', '당월_진행': 'value', '당월진행': 'value',
+  '전월마감': 'prev_close', '전월값': 'prev_close', '전월_마감': 'prev_close',
+  '전월동기': 'prev_same', '전월_동기': 'prev_same',
+  '증가여부': 'positive', '양의방향': 'positive',
+  '부호반전': 'invert_sign', '감소가좋음': 'invert_sign',
+  '경고': 'alert', '이상여부': 'alert',
+  '유입': 'inflow', '이탈': 'outflow',
+  // total (상단 대시보드)
+  '기간': 'period', '라벨': 'label', '지표명': 'label',
+  '증감': 'delta', '변화': 'delta',
+  // seg_panel (세그 상세)
+  '평균카드보유': 'avg_cards', '평균 카드 보유': 'avg_cards',
+  '월평균결제': 'avg_spend', '월평균 결제': 'avg_spend', '월 평균 결제': 'avg_spend',
+  '20대': 'age_20', '30대': 'age_30', '40대': 'age_40', '50대': 'age_50',
+  '60대~': 'age_60plus', '60대+': 'age_60plus', '60대이상': 'age_60plus',
+  '보유카드1': 'card_1', '보유카드2': 'card_2', '보유카드3': 'card_3',
+  '보유카드4': 'card_4', '보유카드5': 'card_5',
+  // seg_visit (LF)
+  '추출일': 'extract_date', '데이터추출일': 'extract_date', '데이터추출일자': 'extract_date',
+  '데이터 추출일': 'extract_date', '데이터 추출일자': 'extract_date',
+  '세그정의': 'seg_def', '로그인일수전월_마감': 'seg_def',
+  '당월전체수': 'cur_total', '로그인인수': 'cur_total',
+  '당월평균': 'cur_mean', '당월평균로그인': 'cur_mean',
+  '전월평균': 'prev_mean', '전월평균로그인': 'prev_mean',
+  // 일별 11버킷 (0일, 1일, ..., 9일, 10일+)
+  '당월_0일': 'cur_0', '당월_1일': 'cur_1', '당월_2일': 'cur_2', '당월_3일': 'cur_3', '당월_4일': 'cur_4',
+  '당월_5일': 'cur_5', '당월_6일': 'cur_6', '당월_7일': 'cur_7', '당월_8일': 'cur_8', '당월_9일': 'cur_9',
+  '당월_10일+': 'cur_10plus', '당월_10일이상': 'cur_10plus',
+  '전월_0일': 'prev_0', '전월_1일': 'prev_1', '전월_2일': 'prev_2', '전월_3일': 'prev_3', '전월_4일': 'prev_4',
+  '전월_5일': 'prev_5', '전월_6일': 'prev_6', '전월_7일': 'prev_7', '전월_8일': 'prev_8', '전월_9일': 'prev_9',
+  '전월_10일+': 'prev_10plus', '전월_10일이상': 'prev_10plus',
+  // 공백 변형 (당월 로그인_0일 등)
+  '당월 로그인_0일': 'cur_0', '당월 로그인_1일': 'cur_1', '당월 로그인_2일': 'cur_2', '당월 로그인_3일': 'cur_3',
+  '당월 로그인_4일': 'cur_4', '당월 로그인_5일': 'cur_5', '당월 로그인_6일': 'cur_6', '당월 로그인_7일': 'cur_7',
+  '당월 로그인_8일': 'cur_8', '당월 로그인_9일': 'cur_9', '당월 로그인_10일+': 'cur_10plus',
+  '전월 로그인_0일': 'prev_0', '전월 로그인_1일': 'prev_1', '전월 로그인_2일': 'prev_2', '전월 로그인_3일': 'prev_3',
+  '전월 로그인_4일': 'prev_4', '전월 로그인_5일': 'prev_5', '전월 로그인_6일': 'prev_6', '전월 로그인_7일': 'prev_7',
+  '전월 로그인_8일': 'prev_8', '전월 로그인_9일': 'prev_9', '전월 로그인_10일+': 'prev_10plus',
+  // 평균
+  '평균 로그인 일수_당월': 'cur_mean',
+  '평균 로그인 일수_전월': 'prev_mean',
+};
+
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const headers = lines[0].split(',').map(h => h.trim()).map(h => CSV_HEADER_MAP[h] || h);
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = line.split(',').map(v => v.trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = vals[i] ?? '');
+    return obj;
+  });
+}
+
+// 방문 CSV가 피벗(전치) 레이아웃인지 판별 (세그구분이 첫 행이 아닌 이후 행에 등장)
+function isPivotVisit(text) {
+  const lines = text.trim().split(/\r?\n/);
+  const idx = lines.findIndex(l => {
+    const first = l.split(',')[0].trim();
+    return first === '세그구분' || first === '세그명' || first === '세그';
+  });
+  return idx > 0;
+}
+
+// 피벗 방문 CSV 파싱 (A열=필드명, B열부터=세그먼트값). 반환은 parseCSV와 동일한 [{seg, extract_date, cur_0, ...}] 형태
+function parsePivotVisit(text) {
+  const lines = text.trim().split(/\r?\n/);
+  let extractDate = '';
+  let segHeaderIdx = -1;
+  let segments = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const cells = lines[i].split(',').map(c => c.trim());
+    if (!extractDate && /추출일/.test(cells[0]) && cells[1]) extractDate = cells[1];
+    if (cells[0] === '세그구분' || cells[0] === '세그명' || cells[0] === '세그') {
+      segHeaderIdx = i;
+      segments = cells.slice(1).filter(Boolean);
+      break;
+    }
+  }
+  if (segHeaderIdx < 0) return [];
+
+  const rows = segments.map(seg => ({ seg, extract_date: extractDate, track: 'retention' }));
+
+  for (let i = segHeaderIdx + 1; i < lines.length; i++) {
+    const cells = lines[i].split(',').map(c => c.trim());
+    const label = cells[0];
+    if (!label) continue;
+    const key = CSV_HEADER_MAP[label] || CSV_HEADER_MAP[label.replace(/\s+/g, '')] || label;
+    segments.forEach((_, idx) => {
+      const val = cells[idx + 1];
+      if (val !== undefined && val !== '') rows[idx][key] = val;
+    });
+  }
+  return rows;
+}
+
+// 파싱 + 상태 업데이트 + UI 재렌더 (upload/autoFetch 공통)
+function applyCSVResults(results) {
+  if (results.total) {
+    const rows = parseCSV(results.total);
+    if (rows[0]?.period) DATA.period = rows[0].period;
+    DATA.metrics = rows.map(r => ({
+      label: r.label, value: r.value, delta: r.delta,
+      positive: r.positive === 'true'
+    }));
+  }
+
+  // seg_panel: 세그별 상세 (연령대, 보유카드, 평균값) → SEG_DETAILS 머지
+  if (results.panel && typeof SEG_DETAILS !== 'undefined') {
+    const rows = parseCSV(results.panel);
+    const AGES = [['20대','age_20'],['30대','age_30'],['40대','age_40'],['50대','age_50'],['60대+','age_60plus']];
+    const parsePct = (s) => {
+      const n = parseFloat(String(s || '').replace('%',''));
+      return isNaN(n) ? 0 : n;
+    };
+    // CSV에 보유카드 퍼센트가 없으므로 순위 기반 기본값(막대 길이용)
+    const DEFAULT_CARD_PCTS = [30, 25, 20, 15, 10];
+    rows.forEach(r => {
+      if (!r.seg || !SEG_DETAILS[r.seg]) return;
+      const target = SEG_DETAILS[r.seg];
+      if (r.avg_cards) target.avgCards = r.avg_cards + '개';
+      if (r.avg_spend) target.avgSpend = r.avg_spend + '회';
+      const ag = AGES.map(([label, key]) => ({ age: label, pct: parsePct(r[key]) }))
+        .filter(a => a.pct > 0);
+      if (ag.length) target.ageGroups = ag;
+      const cards = [r.card_1, r.card_2, r.card_3, r.card_4, r.card_5]
+        .map(c => (c || '').trim()).filter(Boolean);
+      if (cards.length) {
+        target.topCards = cards.map((name, i) => [name, DEFAULT_CARD_PCTS[i] || 5]);
+      }
+    });
+  }
+
+  if (results.visit && typeof LF_DATA !== 'undefined') {
+    const rows = isPivotVisit(results.visit)
+      ? parsePivotVisit(results.visit)
+      : parseCSV(results.visit);
+    // extract_date 기준으로 기준일 자동 계산 (당월 1일 ~ 추출일 전일)
+    const first = rows[0];
+    if (first?.extract_date) {
+      const d = new Date(first.extract_date);
+      if (!isNaN(d)) {
+        const m = d.getMonth() + 1;
+        const prevDay = d.getDate() - 1;
+        if (prevDay >= 1) {
+          DATA.period = `${m}. 1 ~ ${m}. ${prevDay}`;
+        } else {
+          // 추출일이 1일이면 전월 마지막 날로
+          const prev = new Date(d.getFullYear(), d.getMonth(), 0);
+          DATA.period = `${prev.getMonth() + 1}. 1 ~ ${prev.getMonth() + 1}. ${prev.getDate()}`;
+        }
+      }
+    }
+    rows.forEach(r => {
+      if (!r.seg || !LF_DATA[r.seg]) return;
+      // 11개 버킷 (0일, 1일, ..., 9일, 10일+) 필드 파싱
+      const readBucket = (r, prefix, key) => {
+        // key가 '10일+'면 cur_10plus / prev_10plus 필드 사용, 아니면 cur_0, cur_1 ...
+        const suffix = key === '10일+' ? '10plus' : key.replace('일','');
+        return parseInt(r[`${prefix}_${suffix}`], 10) || 0;
+      };
+      LF_DATA[r.seg] = {
+        curMean:  parseFloat(r.cur_mean)  || 0,
+        prevMean: parseFloat(r.prev_mean) || 0,
+        current: BUCKETS.reduce((o, k) => (o[k] = readBucket(r, 'cur',  k), o), {}),
+        prev:    BUCKETS.reduce((o, k) => (o[k] = readBucket(r, 'prev', k), o), {}),
+      };
+    });
+  }
+
+  if (results.status) {
+    const rows = parseCSV(results.status);
+    // extract_date 기준으로 기준일 자동 계산 (seg_status에 있으면 visit보다 우선)
+    const firstS = rows[0];
+    if (firstS?.extract_date) {
+      const d = new Date(firstS.extract_date);
+      if (!isNaN(d)) {
+        const m = d.getMonth() + 1;
+        const prevDay = d.getDate() - 1;
+        if (prevDay >= 1) {
+          DATA.period = `${m}. 1 ~ ${m}. ${prevDay}`;
+        } else {
+          const prev = new Date(d.getFullYear(), d.getMonth(), 0);
+          DATA.period = `${prev.getMonth() + 1}. 1 ~ ${prev.getMonth() + 1}. ${prev.getDate()}`;
+        }
+      }
+    }
+    const mapRow = (r) => {
+      const v  = parseFloat(r.value);
+      const pc = parseFloat(r.prev_close);
+      const d  = Math.abs(v - pc);
+      const track = (r.track || '').toLowerCase();
+      const hasFlag = (k) => r[k] !== undefined && r[k] !== '';
+      const positive = hasFlag('positive') ? r.positive === 'true' : v > pc;
+      const invertSign = hasFlag('invert_sign') ? r.invert_sign === 'true' : track === 'acquisition';
+      // alert: CSV에 없으면 '나쁜 방향 변동' 시 자동 true
+      // invertSign=true(감소가 좋음) → v>pc 이면 alert / invertSign=false(증가가 좋음) → v<pc 이면 alert
+      const alert = hasFlag('alert') ? r.alert === 'true'
+        : (v !== pc && (invertSign ? v > pc : v < pc));
+      return {
+        seg: r.seg, sub: r.sub || r.seg,
+        value: v, prevClose: pc,
+        deltaV: Math.round(d),
+        pct: pc ? parseFloat((d / pc * 100).toFixed(1)) : 0,
+        positive, invertSign, alert,
+        inflow: r.inflow ? parseFloat(r.inflow) : null,
+        outflow: r.outflow ? parseFloat(r.outflow) : null,
+      };
+    };
+    const acq = rows.filter(r => (r.track || '').toLowerCase() === 'acquisition').map(mapRow);
+    const ret = rows.filter(r => (r.track || '').toLowerCase() === 'retention').map(mapRow);
+    if (acq.length) DATA.acquisition = acq;
+    if (ret.length) DATA.retention   = ret;
+  }
+
+  // localStorage 캐시 저장 (대시보드 + LF + 세그 상세)
+  try {
+    localStorage.setItem('aqua_data', JSON.stringify({
+      period: DATA.period, metrics: DATA.metrics,
+      acquisition: DATA.acquisition, retention: DATA.retention,
+    }));
+    localStorage.setItem('aqua_lf_data_v3', JSON.stringify(LF_DATA));
+    if (typeof SEG_DETAILS !== 'undefined') {
+      localStorage.setItem('aqua_seg_details_v1', JSON.stringify(SEG_DETAILS));
+    }
+  } catch(e) {}
+
+  // UI 재렌더 (DOM 준비된 경우에만)
+  const periodEl = document.getElementById('period-val');
+  if (periodEl) {
+    periodEl.textContent = DATA.period;
+    buildTanks(DATA.acquisition, 'acq-tanks');
+    buildTanks(DATA.retention,   'ret-tanks');
+    animateTanks();
+    if (typeof currentTab !== 'undefined' && currentTab === 'lf') {
+      const prev = currentTab; currentTab = 'seg'; switchTab(prev);
+    }
+  }
+}
+
+// 파일명 한글/영문 키워드 → 내부 타입(total/panel/status/visit) 매핑
+function identifyCSVType(filename) {
+  const n = filename.toLowerCase().replace(/\.csv$/, '');
+  // total.csv(상단 대시보드)은 seg_panel보다 먼저 판정
+  if (/^total$|^상단$|지표|메트릭|metric/i.test(n)) return 'total';
+  if (/panel|패널/i.test(n)) return 'panel';
+  if (/visit|방문|lf|frequency|빈도|로그인/i.test(n)) return 'visit';
+  if (/status|상태|tank|탱크/i.test(n)) return 'status';
+  return null;
+}
+
+function loadDataFolder(files) {
+  const fileMap = {};
+  Array.from(files).forEach(f => {
+    const type = identifyCSVType(f.name);
+    if (type) fileMap[type] = f;
+  });
+  const readFile = (file) => new Promise(resolve => {
+    const r = new FileReader();
+    r.onload = e => resolve(e.target.result);
+    r.readAsText(file, 'UTF-8');
+  });
+  const keys = Object.keys(fileMap);
+  Promise.all(keys.map(k => readFile(fileMap[k]))).then(texts => {
+    const results = {};
+    keys.forEach((k, i) => results[k] = texts[i]);
+    applyCSVResults(results);
+  });
+}
+
+// 페이지 로드 시 data/*.csv 자동 fetch → applyCSVResults
+(async function autoFetchCSVs() {
+  const fetchText = async (path) => {
+    try { const r = await fetch(path); return r.ok ? await r.text() : null; }
+    catch { return null; }
+  };
+  // 타입별 파일명 후보 (한글/영문, 첫 번째로 성공하는 파일 사용)
+  const CANDIDATES = {
+    total:  ['total.csv',      '상단.csv',   '지표.csv',      'metric.csv'],
+    panel:  ['seg_panel.csv',  'panel.csv',  '세그_패널.csv', '패널.csv'],
+    status: ['seg_status.csv', 'status.csv', '세그_상태.csv', '상태.csv',  '탱크.csv'],
+    visit:  ['seg_visit.csv',  'visit.csv',  '세그_방문.csv', '방문.csv',  '로그인.csv', 'lf.csv'],
+  };
+  const fetchFirst = async (names) => {
+    for (const n of names) {
+      const t = await fetchText('./data/' + n);
+      if (t) return t;
+    }
+    return null;
+  };
+  const [total, panel, status, visit] = await Promise.all([
+    fetchFirst(CANDIDATES.total),
+    fetchFirst(CANDIDATES.panel),
+    fetchFirst(CANDIDATES.status),
+    fetchFirst(CANDIDATES.visit),
+  ]);
+  const results = {};
+  if (total)  results.total  = total;
+  if (panel)  results.panel  = panel;
+  if (status) results.status = status;
+  if (visit)  results.visit  = visit;
+  if (!Object.keys(results).length) return;
+  if (document.readyState === 'loading') {
+    await new Promise(r => document.addEventListener('DOMContentLoaded', r, { once: true }));
+  }
+  requestAnimationFrame(() => applyCSVResults(results));
+})();
+</script>
+
+<script>
+// ══ 세그 상세 데이터 ══
+// seg_panel.csv에서 주입. localStorage 캐시가 있으면 복원. 키는 유지해야 CSV merge가 동작.
+const SEG_DETAILS = (() => {
+  const defaults = {
+    '앱미경험':   { avgCards:'', avgSpend:'', ageGroups:[], topCards:[] },
+    '장기미이용': { avgCards:'', avgSpend:'', ageGroups:[], topCards:[] },
+    '간헐이용':   { avgCards:'', avgSpend:'', ageGroups:[], topCards:[] },
+    'Light':      { avgCards:'', avgSpend:'', ageGroups:[], topCards:[] },
+    'Casual':     { avgCards:'', avgSpend:'', ageGroups:[], topCards:[] },
+    'Power':      { avgCards:'', avgSpend:'', ageGroups:[], topCards:[] },
+  };
+  try {
+    const cached = localStorage.getItem('aqua_seg_details_v1');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      Object.keys(defaults).forEach(k => { if (parsed[k]) defaults[k] = parsed[k]; });
+    }
+  } catch(e) {}
+  return defaults;
+})();
+
+function openDetail(seg, sub, fromPlay) {
+  const d = SEG_DETAILS[seg];
+  if (!d) return;
+  // 클릭 시 항상 해당 세그 활성화
+  if (!fromPlay) {
+    setActiveTank(seg);
+    if (isPlaying) {
+      clearTimeout(playTimer);
+      const segs = getPlaySegs();
+      const idx  = segs.findIndex(t => t.seg === seg);
+      if (idx !== -1) playIndex = (idx + 1) % segs.length;
+      playTimer = setTimeout(playNext, playInterval);
+    }
+  }
+  scrambleText(document.getElementById('detail-seg-name'), seg, 600);
+  document.getElementById('detail-seg-sub').textContent  = sub;
+  // KPI 수치/단위 분리 (예: "1.2개" → num="1.2", unit="개")
+  function splitKpi(s) {
+    const m = s.match(/^([\d.]+)(.*)$/);
+    return m ? { num: m[1], unit: m[2].trim() } : { num: s, unit: '' };
+  }
+  const kpi1 = splitKpi(d.avgCards);
+  const kpi2 = splitKpi(d.avgSpend);
+  const maxAge  = Math.max(...d.ageGroups.map(a=>a.pct));
+  const maxCard = Math.max(...d.topCards.map(([,p])=>p));
+
+  // 탱크 실데이터로 prev/curr 동기화
+  const tank = [...DATA.acquisition, ...DATA.retention].find(t => t.seg === seg);
+  const f = {
+    prev: tank ? tank.prevClose : 0,
+    curr: tank ? tank.value     : 0,
+  };
+  const scaleMax = Math.max(f.prev, f.curr) * 1.08;
+  const prevPct  = (f.prev / scaleMax * 100).toFixed(1);
+  const currPct  = (f.curr / scaleMax * 100).toFixed(1);
+  const delta      = f.curr - f.prev;
+  const deltaSign  = delta > 0 ? '+' : '';
+  // 방향 기반: + 녹색 / - 레드 (이상 여부는 테두리로 표시)
+  const deltaClass = delta === 0 ? 'zero' : (delta > 0 ? 'pos' : 'neg');
+
+  document.getElementById('detail-body').innerHTML = `
+    <div class="detail-kpi-row">
+      <div class="detail-kpi-item">
+        <div class="detail-kpi-label">평균 카드 보유</div>
+        <div class="detail-kpi-value-row">
+          <div class="detail-kpi-num" data-t="${kpi1.num}" data-d="${kpi1.num.includes('.')? kpi1.num.split('.')[1].length : 0}">0</div>
+          <div class="detail-kpi-unit">${kpi1.unit}</div>
+        </div>
+      </div>
+      <div class="detail-kpi-item">
+        <div class="detail-kpi-label">월평균 결제</div>
+        <div class="detail-kpi-value-row">
+          <div class="detail-kpi-num" data-t="${kpi2.num}" data-d="${kpi2.num.includes('.')? kpi2.num.split('.')[1].length : 0}">0</div>
+          <div class="detail-kpi-unit">${kpi2.unit}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">전월 비교</div>
+      <div class="delta-inner">
+        <div class="delta-labels">
+          <div class="delta-lbl">전월 <span id="dc-lbl-prev" data-t="${f.prev}" style="display:inline-block;min-width:2.2em;text-align:right">0</span>만</div>
+          <div class="delta-lbl curr">당월 <span id="dc-lbl-curr" data-t="${f.curr}" style="display:inline-block;min-width:2.2em;text-align:right">0</span>만</div>
+        </div>
+        <div class="delta-area">
+          <div class="delta-bar prev-bar" id="dc-prev"></div>
+          <div class="delta-bar curr-bar" id="dc-curr"></div>
+          <div class="delta-hatch ${deltaClass}" id="dc-hatch"></div>
+          <div class="delta-badge-wrap" id="dc-badge">
+            <div class="delta-badge-arrow ${deltaClass}"></div>
+            <div class="delta-badge ${deltaClass}">${delta === 0 ? `<span style="opacity:0.48">–</span> 0만` : `${deltaSign}${delta}만`}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">연령대</div>
+      ${d.ageGroups.map(ag=>`
+        <div class="detail-bar-row">
+          <div class="detail-bar-label${ag.pct===maxAge?' active':''}">${ag.age}</div>
+          <div class="detail-bar-track"><div class="detail-bar-fill" data-w="${(ag.pct/maxAge*100).toFixed(1)}"></div></div>
+          <div class="detail-bar-pct${ag.pct===maxAge?' active':''}" data-t="${ag.pct}">0%</div>
+        </div>`).join('')}
+    </div>
+    <div class="detail-section">
+      <div class="detail-section-title">보유 카드 TOP 5</div>
+      ${d.topCards.map(([card,pct],i)=>`
+        <div class="detail-card-row">
+          <div class="detail-rank-num${i>=3?' dim':''}">${i+1}</div>
+          <div class="detail-card-col">
+            <div class="detail-card-name${i>=3?' dim':''}">${card}</div>
+            <div class="detail-bar-track"><div class="detail-bar-fill" data-w="${(pct/maxCard*100).toFixed(1)}"></div></div>
+          </div>
+          <div class="detail-card-pct${i>=3?' dim':''}" data-t="${pct}">0%</div>
+        </div>`).join('')}
+    </div>
+    <div class="detail-copy-wrap">
+      <button class="detail-copy-btn" onclick="copySegData('${seg}')">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><defs><mask id="cp-m-detail"><rect width="16" height="16" fill="white"/><rect x="5.7" y="1.7" width="7.6" height="9.6" rx="1.3" fill="black"/></mask></defs><rect x="2" y="4" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4" mask="url(#cp-m-detail)"/><rect x="5" y="1" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>
+        <span id="copy-btn-label">복사</span>
+      </button>
+    </div>
+  `;
+  document.getElementById('detail-panel').classList.add('open');
+  document.body.classList.add('detail-open');
+  // 바 + 숫자 애니메이션
+  requestAnimationFrame(() => {
+    document.querySelectorAll('#detail-body .detail-bar-fill').forEach(el => {
+      el.style.width = el.dataset.w + '%';
+    });
+    // 델타 차트 위치 설정
+    const dcPrev  = document.getElementById('dc-prev');
+    const dcCurr  = document.getElementById('dc-curr');
+    const dcHatch = document.getElementById('dc-hatch');
+    const dcBadge = document.getElementById('dc-badge');
+    if (dcPrev) {
+      dcPrev.style.width  = prevPct + '%';
+      dcCurr.style.width  = currPct + '%';
+      const minP = Math.min(+prevPct, +currPct);
+      const maxP = Math.max(+prevPct, +currPct);
+      dcHatch.style.left  = minP + '%';
+      dcHatch.style.width = (maxP - minP) + '%';
+      dcBadge.style.left  = ((minP + maxP) / 2) + '%';
+      const dcLblPrev = document.getElementById('dc-lbl-prev');
+      const dcLblCurr = document.getElementById('dc-lbl-curr');
+      if (dcLblPrev) countUp(dcLblPrev, +dcLblPrev.dataset.t, 0, 800);
+      if (dcLblCurr) countUp(dcLblCurr, +dcLblCurr.dataset.t, 0, 800);
+    }
+    document.querySelectorAll('#detail-body .detail-kpi-num[data-t]').forEach(el => {
+      countUp(el, +el.dataset.t, +el.dataset.d, 800);
+    });
+    document.querySelectorAll('#detail-body [data-t].detail-bar-pct, #detail-body [data-t].detail-card-pct').forEach(el => {
+      const target = +el.dataset.t;
+      const start = performance.now();
+      (function tick() {
+        const p = Math.min((performance.now() - start) / 800, 1);
+        const e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(e * target) + '%';
+        if (p < 1) requestAnimationFrame(tick);
+        else el.textContent = target + '%';
+      })();
+    });
+  });
+}
+
+// ══ Login Frequency ══
+const BUCKETS = ['0일','1일','2일','3일','4일','5일','6일','7일','8일','9일','10일+'];
+const BUCKET_COLORS = {};
+BUCKETS.forEach((b, i) => {
+  const hue = 210 - (i * 18); // 시각적 단색 스펙트럼 (실제 차트 렌더링에선 단색 계열 사용)
+  BUCKET_COLORS[b] = `hsl(${Math.max(0, hue)},70%,60%)`;
+});
+// LF_DATA: seg_visit.csv에서 버킷/평균 주입. 키(Light/Casual/Power)는 유지해야 CSV merge가 동작.
+const LF_DATA = (() => {
+  const mkEmpty = () => BUCKETS.reduce((o, b) => (o[b] = 0, o), {});
+  const defaults = {
+    Light:  { curMean:0, prevMean:0, current: mkEmpty(), prev: mkEmpty() },
+    Casual: { curMean:0, prevMean:0, current: mkEmpty(), prev: mkEmpty() },
+    Power:  { curMean:0, prevMean:0, current: mkEmpty(), prev: mkEmpty() },
+  };
+  try {
+    const cached = localStorage.getItem('aqua_lf_data_v3');
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      Object.keys(defaults).forEach(k => { if (parsed[k]) defaults[k] = parsed[k]; });
+    }
+  } catch(e) {}
+  return defaults;
+})();
+
+// autoLoadLFCSV 제거: 위쪽 autoFetchCSVs가 panel/status/visit 3개 일괄 처리
+
+let _audioCtx = null;
+function tickSound() {
+  if (navigator.vibrate) navigator.vibrate(4);
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    const t = _audioCtx.currentTime;
+    const o = _audioCtx.createOscillator();
+    const g = _audioCtx.createGain();
+    o.connect(g); g.connect(_audioCtx.destination);
+    o.type = 'sine';
+    o.frequency.setValueAtTime(140, t);
+    o.frequency.exponentialRampToValueAtTime(80, t + 0.04);
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 0.008);
+    g.gain.linearRampToValueAtTime(0.0001, t + 0.04);
+    o.start(t); o.stop(t + 0.045);
+  } catch(e){}
+}
+
+function lfCopy(seg, btn) {
+  const d = LF_DATA[seg];
+  if (!d) return;
+  const diff = +(d.curMean - d.prevMean).toFixed(1);
+  const sign = diff > 0 ? '+' : '';
+  const lines = [
+    `[${seg}] 로그인 빈도`,
+    `당월 평균: ${d.curMean}일 / 전월 동기: ${d.prevMean}일 / 전월 대비: ${sign}${diff}일`,
+    '',
+    ...Object.keys(d.current).map(b => {
+      const bd = d.current[b] - d.prev[b];
+      const bs = bd > 0 ? '+' : '';
+      return `${b}: 당월 ${d.current[b]}만 / 전월 ${d.prev[b]}만 / 전월 대비 ${bs}${bd}만`;
+    }),
+  ];
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polyline points="3,8 6.5,12 13,4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><defs><mask id="cp-m-${seg}"><rect width="16" height="16" fill="white"/><rect x="5.7" y="1.7" width="7.6" height="9.6" rx="1.3" fill="black"/></mask></defs><rect x="2" y="4" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4" mask="url(#cp-m-${seg})"/><rect x="5" y="1" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>`;
+    }, 2000);
+  });
+}
+
+function buildLFContent(seg) {
+  const d = LF_DATA[seg];
+  if (!d) return '';
+  const diff     = +(d.curMean - d.prevMean).toFixed(1);
+  const diffSign = diff > 0 ? '+' : diff < 0 ? '-' : '';
+  const isWarn   = diff <= -0.3;
+  const numClass = isWarn ? 'bad' : diff > 0 ? 'good' : '';
+  const SEG_DESC = { Light: '월 1~2회', Casual: '월 3~7회', Power: '월 8회 이상' };
+
+  // ── 요약 한 줄 자동 생성 ──
+  const lowBuckets  = ['0일', '1일', '2일'];
+  const highBuckets = BUCKETS.slice(3);
+  const sumLow  = lowBuckets.reduce((s, b) => s + ((d.current[b]||0) - (d.prev[b]||0)), 0);
+  const sumHigh = highBuckets.reduce((s, b) => s + ((d.current[b]||0) - (d.prev[b]||0)), 0);
+  const absLow  = Math.abs(sumLow);
+  const absHigh = Math.abs(sumHigh);
+  let line1 = '', line2 = '';
+  if (sumLow < 0 && sumHigh > 0) {
+    line1 = `저빈도(0-2일) <b>${absLow}만명</b> 감소, 활성(3일+) <b>${absHigh}만명</b> 증가`;
+    line2 = `분포 우측 이동, 로그인 빈도 상승`;
+  } else if (sumLow > 0 && sumHigh < 0) {
+    line1 = `저빈도(0-2일) <b>${absLow}만명</b> 증가, 활성(3일+) <b>${absHigh}만명</b> 감소`;
+    line2 = `분포 좌측 이동, 이탈 우려`;
+  } else if (sumLow <= 0 && sumHigh <= 0 && (absLow + absHigh) > 0) {
+    line1 = `저빈도 <b>−${absLow}만</b>, 활성 <b>−${absHigh}만</b>`;
+    line2 = `전체 세그 규모 축소`;
+  } else if (sumLow >= 0 && sumHigh >= 0 && (absLow + absHigh) > 0) {
+    line1 = `저빈도 <b>+${absLow}만</b>, 활성 <b>+${absHigh}만</b>`;
+    line2 = `전체 세그 규모 확장`;
+  } else {
+    line1 = '전월 대비 큰 변화 없음';
+    line2 = '';
+  }
+  const summary = line2 ? `<div>${line1}</div><div>${line2}</div>` : `<div>${line1}</div>`;
+
+  return `<div class="tank-lf-content">
+    <div class="lf-kpi-flat">
+      <div class="lf-kpi-flat-item">
+        <div class="lf-kpi-flat-label">당월 평균 로그인</div>
+        <div class="lf-kpi-flat-value-row">
+          <span class="lf-kpi-flat-num" id="lf-kpi-cur-${seg}" data-t="${d.curMean}">0.0</span>
+          <span class="lf-kpi-flat-unit">일</span>
+        </div>
+      </div>
+      <div class="lf-kpi-flat-item">
+        <div class="lf-kpi-flat-label">전월 동기</div>
+        <div class="lf-kpi-flat-value-row">
+          <span class="lf-kpi-flat-num muted" id="lf-kpi-prev-${seg}" data-t="${d.prevMean}">0.0</span>
+          <span class="lf-kpi-flat-unit muted">일</span>
+        </div>
+      </div>
+      <div class="lf-kpi-flat-item${isWarn ? ' warn' : ''}">
+        <div class="lf-kpi-flat-label">전월 대비${isWarn ? ' <span class="lf-warn-chip">이상</span>' : ''}</div>
+        <div class="lf-kpi-flat-value-row">
+          <span class="lf-kpi-flat-num ${numClass}" id="lf-kpi-diff-${seg}" data-t="${Math.abs(diff)}" data-sign="${diffSign}">0.0</span>
+          <span class="lf-kpi-flat-unit ${numClass}">일</span>
+        </div>
+      </div>
+    </div>
+    <div class="lf-summary">${summary}</div>
+    <hr class="lf-kpi-divider">
+    <div class="lf-canvas-wrap">
+      <canvas id="lf-canvas-${seg}"></canvas>
+      <div class="lf-tooltip" id="lf-tt-${seg}" aria-hidden="true">
+        <div class="lf-tt-row" data-r="prev">전월 0</div>
+        <div class="lf-tt-row" data-r="cur">당월 0</div>
+        <div class="lf-tt-div"></div>
+        <div class="lf-tt-row" data-r="delta">전월 대비 +0</div>
+      </div>
+    </div>
+    <div class="lf-xaxis-row">
+      <div class="lf-xaxis-yname">로그인 :</div>
+      ${BUCKETS.map(b => {
+        const bd  = d.current[b] - d.prev[b];
+        const cls = bd > 0 ? 'pos' : bd < 0 ? 'neg' : 'zero';
+        const sym = bd > 0 ? '+' : bd < 0 ? '−' : '';
+        return `<div class="lf-xcol">
+          <div class="lf-xcol-lbl">${b}</div>
+          <div class="lf-xcol-delta ${cls}">${bd === 0 ? `<span class="lf-xcol-sym zero-dash">–</span>` : `<span class="lf-xcol-sym">${sym}</span>${Math.abs(bd)}`}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+// Canvas helper: diagonal hatch between bars
+function lfDrawHatch(ctx, x, y, w, h, isPos) {
+  if (h <= 2 || w <= 0) return;
+  const hatchClr  = isPos ? 'rgba(0,213,109,0.4)' : 'rgba(255,2,56,0.4)';
+  const borderClr = isPos ? 'rgba(0,213,109,0.75)'  : 'rgba(255,2,56,0.8)';
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.strokeStyle = hatchClr; ctx.lineWidth = 1.5;
+  const step = 4;
+  for (let d = -(h + w); d < w + h; d += step) {
+    ctx.beginPath();
+    ctx.moveTo(x + d,     y);
+    ctx.lineTo(x + d + h, y + h);
+    ctx.stroke();
+  }
+  ctx.restore();
+  ctx.strokeStyle = borderClr; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(x, y);     ctx.lineTo(x + w, y);     ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x + w, y + h); ctx.stroke();
+}
+
+// Canvas helper: rounded rect path
+function lfRoundRect(ctx, x, y, w, h, r) {
+  if (h <= 0) return;
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y,     x + w, y + r,     r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x,     y + h, x,     y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x,     y,     x + r, y,         r);
+  ctx.closePath();
+}
+
+function drawLFChart(seg) {
+  const canvas = document.getElementById('lf-canvas-' + seg);
+  if (!canvas) return;
+  const d = LF_DATA[seg];
+  if (!d) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  const W   = canvas.offsetWidth;
+  const H   = canvas.offsetHeight;
+  if (!W || !H) return;
+
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+
+  const padL = 48, padR = 8, padT = 10, padB = 8;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // ── Y-axis: 40만 단위, min 40px 간격 (전 세그먼트 공통 스케일로 동일선상 비교) ──
+  const maxVal   = Math.max(...Object.values(LF_DATA).flatMap(s => BUCKETS.flatMap(b => [s.current[b], s.prev[b]])));
+  const dataStep = 40;
+  const topVal   = Math.ceil(maxVal / dataStep) * dataStep;
+  const numSteps = topVal / dataStep;
+  const idealPx  = chartH / numSteps;
+  const skip     = Math.max(1, Math.ceil(40 / idealPx));
+  const drawStep = dataStep * skip;
+
+  // ── 버킷 지오메트리 (7px 바, 전월/당월 사이 간격 2) ──
+  const groupW = chartW / BUCKETS.length;
+  const barW   = 7;
+  const gap    = 2;
+
+  const buckets = BUCKETS.map((b, i) => {
+    const cx  = padL + i * groupW + groupW / 2;
+    const cur = d.current[b];
+    const pv  = d.prev[b];
+    return {
+      b, cx, cur, pv,
+      curH: Math.max(2, (cur / topVal) * chartH),
+      pvH:  Math.max(2, (pv  / topVal) * chartH),
+    };
+  });
+
+  const rgb = isLight ? '0,0,0' : '255,255,255';
+
+  // 바 진입 애니메이션 상태
+  let _barProg = 0, _barRaf = null;
+  // 해치 애니메이션 상태
+  let _hatchIdx = null, _hatchProg = 0, _hatchRaf = null;
+
+  function render(hovIdx) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, W * dpr, H * dpr);
+    ctx.save();
+    ctx.scale(dpr, dpr);
+
+    // Y-axis 그리드 + 라벨 (좌측 정렬; v=0 베이스라인은 박스 끝까지 확장)
+    for (let v = 0; v <= topVal; v += drawStep) {
+      const y = padT + chartH - (v / topVal) * chartH;
+      ctx.strokeStyle = `rgba(${rgb},0.08)`;
+      ctx.lineWidth = 1;
+      const gridX = v === 0 ? 0 : padL;
+      ctx.beginPath(); ctx.moveTo(gridX, y); ctx.lineTo(W, y); ctx.stroke();
+      ctx.font = `400 14px SFProDisplay,sans-serif`;
+      ctx.fillStyle = `rgba(${rgb},0.36)`;
+      ctx.textAlign = 'left';
+      if (v > 0) ctx.fillText(v, 0, y + 5);
+    }
+
+    // 버킷 바 + 해치
+    buckets.forEach(({ cx, cur, pv, curH, pvH }, i) => {
+      const hov   = i === hovIdx;
+      const cxR   = Math.round(cx);
+      const prevX = cxR - gap / 2 - barW;
+      const currX = cxR + gap / 2;
+      const aPvH  = pvH  * _barProg;
+      const aCurH = curH * _barProg;
+      const prevY = padT + chartH - aPvH;
+      const currY = padT + chartH - aCurH;
+
+      ctx.fillStyle = hov ? `rgba(${rgb},0.38)` : `rgba(${rgb},0.20)`;
+      ctx.beginPath(); ctx.rect(prevX, prevY, barW, aPvH); ctx.fill();
+
+      ctx.fillStyle = hov
+        ? (isLight ? 'rgba(0,0,0,0.9)' : '#fff')
+        : (isLight ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,1)');
+      ctx.beginPath(); ctx.rect(currX, currY, barW, aCurH); ctx.fill();
+
+      // 델타 해치 (호버 시만, 좌우 12px 돌출; 양끝 버킷은 그리드 끝까지 확장)
+      if (hov) {
+        const isFirst = i === 0;
+        const isLast  = i === buckets.length - 1;
+        const hatchX  = isFirst ? padL : prevX - 12;
+        const hatchR  = isLast  ? W    : currX + barW + 12;
+        const hatchW  = hatchR - hatchX;
+        const hatchY = Math.min(prevY, currY);
+        const hatchH = Math.abs(aPvH - aCurH);
+        if (hatchH <= 2) {
+          ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(hatchX, hatchY); ctx.lineTo(hatchX + hatchW, hatchY); ctx.stroke();
+        } else {
+          const isPos = cur >= pv;
+          const prog = (i === _hatchIdx) ? _hatchProg : 1;
+          const animH = hatchH * prog;
+          const animY = isPos ? hatchY + hatchH - animH : hatchY;
+          if (animH > 1) lfDrawHatch(ctx, hatchX, animY, hatchW, animH, isPos);
+        }
+      }
+    });
+
+    ctx.restore();
+
+    // 호버 툴팁 (DOM) — 작은 바일 때 그래프 위로 뜨게
+    const tt = document.getElementById('lf-tt-' + seg);
+    if (!tt) return;
+    if (hovIdx === null || hovIdx < 0) { tt.classList.remove('show'); return; }
+    const bk = buckets[hovIdx];
+    const delta = bk.cur - bk.pv;
+    const dStr  = (delta >= 0 ? '+' : '') + delta;
+    tt.querySelector('[data-r="prev"]').textContent  = `전월 ${bk.pv}`;
+    tt.querySelector('[data-r="cur"]').textContent   = `당월 ${bk.cur}`;
+    if (delta === 0) {
+      tt.querySelector('[data-r="delta"]').innerHTML = `전월 대비 <span style="opacity:0.48">–</span>`;
+    } else {
+      tt.querySelector('[data-r="delta"]').textContent = `전월 대비 ${dStr}`;
+    }
+    tt.classList.add('show');
+
+    // 위치 계산 (offset 좌표계, 캔버스와 동일 wrap)
+    const ttW = tt.offsetWidth, ttH = tt.offsetHeight;
+    const hatchExt = 12;
+    let tx = bk.cx + gap / 2 + barW + hatchExt + 8;
+    if (tx + ttW > W - padR) tx = bk.cx - gap / 2 - barW - hatchExt - 8 - ttW;
+    if (tx < padL) tx = Math.max(4, bk.cx - ttW / 2);
+
+    // 수직: 가장 높은 바 상단 기준, 차트 영역 안으로 클램프 (원래 캔버스 로직 그대로)
+    const barTop = Math.min(padT + chartH - bk.pvH * _barProg, padT + chartH - bk.curH * _barProg);
+    let ty = barTop;
+    if (ty + ttH > padT + chartH) ty = padT + chartH - ttH;
+    if (ty < padT) ty = padT;
+    tt.style.left = tx + 'px';
+    tt.style.top  = ty + 'px';
+  }
+
+  // 해치 애니메이션 시작
+  function startBarAnim() {
+    if (_barRaf) cancelAnimationFrame(_barRaf);
+    _barProg = 0;
+    const t0 = performance.now(), dur = 500;
+    (function step(now) {
+      const p = Math.min((now - t0) / dur, 1);
+      _barProg = 1 - Math.pow(1 - p, 3); // easeOutCubic
+      render(null);
+      if (p < 1) _barRaf = requestAnimationFrame(step);
+      else _barRaf = null;
+    })(t0);
+  }
+
+  function startHatch(idx) {
+    if (_hatchRaf) cancelAnimationFrame(_hatchRaf);
+    _hatchIdx = idx;
+    _hatchProg = 0;
+    const t0 = performance.now();
+    const dur = 280;
+    (function step(now) {
+      _hatchProg = Math.min(1, (now - t0) / dur);
+      render(idx);
+      if (_hatchProg < 1) _hatchRaf = requestAnimationFrame(step);
+    })(t0);
+  }
+
+
+  render(null);
+
+  const lfRoot = canvas.closest('.tank-lf-content');
+  const xcolEls = lfRoot ? lfRoot.querySelectorAll('.lf-xcol-lbl') : [];
+  const xcolWraps = lfRoot ? lfRoot.querySelectorAll('.lf-xcol') : [];
+
+  function setActiveXcol(hi) {
+    xcolEls.forEach((el, i) => el.classList.toggle('active', i === hi));
+  }
+
+  function applyHover(hi) {
+    if (hi !== _hatchIdx) { startHatch(hi); if (hi !== null) tickSound(); }
+    setActiveXcol(hi);
+  }
+
+  function clearHover() {
+    if (_hatchRaf) cancelAnimationFrame(_hatchRaf);
+    _hatchIdx = null; _hatchProg = 0;
+    render(null); setActiveXcol(null);
+  }
+
+  canvas.onmousemove = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    let hi = null;
+    buckets.forEach(({ cx }, i) => { if (Math.abs(mx - cx) < groupW / 2) hi = i; });
+    applyHover(hi);
+  };
+  canvas.onmouseleave = clearHover;
+
+  xcolWraps.forEach((el, i) => {
+    el.onmouseenter = () => applyHover(i);
+  });
+  const xaxisRow = lfRoot ? lfRoot.querySelector('.lf-xaxis-row') : null;
+  if (xaxisRow) xaxisRow.onmouseleave = clearHover;
+
+  // KPI countUp
+  const curEl  = document.getElementById('lf-kpi-cur-'  + seg);
+  const prevEl = document.getElementById('lf-kpi-prev-' + seg);
+  const diffEl = document.getElementById('lf-kpi-diff-' + seg);
+  if (curEl)  countUp(curEl,  +curEl.dataset.t,  1, 800);
+  if (prevEl) countUp(prevEl, +prevEl.dataset.t, 1, 800);
+  if (diffEl) {
+    const sign = diffEl.dataset.sign;
+    countUp(diffEl, +diffEl.dataset.t, 1, 800, v => sign + v);
+  }
+
+  // 바 진입 애니메이션
+  startBarAnim();
+
+  // 크기 변경 시 재렌더링
+  if (!canvas._lfRO) {
+    canvas._lfRO = new ResizeObserver(() => { drawLFChart(seg); });
+    canvas._lfRO.observe(canvas.parentElement);
+  }
+}
+
+let currentTab = 'seg';
+function switchTab(tab) {
+  if (tab === currentTab) return;
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach((btn, i) => {
+    btn.classList.toggle('active', (i === 0 && tab === 'seg') || (i === 1 && tab === 'lf'));
+  });
+  const subEl = document.getElementById('period-sub');
+  if (subEl) {
+    const subTarget = tab === 'lf'
+      ? '전월 마감 세그 기준 당월 누적 로그인 일수 분포 · 전월 동기 대비 평균 로그인 일수 비교로 이탈 조기 감지'
+      : '6개 세그별 당월 진행 현황 및 전월 동기 비교';
+    scrambleText(subEl, subTarget, 800);
+  }
+  const ta = document.querySelector('.tracks-area');
+  const LF_BUCKET_DESC = { Light: '1~2일', Casual: '3~7일', Power: '8일 이상' };
+  if (tab === 'lf') {
+    if (document.getElementById('detail-panel').classList.contains('open')) closeDetail();
+    document.querySelectorAll('#ret-tanks .tank-wrap').forEach(wrap => {
+      const seg  = wrap.dataset.seg;
+      const card = wrap.querySelector('.tank-card');
+      // LF 전용 alert: 전월 대비 음수면 이상. 원본 alert 상태는 dataset에 백업.
+      if (wrap.dataset.origAlert === undefined) {
+        wrap.dataset.origAlert = wrap.classList.contains('alert') ? '1' : '0';
+      }
+      const lfD = LF_DATA[seg];
+      const lfDiff = lfD ? (lfD.curMean - lfD.prevMean) : 0;
+      wrap.classList.toggle('alert', lfDiff < 0);
+      // 서브 텍스트 → LF 포맷 변경
+      const subEl = wrap.querySelector('.tank-sub');
+      if (subEl && !subEl.dataset.origSub) {
+        subEl.dataset.origSub = subEl.textContent;
+        const tank = DATA.retention.find(t => t.seg === seg);
+        subEl.textContent = `월 로그인 ${LF_BUCKET_DESC[seg] || ''} (전월마감 ${tank ? tank.prevClose : '?'}만)`;
+      }
+      // LF 콘텐츠 주입 (최초 1회)
+      if (card && !card.querySelector('.tank-lf-content')) {
+        card.insertAdjacentHTML('beforeend', buildLFContent(seg));
+        // 복사 버튼 주입
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'lf-copy-btn';
+        copyBtn.title = '데이터 복사';
+        copyBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><defs><mask id="cp-m-${seg}"><rect width="16" height="16" fill="white"/><rect x="5.7" y="1.7" width="7.6" height="9.6" rx="1.3" fill="black"/></mask></defs><rect x="2" y="4" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4" mask="url(#cp-m-${seg})"/><rect x="5" y="1" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>`;
+        copyBtn.addEventListener('click', e => { e.stopPropagation(); lfCopy(seg, copyBtn); });
+        card.appendChild(copyBtn);
+      }
+    });
+    ta.classList.add('lf-mode');
+    ta.closest('.aquarium-container').classList.add('aquarium-lf');
+    setTimeout(() => {
+      ta.classList.add('lf-mode-settled');
+      ['Light','Casual','Power'].forEach(drawLFChart);
+    }, 420);
+  } else {
+    ta.classList.remove('lf-mode');
+    ta.classList.remove('lf-mode-settled');
+    ta.closest('.aquarium-container').classList.remove('aquarium-lf');
+    // 서브 텍스트 복원 + alert 상태 원복
+    document.querySelectorAll('#ret-tanks .tank-wrap').forEach(wrap => {
+      const subEl = wrap.querySelector('.tank-sub');
+      if (subEl && subEl.dataset.origSub) { subEl.textContent = subEl.dataset.origSub; delete subEl.dataset.origSub; }
+      if (wrap.dataset.origAlert !== undefined) {
+        wrap.classList.toggle('alert', wrap.dataset.origAlert === '1');
+        delete wrap.dataset.origAlert;
+      }
+    });
+  }
+}
+
+function closeDetail() {
+  stopPlay();
+  setActiveTank(null);
+  document.getElementById('detail-panel').classList.remove('open');
+  document.body.classList.remove('detail-open');
+}
+
+// ── 플레이 로직 ──
+let isPlaying    = false;
+let playTimer    = null;
+let playIndex    = 0;
+let playInterval = 6000;
+let longPressTimer = null;
+
+function getPlaySegs() {
+  return [...DATA.acquisition, ...DATA.retention];
+}
+
+function setActiveTank(seg) {
+  document.querySelectorAll('.tank-card').forEach(c => c.classList.remove('active'));
+  if (!seg) return;
+  const wrap = document.querySelector(`.tank-wrap[data-seg="${seg}"]`);
+  if (wrap) wrap.querySelector('.tank-card')?.classList.add('active');
+}
+
+function togglePlay() {
+  if (isPlaying) { stopPlay(); return; }
+  isPlaying = true;
+  const btn = document.getElementById('detail-play-btn');
+  btn.classList.add('playing');
+  document.getElementById('play-icon').style.display  = 'none';
+  document.getElementById('pause-icon').style.display = '';
+  playNext();
+}
+
+function stopPlay() {
+  isPlaying = false;
+  clearTimeout(playTimer);
+  setActiveTank(null);
+  const btn = document.getElementById('detail-play-btn');
+  if (btn) {
+    btn.classList.remove('playing');
+    document.getElementById('play-icon').style.display  = '';
+    document.getElementById('pause-icon').style.display = 'none';
+  }
+}
+
+function setPlayInterval(sec) {
+  playInterval = sec * 1000;
+  document.querySelectorAll('.play-interval-opt').forEach(el => {
+    el.classList.toggle('active', +el.dataset.sec === sec);
+  });
+  document.getElementById('play-interval-tip').classList.remove('visible');
+  // 플레이 중이면 현재 타이머 즉시 재시작
+  if (isPlaying) {
+    clearTimeout(playTimer);
+    playTimer = setTimeout(playNext, playInterval);
+  }
+}
+
+function initPlayLongPress() {
+  const btn = document.getElementById('detail-play-btn');
+  const tip = document.getElementById('play-interval-tip');
+  let longPressActivated = false;
+
+  btn.addEventListener('mousedown', () => {
+    longPressActivated = false;
+    longPressTimer = setTimeout(() => {
+      longPressActivated = true;
+      tip.classList.add('visible');
+    }, 600);
+  });
+  btn.addEventListener('mouseup',    () => clearTimeout(longPressTimer));
+  btn.addEventListener('mouseleave', () => clearTimeout(longPressTimer));
+  btn.addEventListener('click', () => {
+    if (longPressActivated) { longPressActivated = false; return; }
+    togglePlay();
+  });
+  // 툴팁 외부 클릭 시 닫기
+  document.addEventListener('mousedown', (e) => {
+    if (!tip.contains(e.target) && e.target !== btn) {
+      tip.classList.remove('visible');
+    }
+  });
+}
+
+function playNext() {
+  if (!isPlaying) return;
+  const segs = getPlaySegs();
+  const t = segs[playIndex % segs.length];
+  openDetail(t.seg, t.sub, true);
+  setActiveTank(t.seg);
+  const wrap = document.querySelector(`.tank-wrap[data-seg="${t.seg}"]`);
+  if (wrap) animateCard(wrap);
+  playIndex = (playIndex + 1) % segs.length;
+  playTimer = setTimeout(playNext, playInterval);
+}
+
+function copySegData(seg) {
+  const tank = [...DATA.acquisition, ...DATA.retention].find(t => t.seg === seg);
+  const d    = SEG_DETAILS[seg];
+  if (!tank || !d) return;
+
+  const sub      = tank.sub;
+  const curr     = tank.value;
+  const prev     = tank.prevClose;
+  const delta    = curr - prev;
+  const deltaStr = (delta >= 0 ? '+' : '') + delta + '만';
+
+  const kpi1 = d.avgCards;
+  const kpi2 = d.avgSpend;
+
+  const ageLines  = d.ageGroups.map(a => `  ${a.age}  ${a.pct}%`).join('\n');
+  const cardLines = d.topCards.map(([name, pct], i) => `  ${i+1}. ${name}  ${pct}%`).join('\n');
+
+  const text = [
+    `[${seg}] ${curr}만`,
+    sub,
+    `기준일: ${DATA.period}`,
+    '',
+    `평균 카드 보유: ${kpi1}`,
+    `월평균 결제: ${kpi2}`,
+    '',
+    `전월 비교`,
+    `  전월: ${prev}만  당월: ${curr}만  (${deltaStr})`,
+    '',
+    `연령대`,
+    ageLines,
+    '',
+    `보유 카드 TOP 5`,
+    cardLines,
+  ].join('\n');
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.detail-copy-btn');
+    const lbl = document.getElementById('copy-btn-label');
+    if (!btn) return;
+    btn.classList.add('copied');
+    lbl.textContent = '복사됨';
+    const iconEl = btn.querySelector('svg');
+    if (iconEl) iconEl.outerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><polyline points="3,8 6.5,12 13,4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      lbl.textContent = '복사';
+      const ic = btn.querySelector('svg');
+      if (ic) ic.outerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><defs><mask id="cp-m-detail"><rect width="16" height="16" fill="white"/><rect x="5.7" y="1.7" width="7.6" height="9.6" rx="1.3" fill="black"/></mask></defs><rect x="2" y="4" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4" mask="url(#cp-m-detail)"/><rect x="5" y="1" width="9" height="11" rx="2" stroke="currentColor" stroke-width="1.4"/></svg>`;
+    }, 2000);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  키보드 네비게이션
+//   - L/R: 현재 행(row) 내부 이동만
+//   - U/D: 행 간 이동, 마지막 세그 col 기억 (페어 정렬)
+//   - 활성 탭은 포커스 불가 (비활성 탭만)
+// ══════════════════════════════════════════════════════════
+(function () {
+  // 현재 탭 기준 rows 구성. 각 row는 col 순서로 정렬된 node 배열.
+  function getRows() {
+    const isLF = currentTab === 'lf';
+    const inactiveTab = isLF ? 'seg' : 'lf';
+    const rows = {};
+    rows[0] = [{ kind:'tab', id: inactiveTab, row:0, col:0 }];
+    if (!isLF) {
+      rows[1] = [
+        { kind:'seg', id:'앱미경험',   row:1, col:0 },
+        { kind:'seg', id:'장기미이용', row:1, col:1 },
+        { kind:'seg', id:'간헐이용',   row:1, col:2 },
+      ];
+    }
+    rows[2] = [
+      { kind:'seg', id:'Light',  row:2, col:0 },
+      { kind:'seg', id:'Casual', row:2, col:1 },
+      { kind:'seg', id:'Power',  row:2, col:2 },
+    ];
+    return rows;
+  }
+
+  const elFor = (n) => n.kind === 'tab'
+    ? document.querySelectorAll('.tabbar .tab')[n.id === 'seg' ? 0 : 1]
+    : document.querySelector(`.tank-wrap[data-seg="${n.id}"]`);
+
+  let focused = null;
+  let lastSegCol = 0; // U/D 행 이동 시 열 보존용
+
+  function setFocus(node) {
+    const changed = !focused || focused.kind !== node.kind || focused.id !== node.id;
+    focused = node;
+    if (node && node.kind === 'seg') lastSegCol = node.col;
+    render();
+    if (changed && typeof tickSound === 'function') tickSound();
+  }
+
+  function render() {
+    // 브라우저 native :focus 해제 (탭 버튼 클릭 후 남는 포커스 링 제거)
+    if (document.activeElement && document.activeElement !== document.body && document.activeElement.blur) {
+      document.activeElement.blur();
+    }
+    document.querySelectorAll('.kbd-focus').forEach(el => el.classList.remove('kbd-focus'));
+    document.body.classList.toggle('kbd-nav', focused !== null);
+    if (!focused) return;
+    const el = elFor(focused);
+    if (el) {
+      el.classList.add('kbd-focus');
+      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+
+  // 마우스 이동 시 키보드 네비 모드 해제 (호버 기반 인터랙션으로 복귀)
+  document.addEventListener('mousemove', () => {
+    if (focused !== null) { focused = null; render(); }
+  }, { passive: true });
+
+  function currentNode(rows) {
+    if (!focused) return null;
+    const row = rows[focused.row];
+    if (!row) return null;
+    return row.find(n => n.kind === focused.kind && n.id === focused.id) || null;
+  }
+
+  function nextRowWith(rows, fromRow, dir) {
+    const step = dir === 'down' ? 1 : -1;
+    for (let r = fromRow + step; r >= 0 && r <= 2; r += step) {
+      if (rows[r] && rows[r].length) return rows[r];
+    }
+    return null;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    const tag = (document.activeElement && document.activeElement.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const key = e.key;
+    if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Enter','Escape'].includes(key)) return;
+
+    if (key === 'Escape') { e.preventDefault(); focused = null; render(); return; }
+
+    const rows = getRows();
+    const cur = currentNode(rows);
+
+    // 초기 포커스 or 현재 row에서 invalid 상태
+    if (!cur) {
+      e.preventDefault();
+      setFocus(rows[0][0]);
+      return;
+    }
+
+    const rowArr = rows[cur.row];
+    const idx = rowArr.findIndex(n => n.id === cur.id);
+
+    // L/R: 전체 선형 시퀀스 (비활성 탭 + 세그먼트, 행 경계 넘어감)
+    const flat = [0, 1, 2].reduce((acc, r) => rows[r] ? acc.concat(rows[r]) : acc, []);
+    const flatIdx = flat.findIndex(n => n.kind === cur.kind && n.id === cur.id);
+
+    if (key === 'ArrowRight') {
+      e.preventDefault();
+      if (flatIdx < flat.length - 1) setFocus(flat[flatIdx + 1]);
+    } else if (key === 'ArrowLeft') {
+      e.preventDefault();
+      if (flatIdx > 0) setFocus(flat[flatIdx - 1]);
+    } else if (key === 'ArrowDown') {
+      e.preventDefault();
+      const next = nextRowWith(rows, cur.row, 'down');
+      if (!next) return;
+      // acq → ret 이동 시 페어(열 그대로)
+      const targetCol = cur.kind === 'seg' ? cur.col : lastSegCol;
+      setFocus(next[Math.min(targetCol, next.length - 1)]);
+    } else if (key === 'ArrowUp') {
+      e.preventDefault();
+      const next = nextRowWith(rows, cur.row, 'up');
+      if (!next) return;
+      // ret → acq 이동 시 페어(열 그대로)
+      // 세그 → 탭(row 0) 이동 시: 탭은 1칸(비활성)이므로 clamp
+      const targetCol = cur.kind === 'seg' ? cur.col : lastSegCol;
+      setFocus(next[Math.min(targetCol, next.length - 1)]);
+    } else if (key === 'Enter') {
+      e.preventDefault();
+      if (cur.kind === 'tab') {
+        switchTab(cur.id);
+        // 탭 전환 후 새로 비활성이 된 탭으로 포커스 이동
+        focused = { kind:'tab', id: currentTab === 'seg' ? 'lf' : 'seg', row:0, col:0 };
+        render();
+      } else {
+        const wrap = document.querySelector(`.tank-wrap[data-seg="${cur.id}"]`);
+        if (!wrap) return;
+        if (currentTab === 'lf' && wrap.closest('#ret-tanks')) return;
+        openDetail(wrap.dataset.seg, wrap.dataset.sub);
+      }
+    }
+  });
+})();
+</script>
+
+</body>
+</html>
