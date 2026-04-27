@@ -39,6 +39,32 @@
   - 보류: 카드별 한 단어 라벨, 샘플 데이터 명시, LF 차트 백그라운드 존 — 노이즈 우려 / 1.0 미룸
   - **마케터 미팅(월요일)**: `memory/project_aqua_marketer_discussion.md` 5개 포인트 (이상 임계 −0.3 / 점선 / LF 시각신호 / 저빈도·활성 명명 / **휴일차이 비교 범위 — 진행 동기간 vs 캘린더 전월전체**) + 1·4주차 데이터 불일치 함께 검증
 
+- `aqua_v0.87.html` — **v0.86 + LF narrative 코호트 모델 재정의 (2026-04-27)**:
+  - 발단: v0.86 Power 카드 "<<>>전체 세그 규모 확장" narrative ↔ 세그현황판 Power 180→180 모순. 사용자 설명: LF는 **전월 마감 인원을 통째로 가둔 코호트** 모델 (모집단 크기 정의상 고정), 세그현황판은 동적 멤버십. 두 패널의 모집단이 다름.
+  - "확장/축소" 분기 자체를 제거 — 코호트 닫혀있어 합 항상 = 전월마감
+  - narrative 표기 변경: "저빈도 X만 증가" → "X만명이 [origin] → [destination] 이동" (인원 증감 → 버킷 간 이동)
+  - 6가지 흐름 패턴 분기: 활성→휴면(강한 이탈), 활성→저빈도(빈도 하락), 저빈도→휴면(휴면화), 휴면→활성(복귀), 휴면→저빈도(가벼운 복귀), 저빈도→활성(빈도 상승). 출/도착 그룹 rank 비교로 우/좌 화살표 자동 결정
+  - 데이터 정합성 가드: 코호트 합이 ±5만 초과 어긋나면 narrative 단언 보류 + ⚠ "코호트 합 X만 어긋남 — 데이터 검증 필요" 경고. `.lf-data-warn` CSS (clr-warn 노랑) 추가
+  - NOISE / COHORT_DRIFT 둘 다 상수 5만 (튜닝 포인트로 마케터 미팅 논의 항목 추가)
+  - 데이터 사고 부록: `data_4주차/seg_visit.csv` Power 당월 3일/5일/6일 = 10 → 0 으로 정정 (사용자 source CSV와 일치). 합 210 → 180 코호트 정합 ✓
+  - 위치: `buildLFContent` 함수 내부 line 2319~2391. CSS는 line 1042~1043
+  - 마케터 미팅 항목 #6 신설 (이동 패턴 명명/이동 표기 적합성/NOISE 임계 적정성)
+  - **분포 시프트 폴백 + 좌측 시프트 누적-강조 형식 (2026-04-27)**: 도구 본질("어디로 모였나 → 캠페인 타겟팅")에 맞춰 좌측 시프트 narrative를 **흐름 강조 → 누적 상위 2개 버킷 강조**로 전환. 발단: Power 케이스(평균 +1.6일, 9일/5일/6일 → 10일+ 시프트)가 sumHigh=0이라 그룹 흐름 모델로 안 잡혔고, Casual 케이스에서도 "40만이 활성→휴면 이동"보다 "0일 +40만, 1일 +20만 유지중"이 캠페인 액션에 더 직접적
+    - **우측 시프트 (그룹 흐름)**: 그대로 — `<b>X만명</b>이 origin → dest 이동` + `>>> 의미 (휴면 활성 복귀 등)`
+    - **우측 시프트 폴백 (헤비 확대, 10일+ 비중 +3%p 이상)**: `헤비 유저(10일+) 비중 확대 +X.X%p` + `>>> 분포 우측 이동, 빈도 상승`
+    - **좌측 시프트 공통 형식** (그룹 흐름·폴백 양쪽): `buildLeftShiftLines()` 헬퍼 — 비중 +2%p 이상 버킷 누적 큰 순(동률시 좌측 우선) 상위 2개
+      - line1 `<b>X일 +N만</b>, <b>Y일 +M만</b> 유지중`
+      - line2 `<<< 분포 좌측 이동, 활성화 집중 공략 필요`
+      - 누적 +2%p 이상 0개면 그룹 흐름 형식("X만이 활성→휴면 이동" + "활성층 휴면 진입") 또는 "큰 변화 없음"으로 폴백
+    - **cueLine 제거**: 우측 시프트(양호 케이스)에서 "0일 그룹 -20만 동반 변동" 같은 보조 정보가 narrative 가독성 해치고, 차트 하단 delta로 같은 정보 확인 가능. line1/line2만 남김
+    - 위치: `buildLFContent` line ~2342-2410. 우측 흐름 6분기 중 좌측 3개("활성층 휴면 진입" 등)는 폴백 시에만 사용
+  - **Retention 트랙 alert 톤 다운 (2026-04-27)**: Retention 감소는 이탈일 수도, Casual/Power로 세그 이동(졸업)일 수도 있는 양면 해석이라 "이상"(빨강) 단정이 부적절. 변동률 무관 항상 노랑 tier로 일원화
+    - footer hint 변경: `감소 = 이탈 우려` → `감소 = 이탈/세그 이동` (line 1289)
+    - tier 판정 (line ~1428, ~2096): `if (isBad && !t.invertSign) tier = 'warn'` 분기 추가. Retention(invertSign=false) 나쁜 변동은 magn 무관 warn
+    - **chip 라벨 변경 (Retention 한정)**: 세그 현황판 buildTanks chipText (line 1457)에서 Retention warn만 `'확인 필요'`로 분기 — `tier === 'warn' ? (t.invertSign ? '주의' : '확인 필요')`. Acquisition warn은 `'주의'` 그대로 (활성 미전환은 분명한 부정 시그널). LF 모드 chipText (line 2315)는 `'주의'` 유지 (사용자 별도 지시 없으면 변경 금지)
+    - "점검"은 점검 진행 중으로 오해 가능 — "확인 필요"가 액션 톤은 살리면서 오해 소지 없음
+    - Acquisition은 그대로 (활성 미전환은 분명한 부정 시그널이라 danger 유지)
+
 ---
 
 ## 스타일 가이드
@@ -346,6 +372,45 @@
 ### 다음 세션 작업 후보
 - [ ] 라이트/다크 테마 전환 시 썸네일 배경 동기화 확인
 - [ ] 슬라이드 수 많을 때 오버뷰 패널 스크롤 UX 개선
+
+---
+
+## Document_templete/dashboard/dashboard.html (대시보드 제안서 27장)
+
+### 파일 개요
+- "정밀 타격 대시보드 및 카드앱의 세이버 메트릭스 제안" 27장 단일 HTML 발표 자료 (2026-04-28, UX Insight팀)
+- 세이버 메트릭스(FAI / RDI / VRI) + LPI(논의 필요) + BA(Business Attribution) + 대시보드 v0.8/0.9/1.0 구축 계획
+- 위치: `Document_templete/dashboard/dashboard.html`
+- 디자인 참고: `Document_templete/dashboard/장표디자인참고/0~26.png`
+- 대시보드 스크린샷: `Document_templete/dashboard/imgs/img_*.png` (페이지 3,4,9,13,16,20,22,23,24)
+
+### 시스템 (template.html 그대로 가져옴)
+- `html.theme-dark` / `html.theme-light` 클래스 토글 + CSS 변수 토큰 (--bg, --surface, --text, --text-secondary, --accent 등) 동일
+- 슬라이드 캔버스: 2040×1080, `.slide { position: absolute; inset: 0 }` 풀스크린, viewport에 자동 스케일
+- 폰트: YouandiNewKrTitle(제목/h1·h2·h3) + SFProDisplay(본문/UI/숫자) — `../fonts/` 경로
+- `--font-scale` 시스템 + `calc(...px * var(--font-scale))` 패턴
+- 상단 progress-bar(3px, accent → accent-secondary 그라디언트)
+- 하단 slide-nav(prev SVG / `n / 27` counter / next SVG)
+- **하단 overview-panel — ↑ 키로 열기**: 좌측 controls(전체화면/테마/A−100%A+/Print) 210px + 우측 썸네일 트랙(scale 0.08824 클론). 클릭 또는 키보드(←→Enter)로 이동, ↓/Esc 닫기
+- localStorage: `dashboard-theme` / `dashboard-font-scale`
+- 키보드: ←→·Space·PgUp/PgDn 페이지, Home/End 처음/끝, T 테마, ↑ overview
+
+### 27장 구성
+- p0 표지 / p1 세그 명칭 표(A~D안 4가지 후보) / p2 V.08 인트로 3카드
+- p3,4 대시보드 V.08 split(세그별 현황 / 이탈 조기 경보)
+- p5 야구(OPS·WHIP·WAR·WPA) vs 카드앱(FAI·RDI·VRI) 비교
+- p6 FAI·RDI·VRI 흐름(신규→정기→습관)
+- p7~9 FAI(정의·AND 조건·대시보드)
+- p10~13 RDI(정의·2동력·루틴/혜택 분리·대시보드)
+- p14~16 VRI(정의·4패턴 OOO/XOO/OXO/XXO·대시보드)
+- p17~20 LPI(논의 필요 배지)(정의·라이트유저 정의/측정·4패턴 OOX/XOX/OXX/XXX·대시보드)
+- p21~24 BA(인트로 3카드·직접 수익·비용 절감·간접 수익)
+- p25 대시보드 v0.8/0.9/v1.0 구축 계획 표
+- p26 EOD
+
+### 의도된 비일관성 (보존)
+- VRI는 page 6에서 "Visit Regularity Index", page 14에서 "Visit Recurrence Index"로 명명 — 두 가지 후보를 의도적으로 함께 노출 (용어 정의 논의용)
+- p17 LPI 정의 박스의 공식 변수명은 LRI (또 다른 이름 후보)
 
 ---
 
