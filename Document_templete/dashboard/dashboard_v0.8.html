@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="ko" class="theme-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>정밀 타격 대시보드 및 카드앱의 세이버 메트릭스 제안 — UX Insight팀</title>
+<style>
+  @font-face { font-family: 'SFProDisplay'; src: url('../fonts/SF-Pro-Display-Medium.otf') format('opentype'); font-weight: 400; }
+  @font-face { font-family: 'SFProDisplay'; src: url('../fonts/SF-Pro-Display-Medium.otf') format('opentype'); font-weight: 500; }
+  @font-face { font-family: 'SFProDisplay'; src: url('../fonts/SF-Pro-Display-Bold.otf') format('opentype'); font-weight: 600; }
+  @font-face { font-family: 'SFProDisplay'; src: url('../fonts/SF-Pro-Display-Bold.otf') format('opentype'); font-weight: 700; }
+  @font-face { font-family: 'SFProDisplay'; src: url('../fonts/SF-Pro-Display-Bold.otf') format('opentype'); font-weight: 800; }
+  @font-face { font-family: 'YouandiNewKrTitle'; src: url('../fonts/YouandiNewKrTitle-Bold.ttf') format('truetype'); font-weight: 700; }
+</style>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --font-scale: 1; }
+
+  /* ===== Theme tokens ===== */
+  html.theme-dark {
+    --bg: #080808; --surface: #141414; --surface-2: #1a1a1a; --surface-hover: #1a1a1a;
+    --border: rgba(255,255,255,0.10); --border-strong: rgba(255,255,255,0.22);
+    --text: rgba(255,255,255,0.92); --text-secondary: rgba(255,255,255,0.45);
+    --accent: #00D56D; --accent-secondary: #FF0238;
+    --positive: #00D56D; --negative: #FF0238; --warning: #f59e0b;
+    --discuss: #FF0238;
+    --soft-fill: rgba(255,255,255,0.08);
+    --invert-bg: #fff; --invert-text: #000;
+  }
+  html.theme-light {
+    --bg: #F5F5F3; --surface: #FFFFFF; --surface-2: #FAFAF9; --surface-hover: #EBEBEA;
+    --border: rgba(0,0,0,0.12); --border-strong: rgba(0,0,0,0.28);
+    --text: #0f172a; --text-secondary: #6b7280;
+    --accent: #00b85e; --accent-secondary: #FF0238;
+    --positive: #00b85e; --negative: #FF0238; --warning: #d97706;
+    --discuss: #FF0238;
+    --soft-fill: rgba(0,0,0,0.07);
+    --invert-bg: #000; --invert-text: #fff;
+  }
+
+  html, body { height: 100%; overflow: hidden; background: var(--bg); }
+  body {
+    font-family: 'SFProDisplay','SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;
+    color: var(--text); line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  h1,h2,h3,h4,h5,h6 { color: var(--text); letter-spacing: -0.02em; line-height: 1.18; }
+  h1, h2 { font-family: 'YouandiNewKrTitle','SFProDisplay',sans-serif; font-weight: 700; }
+  h3 { font-weight: 600; font-family: 'YouandiNewKrTitle','SFProDisplay',sans-serif; }
+
+  /* ===== Animations ===== */
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px);} to { opacity: 1; transform: none;} }
+  .animate { animation: fadeInUp 0.55s ease-out both; }
+  .animate.delay-1{animation-delay:.1s} .animate.delay-2{animation-delay:.2s}
+  .animate.delay-3{animation-delay:.3s} .animate.delay-4{animation-delay:.4s}
+  .animate.delay-5{animation-delay:.5s} .animate.delay-6{animation-delay:.6s}
+  .animate.delay-7{animation-delay:.7s} .animate.delay-8{animation-delay:.8s}
+
+  /* ===== Slides wrapper (2040×1080) ===== */
+  .slides-wrapper {
+    width: 2040px; height: 1080px;
+    position: fixed; top: 0; left: 0; transform-origin: top left;
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden; background: transparent;
+  }
+  .slide {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+    padding: 110px 140px 120px;
+    background: var(--bg);
+    opacity: 0; transform: translateX(60px);
+    transition: opacity 0.45s cubic-bezier(0.4,0,0.2,1), transform 0.45s cubic-bezier(0.4,0,0.2,1);
+    pointer-events: none;
+  }
+  .slide.active { opacity: 1; transform: none; pointer-events: auto; }
+  .slide.exit-left { opacity: 0; transform: translateX(-60px); }
+
+  /* ===== Common slide elements ===== */
+  .slide-tag {
+    font-size: calc(28px * var(--font-scale));
+    font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-secondary); margin-bottom: 22px;
+    font-family: 'SFProDisplay', sans-serif;
+  }
+  .slide-title {
+    font-size: calc(96px * var(--font-scale));
+    font-weight: 700; line-height: 1.15;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    margin-bottom: 56px; letter-spacing: -0.02em;
+  }
+  .slide-title.sm { font-size: calc(72px * var(--font-scale)); }
+  .slide-sub {
+    font-size: calc(28px * var(--font-scale)); color: var(--text-secondary);
+    line-height: 1.6; max-width: 1500px; font-weight: 500;
+  }
+  .crumb { color: var(--text-secondary); font-weight: 400; }
+  .badge-discuss {
+    display: inline-block; vertical-align: middle;
+    background: var(--discuss); color: #fff;
+    font-family: 'SFProDisplay'; font-weight: 700;
+    font-size: calc(20px * var(--font-scale));
+    padding: 6px 14px; border-radius: 6px;
+    letter-spacing: 0.05em; margin-left: 18px;
+  }
+
+  /* ===== Cover (ref 1.png) ===== */
+  .slide-cover {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center;
+    padding: 120px 200px 180px;
+  }
+  .cover-title {
+    margin: auto 0 0;
+    font-size: calc(116px * var(--font-scale));
+    font-weight: 800; line-height: 1.22;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    color: var(--text);
+    letter-spacing: -0.02em;
+  }
+  .cover-title .accent { color: var(--accent); }
+  .cover-author {
+    margin-top: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    font-size: calc(28px * var(--font-scale));
+    font-weight: 600; color: var(--text);
+    letter-spacing: 0.01em;
+  }
+
+  /* ===== Closing (EOD) ===== */
+  .slide-eod { align-items: center; justify-content: center; }
+  .eod-text {
+    font-size: calc(180px * var(--font-scale));
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    color: var(--text); letter-spacing: 0.05em;
+  }
+
+  /* ===== Card primitive ===== */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 18px; padding: 44px 38px;
+  }
+  .card.padless { padding: 0; overflow: hidden; }
+
+  /* ===== Doc layout — title + bullets + content (ref 0/3/4/9 등) ===== */
+  .slide-doc { padding: 28px 100px 0; }
+  .doc-title {
+    font-size: calc(48px * var(--font-scale));
+    font-weight: 800; letter-spacing: -0.02em; line-height: 1.2;
+    color: var(--text);
+    margin-top: -20px;
+  }
+  .doc-bullets {
+    list-style: none;
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: calc(22px * var(--font-scale));
+    font-weight: 600; color: var(--text);
+    line-height: 1.45; margin-top: 16px;
+  }
+  .doc-bullets li { padding-left: 20px; position: relative; }
+  .doc-bullets li::before {
+    content: '•'; position: absolute; left: 0; top: 0; font-weight: 800;
+  }
+  .doc-image-wrap {
+    flex: 1; min-height: 0;
+    display: flex; align-items: flex-end; justify-content: center;
+    margin: 30px -100px 0;
+  }
+  .doc-image-wrap img {
+    max-width: 100%; max-height: 100%; object-fit: contain; display: block;
+  }
+  .doc-image-cap {
+    text-align: center; margin-top: 24px;
+    font-size: calc(22px * var(--font-scale));
+    color: var(--text-secondary); font-weight: 500;
+  }
+
+  /* ===== Page 1: 세그별 명칭 정의 (ref 0.png) ===== */
+  .slide-segments .doc-title { margin-bottom: 36px; }
+  .seg-block + .seg-block { margin-top: 96px; }
+  .seg-track-label {
+    font-size: calc(28px * var(--font-scale));
+    font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text); margin-bottom: 14px;
+    font-family: 'SFProDisplay', sans-serif;
+  }
+  .seg-block.muted .seg-track-label { color: var(--text-secondary); }
+  .seg-table {
+    width: 100%; border-collapse: collapse;
+    table-layout: fixed;
+    border-top: 2px solid var(--text);
+  }
+  .seg-block.muted .seg-table { border-top-color: var(--border-strong); }
+  .seg-table thead th {
+    padding: 18px 0; text-align: center;
+    background: rgba(0,0,0,0.025);
+    font-size: calc(24px * var(--font-scale));
+    font-weight: 600; color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+  }
+  .seg-table tbody td {
+    padding: 24px 0; text-align: center;
+    font-size: calc(42px * var(--font-scale));
+    font-weight: 800; color: var(--text);
+    font-family: 'SFProDisplay', sans-serif;
+    letter-spacing: -0.01em;
+    border-bottom: 1px solid var(--border);
+  }
+  .seg-block.muted .seg-table thead th {
+    background: transparent;
+    font-size: calc(34px * var(--font-scale));
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 26px 0;
+  }
+
+  /* ===== Page 2: 인트로 3카드 (ref 2.png) ===== */
+  .slide-intro {
+    padding: 0;
+    display: flex; flex-direction: column;
+  }
+  .slide-intro-body {
+    padding: 28px 100px 60px;
+    display: flex; flex-direction: column;
+    flex: 1; min-height: 0;
+  }
+  .slide-intro .slide-tag { text-align: left; margin-bottom: 0; }
+  .slide-intro .slide-title {
+    text-align: center; margin: 80px 0 100px;
+  }
+  .intro-cards {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 32px;
+  }
+  .intro-card {
+    background: var(--soft-fill);
+    border-radius: 32px;
+    padding: 70px 30px;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    min-height: 240px;
+  }
+  .intro-card h3 {
+    font-size: calc(32px * var(--font-scale));
+    font-weight: 700; line-height: 1.45;
+    color: var(--text); letter-spacing: -0.01em;
+  }
+  .intro-footer {
+    background: var(--invert-bg); color: var(--invert-text);
+    padding: 50px 80px;
+    text-align: center;
+    font-size: calc(28px * var(--font-scale));
+    font-weight: 700; line-height: 1.55;
+    letter-spacing: -0.01em;
+  }
+  .intro-footer .sub { display: block; font-weight: 600; }
+
+  /* ===== Slide 5: 야구 vs 카드앱 (centered headline + soft-fill compare box) ===== */
+  .head-center {
+    text-align: center;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(64px * var(--font-scale));
+    font-weight: 800; color: var(--text);
+    line-height: 1.45; letter-spacing: -0.02em;
+    margin: 90px 0 70px;
+  }
+  .attn-center {
+    flex: 1;
+    display: flex; flex-direction: column; justify-content: center;
+    padding-bottom: 70px;
+  }
+  .attn-center .head-center { margin: 0 0 60px; }
+  .attn-center .formula-box { margin: 0; }
+  .attn-center .formula-notes { margin-top: 36px; }
+  .attn-center .formula { white-space: nowrap; }
+  .attn-center > .lc-stages { margin: 0 0 28px; }
+  .attn-center > .bh1,
+  .attn-center > .bh2,
+  .attn-center > .pat4,
+  .attn-center > .lc-cards,
+  .attn-center > .ba-cards { flex: none; min-height: 0; margin-top: 0; }
+  .attn-center .ba-card .body,
+  .attn-center .ba-card .items,
+  .attn-center .lc-card .body,
+  .attn-center .bhx-card > .body { flex: none; }
+  .compare-rounded {
+    background: rgba(158, 138, 73, 0.12);
+    border-radius: 28px;
+    padding: 26px 70px;
+    display: flex; flex-direction: column;
+  }
+  .cmp-row {
+    display: grid;
+    grid-template-columns: 320px 1fr 110px 1fr;
+    align-items: center;
+    padding: 50px 0;
+    gap: 40px;
+  }
+  .cmp-row + .cmp-row { border-top: 2px dashed var(--border); }
+  .cmp-emoji {
+    display: flex; align-items: center; gap: 18px;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(40px * var(--font-scale));
+    font-weight: 800; color: var(--text);
+  }
+  .cmp-emoji .ico { font-size: 1.05em; line-height: 1; }
+  .cmp-from {
+    font-family: 'SFProDisplay', sans-serif; font-weight: 700;
+    font-size: calc(36px * var(--font-scale));
+    color: var(--text);
+  }
+  .cmp-arrow {
+    display: flex; justify-content: center;
+    font-size: calc(40px * var(--font-scale));
+    color: var(--text); font-weight: 500;
+  }
+  .cmp-to {
+    font-family: 'SFProDisplay', sans-serif; font-weight: 800;
+    font-size: calc(38px * var(--font-scale));
+    color: var(--text);
+  }
+
+  /* ===== Slide 6: 라이프 사이클 stages + 3 cards ===== */
+  .lc-stages {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    align-items: center; margin: 40px 0 28px; padding: 0 12px;
+  }
+  .lc-stage {
+    position: relative;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(36px * var(--font-scale));
+    font-weight: 700; color: var(--text);
+    text-align: center;
+  }
+  .lc-stage:not(:first-child)::before {
+    content: '→'; position: absolute;
+    left: -28px; top: 50%; transform: translateY(-55%);
+    font-size: 0.9em; color: var(--text); font-weight: 500;
+  }
+  .lc-cards {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 36px; flex: 1; min-height: 0;
+  }
+  .lc-card {
+    border: 1px solid var(--border); border-radius: 22px;
+    overflow: hidden; display: flex; flex-direction: column;
+    background: var(--surface);
+  }
+  .lc-card .head {
+    background: var(--invert-bg); color: var(--invert-text);
+    padding: 26px 36px;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-weight: 800;
+    font-size: calc(34px * var(--font-scale));
+    display: flex; align-items: baseline; gap: 16px;
+  }
+  .lc-card .head .en {
+    font-family: 'SFProDisplay', sans-serif; font-weight: 500;
+    font-size: calc(22px * var(--font-scale)); opacity: 0.85;
+  }
+  .lc-card .body {
+    padding: 44px 30px; flex: 1;
+    display: flex; flex-direction: column; gap: 26px;
+    align-items: center; text-align: center;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(26px * var(--font-scale));
+    font-weight: 700; color: var(--text); line-height: 1.55;
+  }
+
+  /* ===== Slides 7, 10, 14, 17: 정의 + 공식 (gold-tint rounded formula) ===== */
+  .formula-box {
+    background: rgba(158, 138, 73, 0.12);
+    border-radius: 28px;
+    padding: 110px 80px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 60px 8% 36px;
+  }
+  .formula {
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(60px * var(--font-scale));
+    font-weight: 800; color: var(--text);
+    letter-spacing: -0.005em; text-align: center;
+    line-height: 1.2;
+  }
+  .formula .star { color: #d97a6c; padding: 0 6px; }
+  .formula-notes {
+    text-align: center;
+    font-size: calc(24px * var(--font-scale));
+    color: var(--text-secondary);
+    font-weight: 500; line-height: 1.7;
+  }
+  .formula-notes p + p { margin-top: 4px; }
+
+  /* ===== Black-headed cards (slides 8, 11, 12, 18) ===== */
+  .bh2 { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; flex: 1; min-height: 0; margin-top: 30px; }
+  .bh1 { display: flex; flex-direction: column; gap: 28px; flex: 1; min-height: 0; margin-top: 30px; }
+  .bhx-card {
+    border: 1px solid var(--border); border-radius: 22px;
+    overflow: hidden; background: var(--surface);
+    display: flex; flex-direction: column;
+  }
+  .bhx-card > .head {
+    background: var(--invert-bg); color: var(--invert-text);
+    padding: 24px 36px;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(30px * var(--font-scale)); font-weight: 800;
+  }
+  .bhx-card > .body {
+    padding: 40px 44px; flex: 1;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .bhx-card > .body h4 {
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(28px * var(--font-scale));
+    color: var(--text); font-weight: 800;
+    margin-bottom: 22px;
+  }
+  .bhx-card > .body ul { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .bhx-card > .body li {
+    font-size: calc(22px * var(--font-scale));
+    color: var(--text); line-height: 1.65;
+    padding-left: 22px; position: relative; font-weight: 500;
+  }
+  .bhx-card > .body li::before {
+    content: '•'; position: absolute; left: 4px; top: 0; font-weight: 800;
+  }
+  .bhx-card > .body p {
+    font-size: calc(22px * var(--font-scale));
+    color: var(--text); line-height: 1.7; font-weight: 500;
+  }
+  .bhx-card .body.two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 60px;
+  }
+
+  /* Slide 12: RDI cards centered formula */
+  .rdi-card .body { align-items: center; text-align: center; gap: 22px; padding-top: 22px; }
+  .attn-center .rdi-card > .body { flex: 1; }
+  .rdi-card .body .center-block { margin-top: auto; }
+  .rdi-card .body .center-block {
+    font-size: calc(22px * var(--font-scale));
+    color: var(--text); line-height: 1.8;
+  }
+  .rdi-card .body .center-block .lead {
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(24px * var(--font-scale));
+    font-weight: 800; margin-bottom: 6px; display: block;
+  }
+  .rdi-card .body .formula-mini {
+    margin-top: auto; width: 100%;
+    background: var(--soft-fill);
+    border-radius: 16px; padding: 26px 30px;
+    font-family: 'SFProDisplay', sans-serif; font-weight: 800;
+    font-size: calc(26px * var(--font-scale)); color: var(--text);
+    letter-spacing: -0.005em;
+  }
+  .rdi-card .body .formula-mini .star { color: #d97a6c; padding: 0 4px; }
+
+  /* ===== Slides 15, 19: 4 패턴 카드 (black header, top desc, soft-fill bottom) ===== */
+  .pat4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 26px; flex: 1; min-height: 0; margin-top: 30px; }
+  .pat4-card {
+    border: 1px solid var(--border); border-radius: 22px;
+    overflow: hidden; background: var(--surface);
+    display: flex; flex-direction: column;
+  }
+  .pat4-card .code {
+    background: var(--invert-bg); color: var(--invert-text);
+    padding: 26px 0; text-align: center;
+    font-family: 'SFProDisplay', sans-serif; font-weight: 800;
+    font-size: calc(48px * var(--font-scale));
+    letter-spacing: 0.06em;
+  }
+  .pat4-card .top {
+    padding: 38px 24px 38px; text-align: center;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(24px * var(--font-scale));
+    font-weight: 700; color: var(--text-secondary);
+    line-height: 1.55;
+  }
+  .pat4-card .bot {
+    margin: 0 22px 22px; padding: 32px 18px;
+    background: var(--soft-fill);
+    border-radius: 16px;
+    text-align: center;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(24px * var(--font-scale));
+    font-weight: 800; color: var(--text);
+    line-height: 1.5; flex: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pat4-foot {
+    margin-top: 20px; text-align: right;
+    font-size: calc(20px * var(--font-scale));
+    color: var(--text-secondary);
+    line-height: 1.7; font-weight: 500;
+  }
+
+  /* ===== Dashboard image slides (9, 13, 16, 20, 22, 23, 24) ===== */
+  .dash-wrap {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    margin: 30px 0 0;
+  }
+  .dash-wrap img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain; display: block;
+  }
+  .dash-wrap.dual {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 36px; align-items: center;
+    padding: 0;
+    margin: 30px 0 0;
+  }
+  .dash-wrap.dual img { width: 100%; max-height: 100%; }
+
+  /* ===== Slide 22: 두 이미지 교집합/캐스케이드 ===== */
+  .dash-stack {
+    position: relative;
+    flex: 1; min-height: 0;
+    margin: 30px 0 0;
+  }
+  .dash-stack img {
+    position: absolute;
+    width: 64%;
+    box-shadow: 0 18px 50px rgba(0,0,0,0.10);
+    border-radius: 18px;
+    background: var(--surface);
+  }
+  .dash-stack .img-back  { top: 0;    left: 0;  z-index: 1; }
+  .dash-stack .img-front { bottom: 0; right: 0; z-index: 2; }
+
+  /* ===== Slides 23, 24: 좌측 이미지 + 우측 텍스트 노트 ===== */
+  .dash-side {
+    flex: 1; min-height: 0;
+    display: grid; grid-template-columns: 1.55fr 1fr;
+    gap: 50px; align-items: center;
+    margin: 30px 0 0;
+  }
+  .dash-side-img {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    height: 100%; gap: 18px; min-height: 0;
+  }
+  .dash-side-img img {
+    max-width: 100%; max-height: 100%;
+    object-fit: contain; display: block;
+  }
+  .dash-side-img .dash-cap {
+    margin: 0; text-align: center;
+  }
+  .dash-side-notes {
+    list-style: none;
+    display: flex; flex-direction: column; gap: 0;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(20px * var(--font-scale));
+    font-weight: 700; color: var(--text);
+    line-height: 1.55;
+  }
+  .dash-side-notes li {
+    padding: 26px 0;
+    border-top: 1px dashed var(--border-strong);
+    white-space: nowrap;
+  }
+  .dash-side-notes li:last-child {
+    border-bottom: 1px dashed var(--border-strong);
+  }
+  .dash-side-notes .tag-update {
+    color: var(--accent); font-weight: 700;
+  }
+  .dash-cap {
+    text-align: center;
+    font-size: calc(22px * var(--font-scale));
+    color: var(--text-secondary);
+    font-weight: 500; margin: 18px 0 30px;
+  }
+
+  /* ===== Slide 21: BA 인트로 3 cards ===== */
+  .ba-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; flex: 1; min-height: 0; margin-top: 30px; }
+  .ba-card {
+    border: 1px solid var(--border); border-radius: 22px;
+    overflow: hidden; background: var(--surface);
+    display: flex; flex-direction: column;
+  }
+  .ba-card .head {
+    background: var(--invert-bg); color: var(--invert-text);
+    padding: 26px; text-align: center;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(32px * var(--font-scale)); font-weight: 800;
+  }
+  .ba-card .body {
+    padding: 40px 36px; flex: 1;
+    display: flex; flex-direction: column; gap: 40px;
+  }
+  .ba-card .lede {
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif;
+    font-size: calc(26px * var(--font-scale));
+    font-weight: 700; line-height: 1.5;
+    text-align: center; color: var(--text);
+  }
+  .ba-card .items {
+    background: var(--soft-fill);
+    border-radius: 14px; padding: 24px 28px;
+    flex: 1;
+  }
+  .ba-card .items .label {
+    font-family: 'SFProDisplay', sans-serif; font-weight: 700;
+    font-size: calc(20px * var(--font-scale));
+    color: var(--text); margin-bottom: 10px;
+  }
+  .ba-card .items ul { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .ba-card .items li {
+    font-size: calc(20px * var(--font-scale)); color: var(--text);
+    line-height: 1.65; padding-left: 18px; position: relative; font-weight: 500;
+  }
+  .ba-card .items li::before {
+    content: '•'; position: absolute; left: 2px; top: 0; font-weight: 800;
+  }
+
+  /* ===== Bullet helper for "red" emphasis (FAI/RDI/LPI 빨강 불릿) ===== */
+  .doc-bullets li.hl { color: var(--negative); }
+  .doc-bullets li.hl::before { color: var(--negative); }
+
+  /* ===== Page 25: plan table ===== */
+  .plan-table { width: 100%; border-collapse: collapse; margin: 0; }
+  .plan-table th {
+    font-family: 'YouandiNewKrTitle', sans-serif; font-weight: 700;
+    font-size: calc(32px * var(--font-scale));
+    text-align: left; padding: 28px 26px 22px;
+    color: var(--text);
+    white-space: nowrap;
+    border-bottom: none;
+  }
+  .plan-table th small {
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif; font-weight: 700;
+    font-size: 1em; color: var(--text); margin-left: 4px;
+  }
+  .plan-table td {
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif; font-weight: 700;
+    font-size: calc(28px * var(--font-scale));
+    padding: 28px 26px; vertical-align: top; line-height: 1.55;
+    border-top: 1px solid var(--border); color: var(--text);
+  }
+  .plan-table td ul {
+    list-style: none; margin: 10px 0 0; padding: 0;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif; font-weight: 700;
+    font-size: calc(28px * var(--font-scale));
+    color: var(--text); line-height: 1.7;
+  }
+  .plan-table td ul li {
+    padding-left: 22px; position: relative;
+  }
+  .plan-table td ul li::before {
+    content: ''; position: absolute; left: 4px; top: 0.7em;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text);
+  }
+  .plan-table td .sub {
+    display: block;
+    font-family: 'YouandiNewKrTitle','SFProDisplay', sans-serif; font-weight: 700;
+    font-size: calc(28px * var(--font-scale));
+    color: var(--text); line-height: 1.55;
+  }
+  .plan-table td.label {
+    font-family: 'YouandiNewKrTitle', sans-serif; font-weight: 700;
+    font-size: calc(30px * var(--font-scale)); color: var(--text);
+    width: 220px; padding-left: 40px;
+  }
+  .plan-table tr.row-schedule td {
+    background: var(--soft-fill);
+    border-top: 2px solid var(--text);
+  }
+  .plan-table tr.row-hl td {
+    background: #FAF1D6;
+  }
+  html.theme-dark .plan-table tr.row-hl td {
+    background: rgba(245, 220, 120, 0.18);
+  }
+  .attn-center > .plan-table { margin: 0; }
+
+  /* ===== Progress bar ===== */
+  .progress-bar {
+    position: fixed; top: 0; left: 0; height: 3px; z-index: 9998;
+    background: var(--accent);
+    transition: width 0.4s ease; width: 0%;
+  }
+
+  /* ===== Slide nav (bottom) ===== */
+  .slide-nav {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; z-index: 9998;
+  }
+  .slide-nav button {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: transparent; border: none; color: var(--text);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    opacity: 0.4; transition: opacity 0.2s;
+  }
+  .slide-nav button:hover { opacity: 1; }
+  .slide-counter {
+    font-size: 14px; color: var(--text); font-weight: 400;
+    min-width: 48px; text-align: center; opacity: 0.4;
+    font-family: 'SFProDisplay', sans-serif;
+  }
+
+  /* ===== Overview panel ===== */
+  #overview-panel {
+    position: fixed; bottom: 0; left: 0; right: 0; height: 220px;
+    background: #000; z-index: 10000;
+    transform: translateY(100%);
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex; flex-direction: row; align-items: center;
+    border-top: 1px solid rgba(255,255,255,0.22);
+  }
+  #overview-panel.open { transform: translateY(0); }
+  #overview-controls {
+    flex-shrink: 0; width: 210px; height: 100%;
+    padding: 20px 22px; display: flex; flex-direction: column; gap: 4px; justify-content: center;
+    border-right: 1px solid rgba(255,255,255,0.14);
+  }
+  #overview-controls button {
+    width: 100%; padding: 8px 12px; border: none; border-radius: 6px;
+    background: transparent; color: rgba(255,255,255,0.92); font-size: 13px;
+    font-family: inherit; cursor: pointer; text-align: left;
+    display: flex; align-items: center; gap: 8px; transition: background 0.15s;
+  }
+  #overview-controls button:hover { background: rgba(255,255,255,0.08); }
+  #overview-controls button.control-focus,
+  #overview-controls .control-focus {
+    background: rgba(255,255,255,0.14);
+    outline: 1px solid rgba(255,255,255,0.4);
+  }
+  #overview-controls .font-row { display: flex; align-items: center; gap: 4px; padding: 2px 0; border-radius: 6px; }
+  #overview-controls .font-row button { flex: 1; justify-content: center; padding: 6px 4px; }
+  #overview-controls .font-row span { min-width: 42px; text-align: center; font-size: 12px; color: rgba(255,255,255,0.5); }
+
+  #overview-track {
+    flex: 1; height: 100%;
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 48px;
+    overflow-x: auto; scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+  #overview-track::-webkit-scrollbar { display: none; }
+  .overview-item {
+    flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 8px;
+    cursor: pointer; opacity: 0.5; transition: opacity 0.2s;
+  }
+  .overview-item:hover { opacity: 0.8; }
+  .overview-item.overview-focus,
+  .overview-item.overview-current { opacity: 1; }
+  .overview-thumb {
+    width: 180px; height: 96px;
+    overflow: hidden; position: relative; border-radius: 8px;
+    border: 2px solid rgba(255,255,255,0.18);
+    background: var(--bg);
+  }
+  .overview-item.overview-focus .overview-thumb { border-color: var(--accent); }
+  .overview-item.overview-current .overview-thumb { border-color: rgba(255,255,255,0.85); }
+  .overview-item.overview-focus.overview-current .overview-thumb { border-color: var(--accent); }
+  .overview-clone {
+    width: 2040px !important; height: 1080px !important;
+    position: absolute !important; top: 0 !important; left: 0 !important;
+    transform: scale(0.08824) !important; transform-origin: top left !important;
+    opacity: 1 !important; pointer-events: none !important;
+  }
+  .overview-clone .animate { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .overview-num {
+    font-size: 11px; color: rgba(255,255,255,0.48);
+    font-family: 'SFProDisplay'; font-weight: 500;
+  }
+  .overview-item.overview-focus .overview-num { color: rgba(255,255,255,0.95); }
+  .overview-item.overview-current .overview-num { color: #fff; }
+
+  /* ===== Print ===== */
+  @media print {
+    .slide-nav, #overview-panel, .progress-bar { display: none !important; }
+    .slide { page-break-after: always; }
+  }
+</style>
+</head>
+<body>
+
+<!-- PROGRESS BAR -->
+<div class="progress-bar" id="progressBar" role="progressbar" aria-label="슬라이드 진행"></div>
+
+<!-- SLIDES WRAPPER -->
+<div class="slides-wrapper" id="slidesWrapper">
+
+  <!-- ===== Page 0 — Cover (ref 1.png) ===== -->
+  <section class="slide slide-cover">
+    <h1 class="cover-title animate delay-1">정밀 타격 대시보드 및<br>카드앱의 <span class="accent">세이버 메트릭스</span> 제안</h1>
+    <div class="cover-author animate delay-3">
+      <div>UX Insight팀</div>
+      <div>2026. 4. 28</div>
+    </div>
+  </section>
+
+  <!-- ===== Page 1 — 세그별 명칭 정의 (ref 0.png) ===== -->
+  <section class="slide slide-doc slide-segments">
+    <h2 class="doc-title animate delay-1">세그별 명칭 정의</h2>
+    <div class="seg-block animate delay-2">
+      <div class="seg-track-label">ACQUISITION TRACK</div>
+      <table class="seg-table">
+        <thead>
+          <tr><th>미설치자</th><th>장기 미이용자</th><th>간헐 이용자</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>No Show</td><td>Long-D</td><td>On-Off</td></tr>
+          <tr><td>Newbie</td><td>Long-Lost</td><td>Nomad</td></tr>
+          <tr><td>Cold</td><td>Churn</td><td>Float</td></tr>
+          <tr><td>Hiding</td><td>Missing</td><td>Wandering</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="seg-block muted animate delay-4">
+      <div class="seg-track-label">RETENTION TRACK</div>
+      <table class="seg-table">
+        <thead>
+          <tr><th>Light</th><th>Casual</th><th>Power</th></tr>
+        </thead>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== Page 2 — 대시보드 V.08 인트로 (ref 2.png) ===== -->
+  <section class="slide slide-intro">
+    <div class="slide-intro-body">
+      <h2 class="doc-title animate">대시보드 V.08</h2>
+      <h2 class="slide-title sm animate delay-1">정교한 세그멘테이션 기반<br>사용자 현황 파악 및 이상 징후 조기 감지</h2>
+      <div class="intro-cards">
+        <div class="intro-card animate delay-2">
+          <h3>세그별 사용자 수<br>및 전월 동기 대비 증감</h3>
+        </div>
+        <div class="intro-card animate delay-3">
+          <h3>세그별 사용자 속성<br>(보유 카드, 연령, 결제 횟수)</h3>
+        </div>
+        <div class="intro-card animate delay-4">
+          <h3>Retention 트랙 사용자<br>로그인 일수 전월 동기 비교</h3>
+        </div>
+      </div>
+    </div>
+    <div class="intro-footer animate delay-5">
+      현상 파악을 위한 대시보드를 빠르게 구축<br>
+      <span class="sub">단, 데이터 해석 및 활성화 방안은 바이위클리 단위, UXI팀 주도로 공유</span>
+    </div>
+  </section>
+
+  <!-- ===== Page 3 — 대시보드 V.08 > 세그별 현황 (ref 3.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">대시보드 V.08 &gt; 세그별 현황</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>Retention 트랙 3개 세그의 당월 누적 로그인 일수를 전월 동일 주차와 주별 비교 (세그는 전월 마감 기준)</li>
+      <li>평균 로그인 일수 감소 시 이탈 징후로 판단, 집중 관리 대상 조기 식별 (평일/휴일 수 차이 병기)</li>
+    </ul>
+    <div class="doc-image-wrap animate delay-3">
+      <img src="imgs/img_3.png" alt="세그별 현황 대시보드">
+    </div>
+  </section>
+
+  <!-- ===== Page 4 — 대시보드 V.08 > 이탈 조기 경보 (ref 4.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">대시보드 V.08 &gt; 이탈 조기 경보</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>Retention 트랙 3개 세그의 당월 누적 로그인 일수를 전월 동일 주차와 주별 비교 (세그는 전월 마감 기준)</li>
+      <li>평균 로그인 일수 감소 시 이탈 징후로 판단, 집중 관리 대상 조기 식별 (평일/휴일 수 차이 병기)</li>
+    </ul>
+    <div class="doc-image-wrap animate delay-3">
+      <img src="imgs/img_4.png" alt="이탈 조기 경보 대시보드">
+    </div>
+  </section>
+
+  <!-- ===== Page 5 — 야구 vs 카드앱 (ref 5.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">카드앱의 세이버 메트릭스 제안</h2>
+    <div class="attn-center">
+      <div class="head-center animate delay-2" style="margin-bottom: 110px;">야구가 세이버 메트릭스를 통해 선수의 기여를 재정의 했듯<br>카드앱도 앱의 질적 성장을 이끄는 기여 요인을 재정의</div>
+      <div class="compare-rounded animate delay-3">
+        <div class="cmp-row">
+          <div class="cmp-emoji"><span class="ico">⚾</span><span>야구</span></div>
+          <div class="cmp-from">타율, 평균자책점</div>
+          <div class="cmp-arrow">→</div>
+          <div class="cmp-to">OPS, WHIP, WAR, WPA</div>
+        </div>
+        <div class="cmp-row">
+          <div class="cmp-emoji"><span class="ico">💳</span><span>카드앱</span></div>
+          <div class="cmp-from">MAU, 이용률</div>
+          <div class="cmp-arrow">→</div>
+          <div class="cmp-to">FAI, RDI, VRI</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 6 — 라이프 사이클 (ref 6.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">카드앱의 세이버 메트릭스 제안</h2>
+    <div class="attn-center">
+      <div class="head-center animate delay-2">사용자 라이프 사이클을 관통하는 지표 체계</div>
+    <div class="lc-stages animate delay-3">
+      <div class="lc-stage">신규 사용자</div>
+      <div class="lc-stage">정기 사용자</div>
+      <div class="lc-stage">습관적 사용자</div>
+    </div>
+    <div class="lc-cards animate delay-4">
+      <div class="lc-card">
+        <div class="head"><span>FAI</span><span class="en">First Action Index</span></div>
+        <div class="body">
+          <div>신규 회원이 다음 달에도<br>돌아오게 하기 위한 목적</div>
+          <div>처음 앱을 사용하는 사람이<br>재방문 기여 기능을 경험했는가</div>
+        </div>
+      </div>
+      <div class="lc-card">
+        <div class="head"><span>RDI</span><span class="en">Revisit Driver Index</span></div>
+        <div class="body">
+          <div>이번 달 방문자가 다음 달에도<br>돌아오게 하기 위한 목적</div>
+          <div>재방문률에 기여하는 기능을<br>얼마나 잘 사용하고 있는가</div>
+        </div>
+      </div>
+      <div class="lc-card">
+        <div class="head"><span>VRI</span><span class="en">Visit Regularity Index</span></div>
+        <div class="body">
+          <div>습관화 완성으로<br>이탈을 방지하기 위한 목적</div>
+          <div>3개월 연속 방문으로<br>앱 방문이 습관화 되어 있는가</div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 7 — FAI 정의/공식 (ref 7.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">FAI (First Action Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>신규 회원 대상, '재방문 기여 기능(온보딩 기능)'을 정의하고 충족 여부를 측정</li>
+      <li>다음 달 재방문 및 세그 전환 가능성을 진단하는 선행 지표로 활용</li>
+    </ul>
+    <div class="attn-center">
+      <div class="formula-box animate delay-3">
+        <div class="formula">FAI&nbsp;&nbsp;=&nbsp;&nbsp;온보딩 달성자 수&nbsp;&nbsp;/&nbsp;&nbsp;신규 회원 수<span class="star">*</span>100</div>
+      </div>
+      <div class="formula-notes animate delay-4">
+        <p>온보딩 달성자 수 = 재방문 기여 기능 이용 완료 시 '1'로 취급 (미이용 시 '0')</p>
+        <p>신규 회원 수 = 당월 앱 가입자 수</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 8 — FAI 기능 정의 (ref 8.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">FAI (First Action Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>'24.9월 발행된 리텐션 데이터 인사이트 리포트 내 '재방문 기여 기능' 참고</li>
+      <li class="hl">신규 회원 대상 재방문 기여 기능은 26년 기준 현행화 필요</li>
+    </ul>
+    <div class="attn-center">
+    <div class="bh1 animate delay-3">
+      <div class="bhx-card">
+        <div class="head">'24.9월 Retention Data Insight Report &gt; 재방문 기여 기능</div>
+        <div class="body">
+          <h4>신규 회원</h4>
+          <ul>
+            <li>알림함, 최근이용내역, 앱카드</li>
+            <li>세 개가 AND 조건일 때, 미 이용자 대비 다음달 재방문률이 30프로 높아짐</li>
+          </ul>
+        </div>
+      </div>
+      <div class="bhx-card">
+        <div class="head">측정 방식</div>
+        <div class="body">
+          <ul>
+            <li>온보딩 달성 조건 : 알림함 AND 이용내역 AND 앱카드 이용</li>
+            <li>세 개 모두 충족 = 1 / 하나라도 빠지면 '0'</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 9 — FAI 활용 (ref 9.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">FAI (First Action Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>월간 기준 신규 회원의 FAI 달성률 및 미달성자 비율 트레킹</li>
+      <li>미달성 영역 확인 + 기능 이용 유도를 위한 실행 과제로 연결</li>
+    </ul>
+    <div class="dash-wrap animate delay-3">
+      <img src="imgs/img_9.png" alt="FAI 대시보드">
+    </div>
+    <p class="dash-cap animate delay-4">ex) 신규 회원의 FAI 및 병목 기능 정보</p>
+  </section>
+
+  <!-- ===== Page 10 — RDI 정의/공식 (ref 10.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">RDI (Revisit Driver Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>기존 회원 대상, '재방문 기여 기능'을 정의하고 각 세그별 충족 여부를 측정</li>
+      <li>다음 달 재방문 및 세그 전환 가능성을 진단하는 선행 지표로 활용</li>
+    </ul>
+    <div class="attn-center">
+      <div class="formula-box animate delay-3">
+        <div class="formula">RDI&nbsp;&nbsp;=&nbsp;&nbsp;달성자 수&nbsp;&nbsp;/&nbsp;&nbsp;이용자 수<span class="star">*</span>100</div>
+      </div>
+      <div class="formula-notes animate delay-4">
+        <p>달성자 수 = 재방문 기여 기능 이용 완료 시 '1'로 취급 (미이용 시 '0')</p>
+        <p>이용자 수 = 각 세그별 이용자수</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 11 — RDI 기능 정의 (ref 11.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">RDI (Revisit Driver Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>'24.9월 발행된 리텐션 데이터 인사이트 리포트 내 '재방문 기여 기능' 참고</li>
+      <li class="hl">명세서, 최근이용내역 등 주요 레거시 서비스 업데이트로 '재방문 기여 기능' 현행화 필요</li>
+    </ul>
+    <div class="attn-center">
+    <div class="bh1 animate delay-3">
+      <div class="bhx-card">
+        <div class="head">'24.9월 Retention Data Insight Report &gt; 재방문 기여 기능</div>
+        <div class="body two-col">
+          <div>
+            <h4>기존 회원 재방문 기여 기능</h4>
+            <ul>
+              <li>명세서, 알림함, 소비캘린더 중 하나라도 이용하는 경우, 3개월 연속 앱 이용률이 미 이용자 대비 15-16% 상승</li>
+            </ul>
+          </div>
+          <div>
+            <h4>혜택 관련 재방문 기여 기능</h4>
+            <ul>
+              <li>혜택 열람, 받기, 신청, 받은 선물 열람, 실적 충족 확인, CT 더보기 등</li>
+              <li>위 기능 중 하나라도 이용하는 경우, 미 이용자 대비 3개월 연속 앱 이용률이 10% 이상 상승</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 12 — RDI 분리 측정 (ref 12.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">RDI (Revisit Driver Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>루틴 RDI : 명세서, 알림함, 소비캘린더, 3개 기능 포함, 카드앱 방문 습관화 기여 기능에 대한 이용률</li>
+      <li>혜택 RDI : 혜택 열람, 받기, 신청 및 실적 확인 등 혜택 중심의 탐색/관리/활용 기능에 대한 이용률</li>
+    </ul>
+    <div class="attn-center">
+    <div class="bh2 animate delay-3">
+      <div class="bhx-card rdi-card">
+        <div class="head" style="text-align:center;">루틴 RDI</div>
+        <div class="body">
+          <div class="center-block">
+            <span class="lead">루틴 달성 조건</span>
+            : 명세서 OR 알림함 OR 소비캘린더 이용<br>
+            세 개 중 하나로도 충족 시 =1<br>
+            모두 미충족시 = 0
+          </div>
+          <div class="formula-mini">루틴 RDI = 달성자 수 / 해당 세그 전체<span class="star"> * </span>100</div>
+        </div>
+      </div>
+      <div class="bhx-card rdi-card">
+        <div class="head" style="text-align:center;">혜택 RDI</div>
+        <div class="body">
+          <div class="center-block">
+            <span class="lead">혜택 달성 조건</span>
+            : 혜택 열람 OR 받기 OR 신청 OR<br>
+            받은 선물 OR 실적확인 OR CT 더보기<br>
+            하나로도 충족 시 =1<br>
+            모두 미충족시 = 0
+          </div>
+          <div class="formula-mini">혜택 RDI = 달성자 수 / 해당 세그 전체<span class="star"> * </span>100</div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 13 — RDI 활용 (ref 13.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">RDI (Revisit Driver Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>전월 대비 RDI 달성률 및 미달성자 비율 트레킹</li>
+      <li>세그별 미달성 영역 확인 + 기능 이용 유도를 위한 실행 과제로 연결</li>
+    </ul>
+    <div class="dash-wrap animate delay-3">
+      <img src="imgs/img_13.png" alt="RDI 대시보드">
+    </div>
+    <p class="dash-cap animate delay-4">ex) 라이트/캐쥬얼/파워 유저별 루틴/혜택 RDI 및 병목 기능 정보</p>
+  </section>
+
+  <!-- ===== Page 14 — VRI 정의/공식 (ref 14.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">VRI (Visit Recurrence Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>3개월 연속 사용 여부를 트레킹하여, 앱 방문 습관화 여부를 측정</li>
+      <li>연속 사용 미달성 현황을 감지, RDI (Revisit Driver Index)와 함께 모니터링하여 연속 방문 루틴을 만드는 것이 목표</li>
+    </ul>
+    <div class="attn-center">
+      <div class="formula-box animate delay-3">
+        <div class="formula">VRI&nbsp;&nbsp;=&nbsp;&nbsp;3개월 연속 사용자 수&nbsp;&nbsp;/&nbsp;&nbsp;전체 사용자 수<span class="star">*</span>100</div>
+      </div>
+      <div class="formula-notes animate delay-4">
+        <p>세그별 방문률 집계 및 미달성자 이용 패턴 동시 트레킹</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 15 — VRI 4 패턴 (ref 15.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">VRI (Visit Recurrence Index)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>3개월 연속 이용 미달자의 이용 패턴을 동시 트레킹하여, 패턴별 문제 진단</li>
+      <li>이탈 위험이 높은 그룹에 대해 재방문 기여 기능 이용 현황 교차 점검</li>
+    </ul>
+    <div class="attn-center">
+      <div class="pat4 animate delay-3">
+        <div class="pat4-card">
+          <div class="code">OOO</div>
+          <div class="top">3개월 연속 방문으로<br>습관화 완성</div>
+          <div class="bot">유지 관리 그룹</div>
+        </div>
+        <div class="pat4-card">
+          <div class="code">XOO</div>
+          <div class="top">2개월 연속 방문<br>습관화 진행 또는 이탈 후 회복</div>
+          <div class="bot">다음달 방문 유도 필수<br>RDI*점검 필요</div>
+        </div>
+        <div class="pat4-card">
+          <div class="code">OXO</div>
+          <div class="top">격월 방문<br>방문 루틴이 미형성</div>
+          <div class="bot">위험 그룹으로 개입 필요<br>RDI* 점검 필요</div>
+        </div>
+        <div class="pat4-card">
+          <div class="code">XXO</div>
+          <div class="top">당월만 방문<br>신규 / 장기 미사용자유입</div>
+          <div class="bot">다음 달 방문 유도 필수<br>FAI* 점검 필요</div>
+        </div>
+      </div>
+      <div class="pat4-foot animate delay-4">
+        *RDI (Revisit Driver Index) : 기존 회원 기준, 재방문 기여 기능 이용률<br>
+        *FAI (First Action Indx) : 신규 회원 기준, 재방문 기여 기능 이용률
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 16 — VRI 활용 (ref 16.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">VRI (Visit Recurrence Index)</h2>
+    <div class="dash-wrap dual animate delay-2">
+      <img src="imgs/img_16_1.png" alt="VRI 대시보드 1">
+      <img src="imgs/img_16_2.png" alt="VRI 대시보드 2">
+    </div>
+  </section>
+
+  <!-- ===== Page 17 — LPI 정의/공식 (ref 17.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">LPI (Lapse Pattern Index) <span class="badge-discuss">논의 필요</span></h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>간헐 사용자가 다음 달 앱을 방문하게 하기 위한 목적</li>
+      <li>'라이트 유저 전환 기여 기능'을 정의하고, 간헐 이용자 대상으로 기능 이용 달성 여부를 측정</li>
+    </ul>
+    <div class="attn-center">
+      <div class="formula-box animate delay-3">
+        <div class="formula">LRI&nbsp;&nbsp;=&nbsp;&nbsp;기여 기능 이용자 수&nbsp;&nbsp;/&nbsp;&nbsp;간헐 이용자 수<span class="star">*</span>100</div>
+      </div>
+      <div class="formula-notes animate delay-4">
+        <p>기여 기능 이용자 수 = 재방문 기여 기능 이용 완료 시 '1'로 취급 (미이용 시 '0')</p>
+        <p>간헐 이용자 = 앱 경험자 중 MAU 미포함 회원 (최근 3개월 이용 기록 기준)</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 18 — LPI 기능 정의 (ref 18.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">LPI (Lapse Pattern Index) <span class="badge-discuss">논의 필요</span></h2>
+    <ul class="doc-bullets animate delay-2">
+      <li class="hl">가설을 기준으로 지표를 정의, 라이트 유저 전환 기능 정의를 위한 데이터 분석 필요</li>
+    </ul>
+    <div class="attn-center">
+    <div class="bh2 animate delay-3">
+      <div class="bhx-card">
+        <div class="head" style="text-align:center;">라이트 유저 전환 기여 기능 정의</div>
+        <div class="body" style="align-items:center;text-align:center;justify-content:center;gap:36px;">
+          <div style="font-size:calc(24px * var(--font-scale));font-weight:700;line-height:1.7;color:var(--text);">
+            개월 연속 라이트 유저 유지 대상 기준<br>연속 이용 기능 도출
+          </div>
+          <div style="font-size:calc(24px * var(--font-scale));font-weight:700;line-height:1.7;color:var(--text);">
+            간헐 이용자 이용 기능과 비교<br><span style="font-size:1.4em;">↓</span>
+          </div>
+          <div style="background:var(--soft-fill);border-radius:16px;padding:32px 40px;width:100%;font-size:calc(24px * var(--font-scale));font-weight:800;line-height:1.55;text-align:center;">
+            라이트 유저만 이용하는 기능<br>= 라이트 유저 전환 기능
+          </div>
+        </div>
+      </div>
+      <div class="bhx-card">
+        <div class="head" style="text-align:center;">측정 방식</div>
+        <div class="body" style="align-items:center;text-align:center;justify-content:center;flex:1;">
+          <div style="font-size:calc(26px * var(--font-scale));font-weight:700;line-height:1.7;color:var(--text);">
+            세그 전환 기여 기능 이용 여부를<br>AND, OR 조건 모두 측정<br>→ 병목 기능 트레킹
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 19 — LPI 4 패턴 (ref 19.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">LPI (Lapse Pattern Index) <span class="badge-discuss">논의 필요</span></h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>간헐 이용자의 이탈 패턴을 동시 트레킹 하여 패턴별 문제 진단</li>
+      <li>이탈 위험이 높은 그룹에 대해 라이트 전환 기여 기능 이용 현황 교차 점검</li>
+    </ul>
+    <div class="attn-center">
+      <div class="pat4 animate delay-3">
+        <div class="pat4-card">
+          <div class="code">OOX</div>
+          <div class="top">연속 방문 후 당월 이탈</div>
+          <div class="bot">이탈 초기로<br>재유입 가능성 높음</div>
+        </div>
+        <div class="pat4-card">
+          <div class="code">XOX</div>
+          <div class="top">전월만 방문, 당월 이탈</div>
+          <div class="bot">단발 방문 패턴으로<br>루틴 미형성</div>
+        </div>
+        <div class="pat4-card">
+          <div class="code">OXX</div>
+          <div class="top">2개월 연속 미방문</div>
+          <div class="bot">이탈 진행 중<br>위험 그룹으로 즉시 개입 필요</div>
+        </div>
+        <div class="pat4-card">
+          <div class="code">XXX</div>
+          <div class="top">3개월 연속 미방문</div>
+          <div class="bot">이탈 장기화<br>기존의 개입 방식 전환 필요</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 20 — LPI 활용 (ref 20.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">LPI (Lapse Pattern Index) <span class="badge-discuss">논의 필요</span></h2>
+    <div class="dash-wrap dual animate delay-2">
+      <img src="imgs/img_20_1.png" alt="LPI 대시보드 1">
+      <img src="imgs/img_20_2.png" alt="LPI 대시보드 2">
+    </div>
+  </section>
+
+  <!-- ===== Page 21 — BA 인트로 (ref 21.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">+ BA (Business Attribution)</h2>
+    <ul class="doc-bullets animate delay-2">
+      <li>앱의 비즈니스 기여도를 정량화하여 트레킹 할 수 있는 지표</li>
+      <li>직접 수익 / 비용 절감 / 간접 수익으로 구분하여 이용자 수 및 비용 가시화</li>
+    </ul>
+    <div class="attn-center">
+    <div class="ba-cards animate delay-3">
+      <div class="ba-card">
+        <div class="head">직접 수익</div>
+        <div class="body">
+          <div class="lede">앱 이용으로 발생한<br>신규/증분 수익</div>
+          <div class="items">
+            <div class="label">주요 항목</div>
+            <ul>
+              <li>CA, CL, 리볼빙</li>
+              <li>FeeBiz</li>
+              <li>생활요금 자동 결제</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="ba-card">
+        <div class="head">비용 절감</div>
+        <div class="body">
+          <div class="lede">디지털 전환으로<br>절감한 OPEX</div>
+          <div class="items">
+            <div class="label">주요 항목</div>
+            <ul>
+              <li>우편명세서 → 앱명세서 전환</li>
+              <li>마케팅 미동의 → 동의 전환</li>
+              <li>혜택 LMS → 앱 푸시 전환</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="ba-card">
+        <div class="head">간접 수익</div>
+        <div class="body">
+          <div class="lede">앱 이용 및 세그 전환에<br>따른 기대 수익</div>
+          <div class="items">
+            <div class="label">주요 항목</div>
+            <ul>
+              <li>앱 미이용 → 앱 이용</li>
+              <li>Light → Casual 전환</li>
+              <li>Casual → Power 전환</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- ===== Page 22 — BA > 직접 수익 (ref 22.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">+ BA (Business Attribution) &gt; 직접 수익</h2>
+    <div class="dash-stack animate delay-2">
+      <img class="img-back" src="imgs/img_22_1.png" alt="BA 직접 수익 대시보드 1">
+      <img class="img-front" src="imgs/img_22_2.png" alt="BA 직접 수익 대시보드 2">
+    </div>
+    <p class="dash-cap animate delay-3">ex.1) 직접 수익 기여액 : 항목별 이용자 수, 신청 금액 합산, 앱 신청 점유율 및 전월 대비 증감 정보 제공</p>
+  </section>
+
+  <!-- ===== Page 23 — BA > 비용 절감 (ref 23.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">+ BA (Business Attribution) &gt; 비용 절감</h2>
+    <div class="dash-side animate delay-2">
+      <div class="dash-side-img">
+        <img src="imgs/img_23.png" alt="BA 비용 절감 대시보드">
+        <p class="dash-cap">ex.2) 비용 절감 기여액 : 항목별 이용자 수, 절감액 합산, 전환율 현황 및 전월 대비 증감 정보 제공</p>
+      </div>
+      <ul class="dash-side-notes">
+        <li>우편명세서 → 앱 명세서 전환 OPEX 절감액 (1년) : 6,152원</li>
+        <li>마케팅 미동의 → 동의 전환 OPEX 절감액 (1년) : 6,152원</li>
+        <li>혜택 알림 LMS → Push 전환 OPEX 절감액 (1년) : 1,633원</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== Page 24 — BA > 간접 수익 (ref 24.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">+ BA (Business Attribution) &gt; 간접 수익</h2>
+    <div class="dash-side animate delay-2">
+      <div class="dash-side-img">
+        <img src="imgs/img_24.png" alt="BA 간접 수익 대시보드">
+        <p class="dash-cap">ex.3) 앱 이용에 따른 기대 수익 : 신규 가입 및 세그 전환에 따른 인당 기대 수익 현황</p>
+      </div>
+      <ul class="dash-side-notes">
+        <li>앱 미이용 → 이용 기대 신판 수익 (1년) : 8,357원</li>
+        <li><span class="tag-update">[갱신 필요]</span> Lite → Casual 전환 시 기대 수익 : 1,703원 (1회)</li>
+        <li><span class="tag-update">[갱신 필요]</span> Casual → Power 전환 시 기대 수익 : 2,266원 (1회)</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===== Page 25 — 대시보드 구축 계획 (ref 25.png) ===== -->
+  <section class="slide slide-doc">
+    <h2 class="doc-title animate delay-1">대시보드 구축 계획</h2>
+    <div class="attn-center">
+    <table class="plan-table animate delay-2">
+      <thead>
+        <tr>
+          <th></th>
+          <th>v 0.8 <small>(전체 공유용)</small></th>
+          <th>v 0.9 <small>(전체 공유용)</small></th>
+          <th>v 1.0 <small>(전체 공유 + 내부 확인용)</small></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-schedule">
+          <td class="label">일정</td>
+          <td>5월 목표</td><td>7월 목표</td><td>9월 목표</td>
+        </tr>
+        <tr>
+          <td class="label">구축 형태</td>
+          <td>HTML 파일<span class="sub">(데이터 수동 업데이트)</span></td>
+          <td>좌동</td>
+          <td>데이터 자동 업데이트 목표<span class="sub">전체용 : MIS(업무망) Vs. SALAD(관리망)<br>내부용 : SALAD(관리망)</span></td>
+        </tr>
+        <tr class="row-hl">
+          <td class="label">주요 정보</td>
+          <td>주 단위<ul><li>세그별 이용자 수</li><li>Rentention 트랙 이탈 조기 경보</li></ul></td>
+          <td>(+) 월 단위<ul><li>세그별 전환율</li><li>비즈니스 기여도</li></ul></td>
+          <td>(+) 월 단위<span class="sub">내부 확인용 : 세이버 매트릭스<br>(FAI, RDI, VRI)</span></td>
+        </tr>
+        <tr>
+          <td class="label">장점</td>
+          <td>데이터 파트 운영 리소스 최소화<span class="sub">빠르게 데이터 시각화 가능</span></td>
+          <td>좌동</td>
+          <td>UXI 운영 리소스 최소화<span class="sub">대시보드 접근성 향상</span></td>
+        </tr>
+        <tr>
+          <td class="label">단점</td>
+          <td>매주 수동으로 데이터 업데이트 및<span class="sub">본부 내 수기 전파 필요</span></td>
+          <td>좌동</td>
+          <td>대시보드 구축 환경에 따른 개발 리소스 상이<span class="sub">데이터 파트의 운영/관리 리소스 커짐</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- ===== Page 26 — EOD ===== -->
+  <section class="slide slide-eod">
+    <div class="eod-text animate">EOD</div>
+  </section>
+
+</div>
+
+<!-- SLIDE NAV -->
+<nav class="slide-nav" aria-label="슬라이드 네비게이션">
+  <button onclick="prevSlide()" aria-label="이전 슬라이드">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+  </button>
+  <span class="slide-counter" id="slideCounter" aria-live="polite">1 / 27</span>
+  <button onclick="nextSlide()" aria-label="다음 슬라이드">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+  </button>
+</nav>
+
+<!-- OVERVIEW PANEL -->
+<div id="overview-panel">
+  <div id="overview-controls">
+    <button data-ctrl="0" onclick="closeOverview(); toggleFullscreen();"><span id="fsIcon">⛶</span><span id="fsLabel">전체 화면</span></button>
+    <button data-ctrl="1" onclick="closeOverview(); cycleTheme();"><span id="themeIcon">🌙</span><span id="themeLabel">Dark</span></button>
+    <div class="font-row" data-ctrl="2">
+      <button onclick="adjustFontScale(-0.1)">A−</button>
+      <span id="fontScaleLabel">100%</span>
+      <button onclick="adjustFontScale(0.1)">A+</button>
+    </div>
+    <button data-ctrl="3" onclick="window.print()"><span>🖨️</span><span>Print / PDF</span></button>
+  </div>
+  <div id="overview-track"></div>
+</div>
+
+<script>
+  // ===== Slides core =====
+  var slides = Array.from(document.querySelectorAll('.slide'));
+  var total = slides.length;
+  var currentSlide = 0;
+  var counter = document.getElementById('slideCounter');
+  var progress = document.getElementById('progressBar');
+
+  function showSlide(idx) {
+    idx = Math.max(0, Math.min(total - 1, idx));
+    slides.forEach(function (s, i) {
+      s.classList.remove('active', 'exit-left');
+      if (i === idx) s.classList.add('active');
+      else if (i < idx) s.classList.add('exit-left');
+    });
+    currentSlide = idx;
+    counter.textContent = (idx + 1) + ' / ' + total;
+    progress.style.width = ((idx + 1) / total * 100) + '%';
+    // animate 재트리거
+    var animEls = slides[idx].querySelectorAll('.animate');
+    animEls.forEach(function (el) { el.style.animation = 'none'; void el.offsetHeight; el.style.animation = ''; });
+  }
+  function nextSlide() { if (currentSlide < total - 1) showSlide(currentSlide + 1); }
+  function prevSlide() { if (currentSlide > 0) showSlide(currentSlide - 1); }
+  window.nextSlide = nextSlide; window.prevSlide = prevSlide; window.showSlide = showSlide;
+
+  // ===== Theme =====
+  var savedTheme = localStorage.getItem('dashboard-theme') || 'dark';
+  function applyTheme(t) {
+    document.documentElement.className = 'theme-' + t;
+    document.getElementById('themeIcon').textContent = t === 'dark' ? '🌙' : '☀️';
+    document.getElementById('themeLabel').textContent = t === 'dark' ? 'Dark' : 'Light';
+    localStorage.setItem('dashboard-theme', t);
+  }
+  function cycleTheme() { applyTheme(document.documentElement.classList.contains('theme-dark') ? 'light' : 'dark'); }
+  applyTheme(savedTheme);
+  window.cycleTheme = cycleTheme;
+
+  // ===== Font scale =====
+  var currentFontScale = parseFloat(localStorage.getItem('dashboard-font-scale') || '1');
+  document.documentElement.style.setProperty('--font-scale', currentFontScale);
+  document.getElementById('fontScaleLabel').textContent = Math.round(currentFontScale * 100) + '%';
+  function adjustFontScale(delta) {
+    currentFontScale = Math.max(0.7, Math.min(1.5, +(currentFontScale + delta).toFixed(1)));
+    document.documentElement.style.setProperty('--font-scale', currentFontScale);
+    document.getElementById('fontScaleLabel').textContent = Math.round(currentFontScale * 100) + '%';
+    localStorage.setItem('dashboard-font-scale', currentFontScale);
+  }
+  window.adjustFontScale = adjustFontScale;
+
+  // ===== Fullscreen =====
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      document.getElementById('fsIcon').textContent = '✕';
+      document.getElementById('fsLabel').textContent = '전체 화면 종료';
+    } else {
+      document.exitFullscreen();
+    }
+  }
+  document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement) {
+      document.getElementById('fsIcon').textContent = '⛶';
+      document.getElementById('fsLabel').textContent = '전체 화면';
+    }
+  });
+  window.toggleFullscreen = toggleFullscreen;
+
+  // ===== Overview panel =====
+  var OVERVIEW_H = 220;
+  var overviewOpen = false;
+  var overviewFocus = 0;
+  var overviewSection = 'thumbs';
+  var overviewControlFocus = 0;
+
+  function buildOverview() {
+    var track = document.getElementById('overview-track');
+    track.innerHTML = '';
+    slides.forEach(function (slide, i) {
+      var item = document.createElement('div');
+      item.className = 'overview-item' + (i === currentSlide ? ' overview-current' : '') + (i === overviewFocus ? ' overview-focus' : '');
+      item.dataset.index = i;
+
+      var thumb = document.createElement('div');
+      thumb.className = 'overview-thumb';
+      var clone = slide.cloneNode(true);
+      clone.classList.add('overview-clone');
+      clone.classList.add('active'); // ensure visible in clone
+      clone.style.opacity = '1';
+      clone.style.transform = 'scale(0.08824)';
+      thumb.appendChild(clone);
+
+      var num = document.createElement('div');
+      num.className = 'overview-num';
+      var eye = (i === currentSlide)
+        ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity:0.7;vertical-align:middle;margin-right:4px"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+        : '';
+      num.innerHTML = eye + (i + 1);
+
+      item.appendChild(thumb);
+      item.appendChild(num);
+      item.addEventListener('click', function () {
+        var idx = parseInt(this.dataset.index, 10);
+        closeOverview();
+        setTimeout(function () { showSlide(idx); }, 50);
+      });
+      track.appendChild(item);
+    });
+    scrollOverviewToFocus();
+  }
+  function scrollOverviewToFocus() {
+    var track = document.getElementById('overview-track');
+    var items = track.querySelectorAll('.overview-item');
+    if (items[overviewFocus]) {
+      var el = items[overviewFocus];
+      track.scrollLeft = el.offsetLeft - track.offsetWidth / 2 + el.offsetWidth / 2;
+    }
+  }
+  function updateOverviewFocus(idx) {
+    overviewFocus = idx;
+    var items = document.querySelectorAll('#overview-track .overview-item');
+    items.forEach(function (el, i) { el.classList.toggle('overview-focus', i === idx); });
+    scrollOverviewToFocus();
+  }
+  function updateControlFocus(i) {
+    overviewControlFocus = i;
+    document.querySelectorAll('#overview-controls [data-ctrl]').forEach(function (el) {
+      el.classList.toggle('control-focus', parseInt(el.dataset.ctrl, 10) === i);
+    });
+  }
+  function setOverviewSection(s) {
+    overviewSection = s;
+    if (s === 'controls') {
+      updateControlFocus(overviewControlFocus || 0);
+      document.querySelectorAll('#overview-track .overview-item').forEach(function (el) { el.classList.remove('overview-focus'); });
+    } else {
+      document.querySelectorAll('#overview-controls [data-ctrl]').forEach(function (el) { el.classList.remove('control-focus'); });
+      updateOverviewFocus(overviewFocus);
+    }
+  }
+  function openOverview() {
+    overviewOpen = true;
+    overviewFocus = currentSlide;
+    overviewSection = 'thumbs';
+    buildOverview();
+    document.getElementById('overview-panel').classList.add('open');
+    scaleSlides();
+  }
+  function closeOverview() {
+    overviewOpen = false;
+    document.getElementById('overview-panel').classList.remove('open');
+    document.querySelectorAll('#overview-controls [data-ctrl]').forEach(function (el) { el.classList.remove('control-focus'); });
+    scaleSlides();
+  }
+  window.openOverview = openOverview; window.closeOverview = closeOverview;
+
+  // ===== Scale slides to viewport =====
+  function scaleSlides() {
+    var wrapper = document.getElementById('slidesWrapper');
+    var availH = window.innerHeight - (overviewOpen ? OVERVIEW_H : 0);
+    var scale = Math.min(window.innerWidth / 2040, availH / 1080);
+    var offsetX = (window.innerWidth - 2040 * scale) / 2;
+    var offsetY = (availH - 1080 * scale) / 2;
+    wrapper.style.transform = 'translate(' + offsetX + 'px, ' + offsetY + 'px) scale(' + scale + ')';
+  }
+  window.addEventListener('resize', scaleSlides);
+
+  // ===== Keyboard =====
+  document.addEventListener('keydown', function (e) {
+    if (!overviewOpen && e.key === 'ArrowUp') { e.preventDefault(); openOverview(); return; }
+    if (overviewOpen) {
+      if (overviewSection === 'controls') {
+        var CTRL_MAX = 3; var onFontRow = overviewControlFocus === 2;
+        if (e.key === 'ArrowRight') { e.preventDefault(); if (onFontRow) adjustFontScale(0.1); else setOverviewSection('thumbs'); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); if (onFontRow) adjustFontScale(-0.1); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); if (overviewControlFocus < CTRL_MAX) updateControlFocus(overviewControlFocus + 1); else closeOverview(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (overviewControlFocus > 0) updateControlFocus(overviewControlFocus - 1); }
+        else if (e.key === 'Enter') { e.preventDefault(); if (!onFontRow) { var btn = document.querySelector('#overview-controls button[data-ctrl="' + overviewControlFocus + '"]'); if (btn) btn.click(); } }
+        else if (e.key === 'Escape') { e.preventDefault(); closeOverview(); }
+      } else {
+        if (e.key === 'ArrowRight') { e.preventDefault(); overviewFocus = Math.min(overviewFocus + 1, slides.length - 1); updateOverviewFocus(overviewFocus); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); if (overviewFocus === 0) setOverviewSection('controls'); else { overviewFocus--; updateOverviewFocus(overviewFocus); } }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); closeOverview(); }
+        else if (e.key === 'Enter') { e.preventDefault(); var idx = overviewFocus; closeOverview(); setTimeout(function () { showSlide(idx); }, 50); }
+        else if (e.key === 'Escape') { e.preventDefault(); closeOverview(); }
+      }
+    } else {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); nextSlide(); }
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); prevSlide(); }
+      if (e.key === 'Home') { e.preventDefault(); showSlide(0); }
+      if (e.key === 'End') { e.preventDefault(); showSlide(total - 1); }
+      if (e.key === 't' || e.key === 'T') { cycleTheme(); }
+    }
+  });
+
+  // ===== Touch =====
+  var touchStartX = 0;
+  document.addEventListener('touchstart', function (e) { touchStartX = e.changedTouches[0].screenX; });
+  document.addEventListener('touchend', function (e) {
+    var diff = touchStartX - e.changedTouches[0].screenX;
+    if (Math.abs(diff) > 50 && !overviewOpen) { diff > 0 ? nextSlide() : prevSlide(); }
+  });
+
+  // ===== Init =====
+  scaleSlides();
+  showSlide(0);
+</script>
+</body>
+</html>

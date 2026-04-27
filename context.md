@@ -386,8 +386,25 @@
 - "정밀 타격 대시보드 및 카드앱의 세이버 메트릭스 제안" 27장 단일 HTML 발표 자료 (2026-04-28, UX Insight팀)
 - 세이버 메트릭스(FAI / RDI / VRI) + LPI(논의 필요) + BA(Business Attribution) + 대시보드 v0.8/0.9/1.0 구축 계획
 - 위치: `Document_templete/dashboard/dashboard.html`
+- **신규 폴리싱 버전**: `Document_templete/dashboard/dashboard_v0.8.html` — 디자인 참고와 1:1 정합 작업 진행 중 (2026-04-28)
 - 디자인 참고: `Document_templete/dashboard/장표디자인참고/0~26.png`
 - 대시보드 스크린샷: `Document_templete/dashboard/imgs/img_*.png` (페이지 3,4,9,13,16,20,22,23,24)
+
+### dashboard_v0.8.html 폴리싱 (2026-04-28)
+- Page 5 (야구 vs 카드앱): `.compare-rounded` 배경을 공식 박스와 동일한 골드 `rgba(158,138,73,0.12)`로 통일, head-center ↔ box 간격 60→110px(슬라이드 5 한정)
+- Page 11 (RDI 2동력): `.bhx-card .body.two-col` 안 h4 margin-bottom 4→22px, ul gap 12→6px (타이틀-리스트는 띄우고 li끼리는 모음)
+- Page 12 (루틴/혜택 RDI): rdi-card body에 `flex:1` + center-block에 `margin-top:auto` 추가해 center-block 위/아래 마진 동일 분배. body padding-top을 gap과 같은 22px로 보정
+- Page 18 (LPI 측정 방식): 우측 카드 body `flex:1` 인라인 추가 — 기존 `justify-content:center`가 작동하도록 (안 텍스트 세로 중앙)
+- Page 21 (BA 인트로): `.ba-card .body` gap 24→40px, lede(설명문) 위 padding(40)과 같아져 lede 위/아래 마진 대칭
+- Page 23/24 (BA 비용절감/간접수익): `<p class="dash-cap">`을 `<div class="dash-side-img">` 안으로 이동해 이미지 컬럼 아래 센터 정렬
+- Page 25 (구축 계획 표): `.plan-table` 풀리뉴얼
+  - 헤더 좌측 정렬(아래 셀과 앞정렬 통일), `<small>` 인라인 + 동일 굵기로 한 줄 처리
+  - `tr.row-schedule td`: 회색 배경(`var(--soft-fill)`) + `border-top: 2px solid var(--text)`로 표 상단 검정 라인이 일정 행 위에서 좌→우 끊김 없이 연결
+  - `tr.row-hl td`: 살몬 → 크림옐로우(`#FAF1D6` light / 노랑 18% dark)
+  - 폰트 전반 키움(th 26→32, td/ul/sub 22→28, label 24→30), 레이블 padding-left 10→40px(들여쓰기), 불릿을 `·`(글리프) → 8px 진짜 원형 도트
+  - `<div class="attn-center">`로 감싸 표 세로 중앙 정렬
+- 공식 박스(`.formula`) 폰트 72→60px (페이지 7/10/14/17 공통)
+- 애니메이션 변경 시도 후 원복: `.slide.active .animate` 스코프로 변경 → 사용자 "어색해" 반응 → 원래 `.animate` 단순 키프레임으로 복귀
 
 ### 시스템 (template.html 그대로 가져옴)
 - `html.theme-dark` / `html.theme-light` 클래스 토글 + CSS 변수 토큰 (--bg, --surface, --text, --text-secondary, --accent 등) 동일
