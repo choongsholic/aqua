@@ -77,7 +77,7 @@ body.light .darkmode-btn:hover { background: rgba(0,0,0,0.15); }
 body.light .tabbar { background: rgba(0,0,0,0.08); }
 body.light .tab.active { background: #000; color: #fff; border-color: #000; }
 body.light .tab:hover:not(.active) { color: rgba(0,0,0,0.6); }
-body.light .tank-wrap:not(.lf-state-good):not(.lf-state-warn):not(.lf-state-danger) .tank-card:hover { border-color: rgba(0,0,0,0.4); }
+body.light .tank-wrap:not(.lf-state-good):not(.lf-state-warn):not(.lf-state-danger) .tank-card:hover { border-color: rgba(0,0,0,0.64); }
 body.light .alert-badge { background: var(--red); color: #fff; }
 body.light .alert-badge.warn-tier { background: var(--clr-warn); color: #000; }
 body.light .alert-badge.confirm-tier { background: #000; color: #fff; }
@@ -1129,10 +1129,10 @@ body.light .tab.kbd-focus:not(.active) { color: rgba(0,0,0,0.6); }
 .tank-wrap.kbd-focus .tank-card .tank-name,
 .tank-wrap.kbd-focus .tank-card .tank-caret { opacity: 1; }
 .tank-wrap.kbd-focus .tank-card .tank-caret { color: var(--white); }
-.tank-wrap.alert.kbd-focus    .tank-card { border-color: var(--tier-bad-border-hover); }
-.tank-wrap.sev-warn.kbd-focus .tank-card { border-color: var(--tier-warn-border-hover); }
-.tank-wrap.sev-good.kbd-focus .tank-card { border-color: var(--tier-good-border-hover); }
-body.light .tank-wrap:not(.lf-state-good):not(.lf-state-warn):not(.lf-state-danger).kbd-focus .tank-card { border-color: rgba(0,0,0,0.4); }
+.lf-mode .tank-wrap.lf-state-danger.kbd-focus .tank-card { border-color: var(--tier-bad-border-hover); }
+.lf-mode .tank-wrap.lf-state-warn.kbd-focus   .tank-card { border-color: var(--tier-warn-border-hover); }
+.lf-mode .tank-wrap.lf-state-good.kbd-focus   .tank-card { border-color: var(--tier-good-border-hover); }
+body.light .tank-wrap:not(.lf-state-good):not(.lf-state-warn):not(.lf-state-danger).kbd-focus .tank-card { border-color: rgba(0,0,0,0.64); }
 /* LF 모드: 포커스된 카드 외 나머지 페이드 (호버와 동일) */
 .lf-mode #ret-section .tanks-row:has(.tank-wrap.kbd-focus) .tank-wrap:not(.kbd-focus) { opacity: 0.4; }
 .lf-mode #ret-section .tank-wrap.kbd-focus .lf-copy-btn { display: flex; }
@@ -1140,19 +1140,21 @@ body.light .tank-wrap:not(.lf-state-good):not(.lf-state-warn):not(.lf-state-dang
 body.kbd-nav .tab:hover:not(.active) { color: var(--muted); }
 body.light.kbd-nav .tab:hover:not(.active) { color: rgba(0,0,0,0.35); }
 body.kbd-nav .tank-card:hover { border-color: var(--border-card); }
+body.light.kbd-nav .tank-wrap:not(.lf-state-good):not(.lf-state-warn):not(.lf-state-danger) .tank-card:hover { border-color: var(--border-card); }
 body.kbd-nav .tank-card:hover .tank-name  { opacity: 0.64; }
 body.kbd-nav .tank-card:hover .tank-caret { opacity: 1; color: var(--muted); }
-body.kbd-nav .tank-wrap.alert    .tank-card:hover { border-color: rgba(var(--clr-bad-rgb),0.40); }
-body.kbd-nav .tank-wrap.sev-warn .tank-card:hover { border-color: rgba(var(--clr-warn-rgb),0.45); }
-body.kbd-nav .tank-wrap.sev-good .tank-card:hover { border-color: rgba(var(--clr-good-rgb),0.40); }
+/* kbd-nav 시 tier hover 색 완전 억제 (마우스가 잔존해도 호버 상태값 안 보이게) */
+body.kbd-nav .lf-mode .tank-wrap.lf-state-good   .tank-card:hover { border-color: var(--tier-good-border); }
+body.kbd-nav .lf-mode .tank-wrap.lf-state-warn   .tank-card:hover { border-color: var(--tier-warn-border); }
+body.kbd-nav .lf-mode .tank-wrap.lf-state-danger .tank-card:hover { border-color: var(--tier-bad-border); }
 body.kbd-nav .lf-mode #ret-section .tanks-row:has(.tank-wrap:hover) .tank-wrap:not(:hover) { opacity: 1; }
 body.kbd-nav .lf-mode #ret-section .tank-card:hover .lf-copy-btn:not(.copied) { display: none; }
 /* kbd-focus는 계속 적용 */
 body.kbd-nav .tank-wrap.kbd-focus .tank-card { border-color: rgba(255,255,255,0.80); }
-body.light.kbd-nav .tank-wrap:not(.lf-state-good):not(.lf-state-warn):not(.lf-state-danger).kbd-focus .tank-card { border-color: rgba(0,0,0,0.4); }
-body.kbd-nav .tank-wrap.alert.kbd-focus    .tank-card { border-color: var(--tier-bad-border-hover); }
-body.kbd-nav .tank-wrap.sev-warn.kbd-focus .tank-card { border-color: var(--tier-warn-border-hover); }
-body.kbd-nav .tank-wrap.sev-good.kbd-focus .tank-card { border-color: var(--tier-good-border-hover); }
+body.light.kbd-nav .tank-wrap:not(.lf-state-good):not(.lf-state-warn):not(.lf-state-danger).kbd-focus .tank-card { border-color: rgba(0,0,0,0.64); }
+body.kbd-nav .lf-mode .tank-wrap.lf-state-danger.kbd-focus .tank-card { border-color: var(--tier-bad-border-hover); }
+body.kbd-nav .lf-mode .tank-wrap.lf-state-warn.kbd-focus   .tank-card { border-color: var(--tier-warn-border-hover); }
+body.kbd-nav .lf-mode .tank-wrap.lf-state-good.kbd-focus   .tank-card { border-color: var(--tier-good-border-hover); }
 body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-name,
 body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-caret { opacity: 1; }
 body.kbd-nav .tank-wrap.kbd-focus .tank-card .tank-caret { color: var(--white); }
@@ -2188,6 +2190,9 @@ function openDetail(seg, sub, fromPlay) {
   `;
   document.getElementById('detail-panel').classList.add('open');
   document.body.classList.add('detail-open');
+  // 새 DOM의 초기 width:0을 브라우저가 확정하도록 강제 reflow
+  // (마우스 hover 시엔 mouseenter→animateCard가 layout flush를 일으켜 우연히 동작했음)
+  void document.getElementById('detail-body').offsetWidth;
   // 바 + 숫자 애니메이션
   requestAnimationFrame(() => {
     document.querySelectorAll('#detail-body .detail-bar-fill').forEach(el => {

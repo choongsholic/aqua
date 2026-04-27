@@ -64,6 +64,11 @@
     - **chip 라벨 변경 (Retention 한정)**: 세그 현황판 buildTanks chipText (line 1457)에서 Retention warn만 `'확인 필요'`로 분기 — `tier === 'warn' ? (t.invertSign ? '주의' : '확인 필요')`. Acquisition warn은 `'주의'` 그대로 (활성 미전환은 분명한 부정 시그널). LF 모드 chipText (line 2315)는 `'주의'` 유지 (사용자 별도 지시 없으면 변경 금지)
     - "점검"은 점검 진행 중으로 오해 가능 — "확인 필요"가 액션 톤은 살리면서 오해 소지 없음
     - Acquisition은 그대로 (활성 미전환은 분명한 부정 시그널이라 danger 유지)
+  - **키보드 네비게이션 인터랙션 정합성 (2026-04-27 추가)**:
+    1. **kbd-focus tier 색 lf-mode 한정** — 이전엔 일반 모드에서도 sev-good/sev-warn/alert 카드가 방향키 포커스 시 tier 색 테두리. `.lf-mode` 스코프로 한정해 마우스 호버와 동일하게 동작 (line ~1132/1153). lf-mode 카드는 `.lf-state-good/warn/danger` 클래스를 쓰므로 셀렉터도 그에 맞춰 변경
+    2. **라이트 모드 호버 투명도 강화** — 디폴트 `rgba(0,0,0,0.20)` 대비 호버 0.40은 차이 너무 약함. 호버/kbd-focus 모두 `rgba(0,0,0,0.64)`로 (line 80/1135/1152). 다크 모드(0.10→0.80, 0.7 차이) 수준에 근접
+    3. **Detail panel 트랜지션 키보드 Enter 정상화** — 방향키+Enter 시 우측 패널 바/숫자가 transition 없이 틱틱 스냅. 원인: `innerHTML` 교체 직후 같은 rAF에서 width 설정 → 새 DOM의 초기값이 미확정. 마우스는 `mouseenter→animateCard`가 사전 layout flush를 일으켜 우연히 동작. 수정: `void document.getElementById('detail-body').offsetWidth` 강제 reflow 추가 (line ~2191)
+    4. **kbd-nav 마우스 호버 잔재 완전 억제** — 마우스가 카드 위에 있는 상태에서 방향키 누르면 `body.kbd-nav`가 켜지는데 `:hover`는 살아있어 tier 색 잔존. 다크: line 1145-1147 삭제 → 1142가 적용되어 default 테두리로 리셋. 라이트: 추가 규칙(`body.light.kbd-nav .tank-wrap:not(.lf-state-*) .tank-card:hover { border-color: var(--border-card); }`) 신설해 line 80 specificity 극복. lf-mode는 `var(--tier-good-border)` 등 비-hover tier 색으로 reset
 
 ---
 
