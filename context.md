@@ -385,10 +385,19 @@
 ### 파일 개요
 - "정밀 타격 대시보드 및 카드앱의 세이버 메트릭스 제안" 27장 단일 HTML 발표 자료 (2026-04-28, UX Insight팀)
 - 세이버 메트릭스(FAI / RDI / VRI) + LPI(논의 필요) + BA(Business Attribution) + 대시보드 v0.8/0.9/1.0 구축 계획
-- 위치: `Document_templete/dashboard/dashboard.html`
-- **신규 폴리싱 버전**: `Document_templete/dashboard/dashboard_v0.8.html` — 디자인 참고와 1:1 정합 작업 진행 중 (2026-04-28)
+- 위치: `Document_templete/dashboard/dashboard.html` (v0.8 폴리싱 + 인라인 편집 반영본 — `dashboard_v0.8.html`은 통합 후 제거)
+- 원본 백업: `dashboard_org.html` (untracked, 작업용 보존)
 - 디자인 참고: `Document_templete/dashboard/장표디자인참고/0~26.png`
 - 대시보드 스크린샷: `Document_templete/dashboard/imgs/img_*.png` (페이지 3,4,9,13,16,20,22,23,24)
+
+### 인라인 편집 시스템 정합성 수정 (2026-04-28 후속)
+- **편집 활성화 시 풀폭 요소 shrink 버그 수정**: `.editable[contenteditable="plaintext-only"]`의 `width: fit-content !important`가 모든 editable에 일괄 적용돼 `.intro-footer` 같은 풀폭 요소가 텍스트 폭으로 쪼그라드는 문제. fit-content를 `.lede` opt-in으로 한정. JS 마우스다운 핸들러의 `marginLeft/Right: auto` 자동 적용도 `.lede`에만 한정 (flex item에 margin auto = shrink-to-fit 사이드이펙트 방지)
+- **인트로 푸터 BR 더블 라인 버그 수정**: `text<br><span class="sub" style="display:block">` 구조에서 사용자가 사이에 `<br>` 추가 시 빈 줄 1개가 추가로 생기는 브라우저 렌더링 이슈. `.intro-footer`를 `<div class="main">` + `<div class="sub">` 두 독립 editable 블록으로 분리. `.sub`은 `display:block` 제거하고 `margin-top: 0.15em`로 시각 갭만 유지
+- **루틴/혜택 RDI 카드 정리 (v0.8 폴리싱 #3 후속)**: `.center-block` 통째 editable이 활성화 시 본문 전체를 감싸던 문제 → BA 카드처럼 `<div class="lede">제목</div>` + `<p class="cond">본문</p>`로 분리. `.center-block .lead` SPAN 구조 제거. body padding 32×36, gap 20, `.formula-mini`만 `margin-top:auto`로 하단 고정
+- **키보드 단축키**: 시프트+엔터도 plain Enter처럼 `<br>` 삽입 (이전엔 차단). Cmd/Ctrl+Enter = 저장 종료 / Esc = 취소 / Cmd/Ctrl+↑↓ = 폰트 크기 / Cmd/Ctrl+B = 굵게 (기존)
+- **localStorage 키 bump**: `dashboard-edits-v2` → `v3` — 구조 변경 전 저장된 stale 편집(특히 .intro-footer 관련) 자동 무효화
+- `.badge-discuss` border-radius 12 → 999px (논의 필요 라벨 pill 모양)
+- **버전 통합**: `dashboard_v0.8.html` → `dashboard.html`로 일원화 (사용자가 인라인 편집 export 후 덮어쓰기 + 리네임). 작업 중 산출물은 `📥 HTML 내보내기` 버튼으로 export → 파일 덮어쓰기 패턴
 
 ### dashboard_v0.8.html 폴리싱 (2026-04-28)
 - Page 5 (야구 vs 카드앱): `.compare-rounded` 배경을 공식 박스와 동일한 골드 `rgba(158,138,73,0.12)`로 통일, head-center ↔ box 간격 60→110px(슬라이드 5 한정)
