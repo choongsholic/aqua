@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" class="theme-light" style="--font-scale: 1;"><head>
+<html lang="ko" class="theme-light" style="--font-scale: 1; --doc-title-size: 48px; --doc-bullets-size: 22px;"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>정밀 타격 대시보드 및 카드앱의 세이버 메트릭스 제안 — UX Insight팀</title>
@@ -13,7 +13,7 @@
 </style>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  :root { --font-scale: 1; }
+  :root { --font-scale: 1; --doc-title-size: 48px; --doc-bullets-size: 22px; }
 
   /* ===== Theme tokens ===== */
   html.theme-dark {
@@ -64,7 +64,7 @@
   .slide {
     position: absolute; inset: 0;
     display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
-    padding: 110px 140px 120px;
+    padding: calc(110px * var(--font-scale)) 140px calc(120px * var(--font-scale));
     background: var(--bg);
     opacity: 0; transform: translateX(60px);
     transition: opacity 0.45s cubic-bezier(0.4,0,0.2,1), transform 0.45s cubic-bezier(0.4,0,0.2,1);
@@ -141,23 +141,25 @@
   .card.padless { padding: 0; overflow: hidden; }
 
   /* ===== Doc layout — title + bullets + content (ref 0/3/4/9 등) ===== */
-  .slide-doc { padding: 28px 100px 0; }
+  .slide-doc { padding: calc(80px * var(--font-scale)) 100px 0; }
   .doc-title {
-    font-size: calc(48px * var(--font-scale));
+    font-size: calc(var(--doc-title-size) * var(--font-scale));
     font-weight: 800; letter-spacing: -0.02em; line-height: 1.2;
     color: var(--text);
-    margin-top: -20px;
   }
   .doc-bullets {
     list-style: none;
     display: flex; flex-direction: column; gap: 6px;
-    font-size: calc(22px * var(--font-scale));
     font-weight: 600; color: var(--text);
-    line-height: 1.45; margin-top: 16px;
+    line-height: 1.45; margin-top: 16px; margin-bottom: 20px;
   }
-  .doc-bullets li { padding-left: 20px; position: relative; }
+  .doc-bullets li {
+    padding-left: 20px; position: relative;
+    font-size: calc(var(--doc-bullets-size) * var(--font-scale));
+  }
   .doc-bullets li::before {
     content: '•'; position: absolute; left: 0; top: 0; font-weight: 800;
+    font-size: calc(22px * var(--font-scale));
   }
   .doc-image-wrap {
     flex: 1; min-height: 0;
@@ -218,17 +220,18 @@
     display: flex; flex-direction: column;
   }
   .slide-intro-body {
-    padding: 28px 100px 60px;
+    padding: calc(80px * var(--font-scale)) 100px 60px;
     display: flex; flex-direction: column;
     flex: 1; min-height: 0;
   }
   .slide-intro .slide-tag { text-align: left; margin-bottom: 0; }
   .slide-intro .slide-title {
-    text-align: center; margin: 80px 0 100px;
+    text-align: center; margin: auto 0 100px;
   }
   .intro-cards {
     display: grid; grid-template-columns: repeat(3, 1fr);
     gap: 32px;
+    margin-bottom: auto;
   }
   .intro-card {
     background: var(--soft-fill);
@@ -511,14 +514,19 @@
   }
   .dash-wrap.dual {
     display: grid; grid-template-columns: 1fr 1fr;
-    gap: 36px; align-items: center;
+    grid-template-rows: 1fr;
+    gap: 36px; align-items: stretch;
     padding: 0;
     margin: 30px 0 0;
   }
-  .dash-wrap.dual img { width: 100%; max-height: 100%; }
+  .dash-wrap.dual img { width: 100%; }
   .dash-wrap.dual .dash-cell { display: flex; flex-direction: column; align-items: center; min-height: 0; }
-  .dash-wrap.dual .dash-cell img { display: block; }
-  .dash-wrap.dual .dash-cell .dash-cap { margin: 18px 0 0; }
+  .dash-wrap.dual .dash-cell img {
+    display: block;
+    flex: 1; min-height: 0;
+    object-fit: contain;
+  }
+  .dash-wrap.dual .dash-cell .dash-cap { margin: 18px 0 0; flex: 0 0 auto; }
 
   /* ===== Slide 22: 두 이미지 교집합/캐스케이드 ===== */
   .dash-stack {
@@ -739,6 +747,76 @@
     cursor: default !important;
   }
 
+  /* ===== Bullet structural controls (− / +) on hover ===== */
+  .bullet-controls {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 6px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s;
+    z-index: 5;
+    user-select: none;
+  }
+  body:not(.overview-active) .doc-bullets > li:hover > .bullet-controls,
+  body:not(.overview-active) .doc-bullets > li[contenteditable="plaintext-only"] > .bullet-controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .bullet-controls .btn-bullet {
+    width: 28px; height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    opacity: 0.45;
+    font-size: 24px; font-weight: 800;
+    line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'SFProDisplay','SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;
+    padding: 0;
+    transition: opacity 0.12s;
+  }
+  .bullet-controls .btn-bullet:hover {
+    opacity: 1;
+  }
+  .overview-clone .bullet-controls,
+  .overview-clone .title-add-list { display: none !important; }
+
+  /* Title-only slide: + 리스트 추가 button */
+  .doc-title:has(+ .title-add-list),
+  .doc-title:has(+ .doc-bullets) { margin-bottom: 0 !important; }
+  .title-add-list {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    width: 100%;
+    margin-top: 16px;
+    padding: 0 18px 0 20px;
+    border: none;
+    border-radius: 0;
+    outline: 1.5px dashed var(--text-secondary);
+    outline-offset: -1.5px;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: calc(var(--doc-bullets-size) * var(--font-scale));
+    font-weight: 600;
+    line-height: 1.45;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.16s;
+    font-family: 'SFProDisplay','SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif;
+    user-select: none;
+    text-align: left;
+  }
+  body:not(.overview-active) .doc-title:hover + .title-add-list,
+  body:not(.overview-active) .title-add-list:hover {
+    opacity: 1;
+  }
+
   /* ===== Overview panel ===== */
   #overview-panel {
     position: fixed; bottom: 0; left: 0; right: 0; height: 220px;
@@ -815,26 +893,26 @@
   }
 </style>
 </head>
-<body>
+<body class="overview-active">
 
 <!-- PROGRESS BAR -->
-<div class="progress-bar" id="progressBar" role="progressbar" aria-label="슬라이드 진행" style="width: 51.8519%;"></div>
+<div class="progress-bar" id="progressBar" role="progressbar" aria-label="슬라이드 진행" style="width: 74.0741%;"></div>
 
 <!-- SLIDES WRAPPER -->
-<div class="slides-wrapper" id="slidesWrapper">
+<div class="slides-wrapper" id="slidesWrapper" style="height: 1080px; transform: translate(108.556px, 0px) scale(0.775926);">
 
   <!-- ===== Page 0 — Cover (ref 1.png) ===== -->
-  <section class="slide slide-cover active">
+  <section class="slide slide-cover">
     <h1 class="cover-title animate delay-1 editable" data-edit-id="e-0-0" style="">정밀 타격 대시보드 및<br>카드앱의 <font color="#00b85e">세이버 메트릭스 </font>제안</h1>
     <div class="cover-author animate delay-3" style="">
-      <div class="editable" data-edit-id="e-0-2" style="font-size: 28px;">UX Insight팀</div>
-      <div class="editable" data-edit-id="e-0-3">2026. 4. 28</div>
+      <div class="editable" data-edit-id="e-0-0" style="font-size: 28px;">UX Insight팀</div>
+      <div class="editable" data-edit-id="e-0-1">2026. 4. 28</div>
     </div>
   </section>
 
   <!-- ===== Page 1 — 세그별 명칭 정의 (ref 0.png) ===== -->
   <section class="slide slide-doc slide-segments">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-1-0" style="">세그별 명칭 정의</h2>
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-1-0" style="">세그별 명칭 정의</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
     <div class="seg-block animate delay-2" style="">
       <div class="seg-track-label editable" data-edit-id="e-1-1">ACQUISITION TRACK</div>
       <table class="seg-table">
@@ -842,9 +920,9 @@
           <tr><th class="editable" data-edit-id="e-1-2">미설치자</th><th class="editable" data-edit-id="e-1-3">장기 미이용자</th><th class="editable" data-edit-id="e-1-4">간헐 이용자</th></tr>
         </thead>
         <tbody>
-          <tr><td class="editable" data-edit-id="e-1-5">No Show</td><td class="editable" data-edit-id="e-1-6">Long-D</td><td class="editable" data-edit-id="e-1-7">On-Off</td></tr>
-          <tr><td class="editable" data-edit-id="e-1-8">Newbie</td><td class="editable" data-edit-id="e-1-9">Long-Lost</td><td class="editable" data-edit-id="e-1-10">Nomad</td></tr>
-          <tr><td class="editable" data-edit-id="e-1-11">Cold</td><td class="editable" data-edit-id="e-1-12">Churn</td><td class="editable" data-edit-id="e-1-13">Float</td></tr>
+          <tr><td class="editable" data-edit-id="e-1-5">No Show</td><td class="editable" data-edit-id="e-1-6" contenteditable="false">Long-D</td><td class="editable" data-edit-id="e-1-7">On-Off</td></tr>
+          <tr><td class="editable" data-edit-id="e-1-8">Newbie</td><td class="editable" data-edit-id="e-1-9" contenteditable="false">Long-Lost</td><td class="editable" data-edit-id="e-1-10">Nomad</td></tr>
+          <tr><td class="editable" data-edit-id="e-1-11">Cold</td><td class="editable" data-edit-id="e-1-12" contenteditable="false">Churn</td><td class="editable" data-edit-id="e-1-13">Float</td></tr>
           <tr><td class="editable" data-edit-id="e-1-14">Hiding</td><td class="editable" data-edit-id="e-1-15">Missing</td><td class="editable" data-edit-id="e-1-16">Wandering</td></tr>
         </tbody>
       </table>
@@ -853,7 +931,7 @@
       <div class="seg-track-label editable" data-edit-id="e-1-17">RETENTION TRACK</div>
       <table class="seg-table">
         <thead>
-          <tr><th class="editable" data-edit-id="e-1-18">Light</th><th class="editable" data-edit-id="e-1-19">Casual</th><th class="editable" data-edit-id="e-1-20">Power</th></tr>
+          <tr><th class="editable" data-edit-id="e-1-18">Light</th><th class="editable" data-edit-id="e-1-19" contenteditable="false">Casual</th><th class="editable" data-edit-id="e-1-20">Power</th></tr>
         </thead>
       </table>
     </div>
@@ -862,7 +940,7 @@
   <!-- ===== Page 2 — 대시보드 V.08 인트로 (ref 2.png) ===== -->
   <section class="slide slide-intro">
     <div class="slide-intro-body">
-      <h2 class="doc-title animate editable" data-edit-id="e-2-0" style="">대시보드 V.08</h2>
+      <h2 class="doc-title animate editable" data-edit-id="e-2-0" style="">대시보드 V.08</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
       <h2 class="slide-title sm animate delay-1 editable" data-edit-id="e-2-1" style="">정교한 세그멘테이션 기반<br>사용자 현황 파악 및 이상 징후 조기 감지</h2>
       <div class="intro-cards">
         <div class="intro-card animate delay-2" style="">
@@ -885,9 +963,9 @@
   <!-- ===== Page 3 — 대시보드 V.08 > 세그별 현황 (ref 3.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-3-0" style="">대시보드 V.08 &gt; 세그별 현황</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-3-1">Acquisition-Retention 트랙 6개 세그먼트의 주 단위 현황 모니터링</li>
-      <li class="editable" data-edit-id="e-3-2">전월 대비 증감 기준, 이상 징후 자동 감지  + 세그 카드 클릭 시 신판 건수·보유카드 상세 정보 확인</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-3">
+      <li class="editable" data-edit-id="e-3-1">Acquisition-Retention 트랙 6개 세그먼트의 주 단위 현황 모니터링<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-3-2">전월 대비 증감 기준, 이상 징후 자동 감지  + 세그 카드 클릭 시 신판 건수·보유카드 상세 정보 확인<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="doc-image-wrap animate delay-3" style="">
       <img src="imgs/img_3.png" alt="세그별 현황 대시보드">
@@ -897,9 +975,9 @@
   <!-- ===== Page 4 — 대시보드 V.08 > 이탈 조기 경보 (ref 4.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-4-0" style="">대시보드 V.08 &gt; 이탈 조기 경보</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-4-1">Retention 트랙 3개 세그의 당월 누적 로그인 일수를 전월 동일 주차와 주별 비교 (세그는 전월 마감 기준)</li>
-      <li class="editable" data-edit-id="e-4-2">평균 로그인 일수 감소 시 이탈 징후로 판단, 집중 관리 대상 조기 식별 (평일/휴일 수 차이 병기)</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-4">
+      <li class="editable" data-edit-id="e-4-1">Retention 트랙 3개 세그의 당월 누적 로그인 일수를 전월 동일 주차와 주별 비교 (세그는 전월 마감 기준)<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-4-2">평균 로그인 일수 감소 시 이탈 징후로 판단, 집중 관리 대상 조기 식별 (평일/휴일 수 차이 병기)<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="doc-image-wrap animate delay-3" style="">
       <img src="imgs/img_4.png" alt="이탈 조기 경보 대시보드">
@@ -908,7 +986,7 @@
 
   <!-- ===== Page 5 — 야구 vs 카드앱 (ref 5.png) ===== -->
   <section class="slide slide-doc">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-5-0" style="">카드앱의 세이버 메트릭스 제안</h2>
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-5-0" style="">카드앱의 세이버 메트릭스 제안</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
     <div class="attn-center" style="padding-top: 120px;">
       <div class="head-center animate delay-2 editable" style="margin-bottom: 110px;" data-edit-id="e-5-1">야구가 세이버 메트릭스를 통해 선수의 기여를 재정의 했듯<br>카드앱도 앱의 질적 성장을 이끄는 기여 요인을 재정의</div>
       <div class="compare-rounded animate delay-3" style="">
@@ -930,7 +1008,7 @@
 
   <!-- ===== Page 6 — 라이프 사이클 (ref 6.png) ===== -->
   <section class="slide slide-doc">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-6-0" style="">카드앱의 세이버 메트릭스 제안</h2>
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-6-0" style="">카드앱의 세이버 메트릭스 제안</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
     <div class="attn-center">
       <div class="head-center animate delay-2 editable" data-edit-id="e-6-1" style="">사용자 라이프 사이클을 관통하는 지표 체계</div>
     <div class="lc-stages animate delay-3" style="">
@@ -967,9 +1045,9 @@
   <!-- ===== Page 7 — FAI 정의/공식 (ref 7.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-7-0" style="">FAI (First Action Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-7-1">신규 회원 대상, '재방문 기여 기능(온보딩 기능)'을 정의하고 충족 여부를 측정</li>
-      <li class="editable" data-edit-id="e-7-2">다음 달 재방문 및 세그 전환 가능성을 진단하는 선행 지표로 활용</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-7">
+      <li class="editable" data-edit-id="e-7-1">신규 회원 대상, '재방문 기여 기능(온보딩 기능)'을 정의하고 충족 여부를 측정<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-7-2">다음 달 재방문 및 세그 전환 가능성을 진단하는 선행 지표로 활용<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
       <div class="formula-box animate delay-3" style="">
@@ -985,9 +1063,9 @@
   <!-- ===== Page 8 — FAI 기능 정의 (ref 8.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-8-0" style="">FAI (First Action Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-8-1">'24.9월 발행된 리텐션 데이터 인사이트 리포트 내 '재방문 기여 기능' 참고</li>
-      <li class="hl editable" data-edit-id="e-8-2">신규 회원 대상 재방문 기여 기능은 26년 기준 현행화 필요</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-8">
+      <li class="editable" data-edit-id="e-8-1">'24.9월 발행된 리텐션 데이터 인사이트 리포트 내 '재방문 기여 기능' 참고<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="hl editable" data-edit-id="e-8-2">신규 회원 대상 재방문 기여 기능은 26년 기준 현행화 필요<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
     <div class="bh1 animate delay-3" style="">
@@ -1017,9 +1095,9 @@
   <!-- ===== Page 9 — FAI 활용 (ref 9.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-9-0" style="">FAI (First Action Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-9-1">월간 기준 신규 회원의 FAI 달성률 및 미달성자 비율 트레킹</li>
-      <li class="editable" data-edit-id="e-9-2">미달성 영역 확인 + 기능 이용 유도를 위한 실행 과제로 연결</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-9">
+      <li class="editable" data-edit-id="e-9-1">월간 기준 신규 회원의 FAI 달성률 및 미달성자 비율 트레킹<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-9-2">미달성 영역 확인 + 기능 이용 유도를 위한 실행 과제로 연결<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="dash-wrap animate delay-3" style="">
       <img src="imgs/img_9.png" alt="FAI 대시보드">
@@ -1030,9 +1108,9 @@
   <!-- ===== Page 10 — RDI 정의/공식 (ref 10.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-10-0" style="">RDI (Revisit Driver Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-10-1">기존 회원 대상, '재방문 기여 기능'을 정의하고 각 세그별 충족 여부를 측정</li>
-      <li class="editable" data-edit-id="e-10-2">다음 달 재방문 및 세그 전환 가능성을 진단하는 선행 지표로 활용</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-10">
+      <li class="editable" data-edit-id="e-10-1">기존 회원 대상, '재방문 기여 기능'을 정의하고 각 세그별 충족 여부를 측정<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-10-2">다음 달 재방문 및 세그 전환 가능성을 진단하는 선행 지표로 활용<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
       <div class="formula-box animate delay-3" style="">
@@ -1048,9 +1126,9 @@
   <!-- ===== Page 11 — RDI 기능 정의 (ref 11.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-11-0" style="">RDI (Revisit Driver Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-11-1">'24.9월 발행된 리텐션 데이터 인사이트 리포트 내 '재방문 기여 기능' 참고</li>
-      <li class="hl editable" data-edit-id="e-11-2">명세서, 최근이용내역 등 주요 레거시 서비스 업데이트로 '재방문 기여 기능' 현행화 필요</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-11">
+      <li class="editable" data-edit-id="e-11-1">'24.9월 발행된 리텐션 데이터 인사이트 리포트 내 '재방문 기여 기능' 참고<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="hl editable" data-edit-id="e-11-2">명세서, 최근이용내역 등 주요 레거시 서비스 업데이트로 '재방문 기여 기능' 현행화 필요<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
     <div class="bh1 animate delay-3" style="">
@@ -1079,9 +1157,9 @@
   <!-- ===== Page 12 — RDI 분리 측정 (ref 12.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-12-0" style="">RDI (Revisit Driver Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-12-1">루틴 RDI : 명세서, 알림함, 소비캘린더, 3개 기능 포함, 카드앱 방문 습관화 기여 기능에 대한 이용률</li>
-      <li class="editable" data-edit-id="e-12-2">혜택 RDI : 혜택 열람, 받기, 신청 및 실적 확인 등 혜택 중심의 탐색/관리/활용 기능에 대한 이용률</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-12">
+      <li class="editable" data-edit-id="e-12-1">루틴 RDI : 명세서, 알림함, 소비캘린더, 3개 기능 포함, 카드앱 방문 습관화 기여 기능에 대한 이용률<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-12-2">혜택 RDI : 혜택 열람, 받기, 신청 및 실적 확인 등 혜택 중심의 탐색/관리/활용 기능에 대한 이용률<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
     <div class="bh2 animate delay-3" style="">
@@ -1096,8 +1174,8 @@
       <div class="bhx-card rdi-card">
         <div class="head editable" style="text-align:center;" data-edit-id="e-12-9">혜택 RDI</div>
         <div class="body">
-          <div class="lede editable" data-edit-id="e-12-10">혜택 달성 조건</div>
-          <p class="cond editable" data-edit-id="e-12-11">혜택 열람 OR 받기 OR 신청 OR 받은 선물 OR 실적확인 OR CT 더보기<br>하나라도 충족 시 = 1<br>모두 미충족시 = 0</p>
+          <div class="lede editable" data-edit-id="e-12-10" contenteditable="false" style="">혜택 달성 조건</div>
+          <p class="cond editable" data-edit-id="e-12-11" contenteditable="false">혜택 열람 OR 받기 OR 신청 OR 받은 선물 OR 실적확인 OR CT 더보기<br>하나라도 충족 시 = 1<br>모두 미충족시 = 0</p>
           <div class="formula-mini"><span class="editable" data-edit-id="e-12-12">혜택 RDI = 달성자 수 /  이용자 수</span><span class="star editable" data-edit-id="e-12-13"> * </span><span class="editable" data-edit-id="e-12-14">100</span></div>
         </div>
       </div>
@@ -1108,9 +1186,9 @@
   <!-- ===== Page 13 — RDI 활용 (ref 13.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-13-0" style="" contenteditable="false">RDI (Revisit Driver Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-13-1">전월 대비 RDI 달성률 및 미달성자 비율 트레킹</li>
-      <li class="editable" data-edit-id="e-13-2">세그별 미달성 영역 확인 + 기능 이용 유도를 위한 실행 과제로 연결</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-13">
+      <li class="editable" data-edit-id="e-13-1">전월 대비 RDI 달성률 및 미달성자 비율 트레킹<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-13-2">세그별 미달성 영역 확인 + 기능 이용 유도를 위한 실행 과제로 연결<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="dash-wrap animate delay-3" style="">
       <img src="imgs/img_13.png" alt="RDI 대시보드">
@@ -1121,9 +1199,9 @@
   <!-- ===== Page 14 — VRI 정의/공식 (ref 14.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-14-0" style="">VRI (Visit Recurrence Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-14-1">3개월 연속 사용 여부를 트레킹하여, 앱 방문 습관화 여부를 측정</li>
-      <li class="editable" data-edit-id="e-14-2">연속 사용 미달성 현황을 감지, RDI (Revisit Driver Index)와 함께 모니터링하여 연속 방문 루틴을 만드는 것이 목표</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-14">
+      <li class="editable" data-edit-id="e-14-1">3개월 연속 사용 여부를 트레킹하여, 앱 방문 습관화 여부를 측정<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-14-2">연속 사용 미달성 현황을 감지, RDI (Revisit Driver Index)와 함께 모니터링하여 연속 방문 루틴을 만드는 것이 목표<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
       <div class="formula-box animate delay-3" style="">
@@ -1138,9 +1216,9 @@
   <!-- ===== Page 15 — VRI 4 패턴 (ref 15.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-15-0" style="">VRI (Visit Recurrence Index)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-15-1">당월 방문했으나, 3개월 연속 미 방문자의 이용 패턴을 동시 트레킹 → 패턴별 문제 진단 </li>
-      <li class="editable" data-edit-id="e-15-2">이탈 위험이 높은 그룹에 대해 재방문 기여 기능 이용 현황 교차 점검</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-15">
+      <li class="editable" data-edit-id="e-15-1">당월 방문했으나, 3개월 연속 미 방문자의 이용 패턴을 동시 트레킹 → 패턴별 문제 진단 <span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-15-2">이탈 위험이 높은 그룹에 대해 재방문 기여 기능 이용 현황 교차 점검<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
       <div class="pat4 animate delay-3" style="">
@@ -1165,16 +1243,13 @@
           <div class="bot editable" data-edit-id="e-15-14">다음 달 방문 유도 필수<br>FAI* 점검 필요</div>
         </div>
       </div>
-      <div class="pat4-foot animate delay-4 editable" data-edit-id="e-15-15" style="">
-        *RDI (Revisit Driver Index) : 기존 회원 기준, 재방문 기여 기능 이용률<br>
-        *FAI (First Action Indx) : 신규 회원 기준, 재방문 기여 기능 이용률
-      </div>
+      <div class="pat4-foot animate delay-4 editable" data-edit-id="e-15-15" style="" contenteditable="false">*RDI (Revisit Driver Index) : 기존 회원 기준, 재방문 기여 기능 이용률<br>*FAI (First Action Indx) : 신규 회원 기준, 재방문 기여 기능 이용률</div>
     </div>
   </section>
 
   <!-- ===== Page 16 — VRI 활용 (ref 16.png) ===== -->
   <section class="slide slide-doc">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-16-0" style="">VRI (Visit Recurrence Index)</h2>
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-16-0" style="">VRI (Visit Recurrence Index)</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
     <div class="dash-wrap dual animate delay-2" style="">
       <div class="dash-cell">
         <img src="imgs/img_16_1.png" alt="VRI 대시보드 1">
@@ -1190,9 +1265,9 @@
   <!-- ===== Page 17 — LPI 정의/공식 (ref 17.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-17-0" style="">LPI (Lapse Pattern Index) <span class="badge-discuss editable" data-edit-id="e-17-1" contenteditable="false">논의 필요</span></h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-17-2">당월 방문하지 않은 간헐 사용자가 다음 달 앱을 방문하게 하기 위한 목적  </li>
-      <li class="editable" data-edit-id="e-17-3">‘라이트 유저 전환 기여 기능'을 정의하고, 간헐 이용자 대상으로 기능 이용 달성 여부를 측정</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-17">
+      <li class="editable" data-edit-id="e-17-2">당월 방문하지 않은 간헐 사용자가 다음 달 앱을 방문하게 하기 위한 목적  <span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-17-3">‘라이트 유저 전환 기여 기능'을 정의하고, 간헐 이용자 대상으로 기능 이용 달성 여부를 측정<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
       <div class="formula-box animate delay-3" style="">
@@ -1208,8 +1283,8 @@
   <!-- ===== Page 18 — LPI 기능 정의 (ref 18.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-18-0" style="">LPI (Lapse Pattern Index) <span class="badge-discuss editable" data-edit-id="e-18-1">논의 필요</span></h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="hl editable" data-edit-id="e-18-2">가설을 기준으로 지표를 정의, 라이트 유저 전환 기능 정의를 위한 데이터 분석 필요 </li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-18">
+      <li class="hl editable" data-edit-id="e-18-2">가설을 기준으로 지표를 정의, 라이트 유저 전환 기능 정의를 위한 데이터 분석 필요 <span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
     <div class="bh2 animate delay-3" style="">
@@ -1234,9 +1309,9 @@
   <!-- ===== Page 19 — LPI 4 패턴 (ref 19.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-19-0" style="">LPI (Lapse Pattern Index) <span class="badge-discuss editable" data-edit-id="e-19-1">논의 필요</span></h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-19-2">간헐 이용자의 이탈 패턴을 동시 트레킹 하여 패턴별 문제 진단</li>
-      <li class="editable" data-edit-id="e-19-3">이탈 위험도에 따라 개입 정도 및 방식을 다르게 접근 </li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-19">
+      <li class="editable" data-edit-id="e-19-2">간헐 이용자의 이탈 패턴을 동시 트레킹 하여 패턴별 문제 진단<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-19-3">이탈 위험도에 따라 개입 정도 및 방식을 다르게 접근 <span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
       <div class="pat4 animate delay-3" style="">
@@ -1266,7 +1341,7 @@
 
   <!-- ===== Page 20 — LPI 활용 (ref 20.png) ===== -->
   <section class="slide slide-doc">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-20-0" style="">LPI (Lapse Pattern Index) <span class="badge-discuss editable" data-edit-id="e-20-1" contenteditable="false">논의 필요</span></h2>
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-20-0" style="">LPI (Lapse Pattern Index) <span class="badge-discuss editable" data-edit-id="e-20-1" contenteditable="false">논의 필요</span></h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
     <div class="dash-wrap dual animate delay-2" style="">
       <img src="imgs/img_20_1.png" alt="LPI 대시보드 1">
       <img src="imgs/img_20_2.png" alt="LPI 대시보드 2">
@@ -1276,10 +1351,10 @@
   <!-- ===== Page 21 — BA 인트로 (ref 21.png) ===== -->
   <section class="slide slide-doc">
     <h2 class="doc-title animate delay-1 editable" data-edit-id="e-21-0" style="">+ BA (Business Attribution)</h2>
-    <ul class="doc-bullets animate delay-2" style="">
-      <li class="editable" data-edit-id="e-21-1">앱의 비즈니스 기여도를 정량화하여 트레킹 할 수 있는 지표</li>
-      <li class="editable" data-edit-id="e-21-2">직접 수익 / 비용 절감 / 간접 수익으로 구분하여 이용자 수 및 비용 가시화</li>
-      <li class="editable" data-edit-id="e-21-3">본부 구성원들에게 일의 의미와 기여도를 숫자로 체감하게 하는 역할</li>
+    <ul class="doc-bullets animate delay-2" style="" data-bullets-id="b-21">
+      <li class="editable" data-edit-id="e-21-1">앱의 비즈니스 기여도를 정량화하여 트레킹 할 수 있는 지표<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-21-2">직접 수익 / 비용 절감 / 간접 수익으로 구분하여 이용자 수 및 비용 가시화<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
+      <li class="editable" data-edit-id="e-21-3">본부 구성원들에게 일의 의미와 기여도를 숫자로 체감하게 하는 역할<span class="bullet-controls" contenteditable="false"><button type="button" class="btn-bullet btn-minus" title="항목 삭제">−</button><button type="button" class="btn-bullet btn-plus" title="항목 추가">+</button></span></li>
     </ul>
     <div class="attn-center">
     <div class="ba-cards animate delay-3" style="">
@@ -1331,7 +1406,7 @@
 
   <!-- ===== Page 22 — BA > 직접 수익 (ref 22.png) ===== -->
   <section class="slide slide-doc">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-22-0" style="">+ BA (Business Attribution) &gt; 직접 수익</h2>
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-22-0" style="">+ BA (Business Attribution) &gt; 직접 수익</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
     <div class="dash-stack animate delay-2" style="">
       <img class="img-back" src="imgs/img_22_1.png" alt="BA 직접 수익 대시보드 1">
       <img class="img-front" src="imgs/img_22_2.png" alt="BA 직접 수익 대시보드 2">
@@ -1341,7 +1416,7 @@
 
   <!-- ===== Page 23 — BA > 비용 절감 (ref 23.png) ===== -->
   <section class="slide slide-doc">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-23-0" style="">+ BA (Business Attribution) &gt; 비용 절감</h2>
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-23-0" style="">+ BA (Business Attribution) &gt; 비용 절감</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
     <div class="dash-side animate delay-2" style="">
       <div class="dash-side-img">
         <img src="imgs/img_23.png" alt="BA 비용 절감 대시보드">
@@ -1357,8 +1432,8 @@
 
   <!-- ===== Page 24 — BA > 간접 수익 (ref 24.png) ===== -->
   <section class="slide slide-doc">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-24-0">+ BA (Business Attribution) &gt; 간접 수익</h2>
-    <div class="dash-side animate delay-2">
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-24-0" style="">+ BA (Business Attribution) &gt; 간접 수익</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
+    <div class="dash-side animate delay-2" style="">
       <div class="dash-side-img">
         <img src="imgs/img_24.png" alt="BA 간접 수익 대시보드">
         <p class="dash-cap editable" data-edit-id="e-24-1">ex.3) 앱 이용에 따른 기대 수익 : 신규 가입 및 세그 전환에 따른 인당 기대 수익 현황</p>
@@ -1373,9 +1448,9 @@
 
   <!-- ===== Page 25 — 대시보드 구축 계획 (ref 25.png) ===== -->
   <section class="slide slide-doc">
-    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-25-0">대시보드 구축 계획</h2>
+    <h2 class="doc-title animate delay-1 editable" data-edit-id="e-25-0" style="">대시보드 구축 계획</h2><button type="button" class="title-add-list">+ 새 항목 추가</button>
     <div class="attn-center">
-    <table class="plan-table animate delay-2">
+    <table class="plan-table animate delay-2" style="">
       <thead>
         <tr>
           <th></th>
@@ -1420,7 +1495,7 @@
 
   <!-- ===== Page 26 — EOD ===== -->
   <section class="slide slide-eod">
-    <div class="eod-text animate editable" data-edit-id="e-26-0">EOD</div>
+    <div class="eod-text animate editable" data-edit-id="e-26-0" style="">EOD</div>
   </section>
 
 </div>
@@ -1430,7 +1505,7 @@
   <button onclick="prevSlide()" aria-label="이전 슬라이드">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"></path></svg>
   </button>
-  <span class="slide-counter" id="slideCounter" aria-live="polite">1 / 27</span>
+  <span class="slide-counter" id="slideCounter" aria-live="polite">20 / 27</span>
   <button onclick="nextSlide()" aria-label="다음 슬라이드">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"></path></svg>
   </button>
@@ -1491,16 +1566,34 @@
   window.cycleTheme = cycleTheme;
 
   // ===== Font scale =====
+  var FONT_SCALE_MANUAL_KEY = 'dashboard-font-scale-manual';
   var currentFontScale = parseFloat(localStorage.getItem('dashboard-font-scale') || '1');
-  document.documentElement.style.setProperty('--font-scale', currentFontScale);
-  document.getElementById('fontScaleLabel').textContent = Math.round(currentFontScale * 100) + '%';
-  function adjustFontScale(delta) {
-    currentFontScale = Math.max(0.7, Math.min(1.5, +(currentFontScale + delta).toFixed(1)));
+  function applyFontScale(s) {
+    currentFontScale = s;
     document.documentElement.style.setProperty('--font-scale', currentFontScale);
-    document.getElementById('fontScaleLabel').textContent = Math.round(currentFontScale * 100) + '%';
+    var label = document.getElementById('fontScaleLabel');
+    if (label) label.textContent = Math.round(currentFontScale * 100) + '%';
+  }
+  function autoFitFontScale() {
+    var fitH = window.innerHeight / 1080;
+    var fitW = window.innerWidth / 2040;
+    var minFit = Math.min(fitH, fitW);
+    // Map fit ratio (1.0 → 1.0, 0.5 → 0.85, 0.3 → 0.7)
+    var auto = 0.7 + Math.max(0, (minFit - 0.3) * 0.43);
+    auto = Math.min(1.0, Math.max(0.7, auto));
+    auto = Math.round(auto * 10) / 10;
+    if (auto !== currentFontScale) applyFontScale(auto);
+  }
+  applyFontScale(currentFontScale);
+  autoFitFontScale();
+  function adjustFontScale(delta) {
+    var next = Math.max(0.7, Math.min(1.5, +(currentFontScale + delta).toFixed(1)));
+    applyFontScale(next);
     localStorage.setItem('dashboard-font-scale', currentFontScale);
+    localStorage.setItem(FONT_SCALE_MANUAL_KEY, '1');
   }
   window.adjustFontScale = adjustFontScale;
+  window.addEventListener('resize', autoFitFontScale);
 
   // ===== Fullscreen =====
   function toggleFullscreen() {
@@ -1517,6 +1610,8 @@
       document.getElementById('fsIcon').textContent = '⛶';
       document.getElementById('fsLabel').textContent = '전체 화면';
     }
+    autoFitFontScale();
+    scaleSlides();
   });
   window.toggleFullscreen = toggleFullscreen;
 
@@ -1614,16 +1709,233 @@
   function scaleSlides() {
     var wrapper = document.getElementById('slidesWrapper');
     var availH = window.innerHeight - (overviewOpen ? OVERVIEW_H : 0);
-    var scale = Math.min(window.innerWidth / 2040, availH / 1080);
-    var offsetX = (window.innerWidth - 2040 * scale) / 2;
     var navReserve = 72;
-    var offsetY = Math.max(0, availH - 1080 * scale - navReserve);
+    var availForSlide = availH - navReserve;
+    var scale = Math.min(window.innerWidth / 2040, availForSlide / 1080);
+    // Wrapper height stretches to fill available viewport area when viewport is taller than slide aspect
+    var wrapperH = Math.max(1080, availForSlide / scale);
+    wrapper.style.height = wrapperH + 'px';
+    var offsetX = (window.innerWidth - 2040 * scale) / 2;
+    var offsetY = 0;
     wrapper.style.transform = 'translate(' + offsetX + 'px, ' + offsetY + 'px) scale(' + scale + ')';
   }
   window.addEventListener('resize', scaleSlides);
 
   // ===== Inline editing (persists via localStorage) =====
   var EDIT_KEY = 'dashboard-edits-v3';
+  var SHARED_SIZES_KEY = 'dashboard-shared-sizes-v1';
+  var SHARED_DEFAULTS = { docTitle: 48, docBullets: 22 };
+  var sharedSizes = Object.assign({}, SHARED_DEFAULTS);
+
+  function applySharedSizes() {
+    var r = document.documentElement.style;
+    r.setProperty('--doc-title-size', sharedSizes.docTitle + 'px');
+    r.setProperty('--doc-bullets-size', sharedSizes.docBullets + 'px');
+  }
+  function loadSharedSizes() {
+    try {
+      var s = JSON.parse(localStorage.getItem(SHARED_SIZES_KEY) || '{}');
+      if (typeof s.docTitle === 'number') sharedSizes.docTitle = s.docTitle;
+      if (typeof s.docBullets === 'number') sharedSizes.docBullets = s.docBullets;
+    } catch (_) {}
+    applySharedSizes();
+  }
+  function saveSharedSizes() {
+    try { localStorage.setItem(SHARED_SIZES_KEY, JSON.stringify(sharedSizes)); } catch (_) {}
+  }
+  function isSharedSizeElement(el) {
+    if (!el || !el.classList) return null;
+    if (el.classList.contains('doc-title')) return 'docTitle';
+    if (el.parentElement && el.parentElement.classList.contains('doc-bullets')) return 'docBullets';
+    return null;
+  }
+  loadSharedSizes();
+
+  // ===== Bullets structural store (li add/remove) =====
+  var BULLETS_KEY = 'dashboard-bullets-v1';
+  function bulletsKeyFor(idx) { return 'b-' + idx; }
+  function loadBulletsStore() {
+    try { return JSON.parse(localStorage.getItem(BULLETS_KEY) || '{}'); } catch (_) { return {}; }
+  }
+  function writeBulletsStore(s) {
+    try { localStorage.setItem(BULLETS_KEY, JSON.stringify(s)); } catch (_) {}
+  }
+  function saveBulletsForSlide(idx) {
+    var slide = slides[idx];
+    if (!slide) return;
+    var ul = slide.querySelector('.doc-bullets');
+    var store = loadBulletsStore();
+    var key = bulletsKeyFor(idx);
+    if (ul && ul.children.length > 0) {
+      var clone = ul.cloneNode(true);
+      clone.querySelectorAll('.bullet-controls').forEach(function (n) { n.remove(); });
+      clone.querySelectorAll('[data-edit-id]').forEach(function (n) { n.removeAttribute('data-edit-id'); });
+      clone.querySelectorAll('.editable').forEach(function (n) { n.classList.remove('editable'); });
+      clone.querySelectorAll('[contenteditable]').forEach(function (n) { n.removeAttribute('contenteditable'); });
+      store[key] = clone.innerHTML;
+    } else {
+      delete store[key];
+    }
+    writeBulletsStore(store);
+  }
+  function ensureUlForSlide(idx) {
+    var slide = slides[idx];
+    var ul = slide.querySelector('.doc-bullets');
+    if (ul) return ul;
+    var title = slide.querySelector('.doc-title');
+    if (!title) return null;
+    ul = document.createElement('ul');
+    ul.className = 'doc-bullets animate delay-2';
+    // Suppress immediate fadeInUp on creation; slide-transition retrigger will clear this
+    ul.style.animation = 'none';
+    ul.dataset.bulletsId = bulletsKeyFor(idx);
+    title.insertAdjacentElement('afterend', ul);
+    return ul;
+  }
+  function makeNewLi(text) {
+    var li = document.createElement('li');
+    li.textContent = text || '새 항목 추가';
+    return li;
+  }
+  function restoreBullets() {
+    var store = loadBulletsStore();
+    slides.forEach(function (slide, idx) {
+      var key = bulletsKeyFor(idx);
+      var stored = store[key];
+      var ul = slide.querySelector('.doc-bullets');
+      if (stored != null) {
+        if (!ul) {
+          var title = slide.querySelector('.doc-title');
+          if (!title) return;
+          ul = document.createElement('ul');
+          ul.className = 'doc-bullets animate delay-2';
+          title.insertAdjacentElement('afterend', ul);
+        }
+        ul.innerHTML = stored;
+      }
+      if (ul) ul.dataset.bulletsId = key;
+    });
+  }
+
+  function buildBulletControls(li) {
+    if (li.querySelector(':scope > .bullet-controls')) return;
+    var wrap = document.createElement('span');
+    wrap.className = 'bullet-controls';
+    wrap.contentEditable = 'false';
+    var minus = document.createElement('button');
+    minus.type = 'button';
+    minus.className = 'btn-bullet btn-minus';
+    minus.textContent = '−';
+    minus.title = '항목 삭제';
+    var plus = document.createElement('button');
+    plus.type = 'button';
+    plus.className = 'btn-bullet btn-plus';
+    plus.textContent = '+';
+    plus.title = '항목 추가';
+    wrap.appendChild(minus);
+    wrap.appendChild(plus);
+    li.appendChild(wrap);
+  }
+  function attachBulletControlsAll() {
+    document.querySelectorAll('#slidesWrapper .doc-bullets > li').forEach(buildBulletControls);
+  }
+  function buildAddListButton(slide) {
+    if (slide.querySelector(':scope > .title-add-list, :scope .doc-title + .title-add-list')) return;
+    var title = slide.querySelector('.doc-title');
+    if (!title) return;
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'title-add-list';
+    btn.textContent = '+ 새 항목 추가';
+    title.insertAdjacentElement('afterend', btn);
+  }
+  function refreshAddListButtons() {
+    slides.forEach(function (slide) {
+      var existing = slide.querySelector('.title-add-list');
+      var hasUl = !!slide.querySelector('.doc-bullets');
+      var hasTitle = !!slide.querySelector('.doc-title');
+      if (!hasUl && hasTitle) {
+        if (!existing) buildAddListButton(slide);
+      } else {
+        if (existing) existing.remove();
+      }
+    });
+  }
+  function getSlideIdxOf(el) {
+    var slide = el.closest && el.closest('.slide');
+    return slide ? slides.indexOf(slide) : -1;
+  }
+  function focusForEditing(li) {
+    li.setAttribute('contenteditable', 'plaintext-only');
+    li.classList.add('editable');
+    li.focus();
+    setTimeout(function () {
+      var range = document.createRange();
+      var firstText = null;
+      for (var i = 0; i < li.childNodes.length; i++) {
+        var n = li.childNodes[i];
+        if (n.nodeType === 3) { firstText = n; break; }
+        if (n.nodeType === 1 && !n.classList.contains('bullet-controls')) { firstText = n; break; }
+      }
+      if (firstText) range.selectNodeContents(firstText); else range.selectNodeContents(li);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }, 0);
+  }
+
+  // Delegated click handler for bullet ± and title + buttons
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var minusBtn = t.closest('.btn-minus');
+    var plusBtn = t.closest('.btn-plus');
+    var addListBtn = t.closest('.title-add-list');
+    if (!minusBtn && !plusBtn && !addListBtn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var currentlyEditing = document.querySelector('#slidesWrapper .editable[contenteditable="plaintext-only"]');
+    if (currentlyEditing) endEdit(currentlyEditing, true);
+    if (minusBtn) {
+      var li = minusBtn.closest('li');
+      if (!li) return;
+      var ul = li.parentElement;
+      var idx = getSlideIdxOf(li);
+      li.remove();
+      if (ul.children.length === 0) ul.remove();
+      saveBulletsForSlide(idx);
+      refreshAddListButtons();
+      if (overviewOpen) buildOverview();
+    } else if (plusBtn) {
+      var li2 = plusBtn.closest('li');
+      if (!li2) return;
+      var idx2 = getSlideIdxOf(li2);
+      var newLi = makeNewLi();
+      li2.insertAdjacentElement('afterend', newLi);
+      buildBulletControls(newLi);
+      // Assign edit id (initEditable already ran; assign sequentially)
+      var ulSlide = slides[idx2];
+      var existing = ulSlide.querySelectorAll('.editable[data-edit-id]').length;
+      newLi.dataset.editId = 'e-' + idx2 + '-' + existing;
+      saveBulletsForSlide(idx2);
+      if (overviewOpen) buildOverview();
+      focusForEditing(newLi);
+    } else if (addListBtn) {
+      var slide = addListBtn.closest('.slide');
+      var idx3 = slides.indexOf(slide);
+      var ul3 = ensureUlForSlide(idx3);
+      addListBtn.remove();
+      var newLi3 = makeNewLi();
+      ul3.appendChild(newLi3);
+      buildBulletControls(newLi3);
+      var existing3 = slide.querySelectorAll('.editable[data-edit-id]').length;
+      newLi3.dataset.editId = 'e-' + idx3 + '-' + existing3;
+      saveBulletsForSlide(idx3);
+      if (overviewOpen) buildOverview();
+      focusForEditing(newLi3);
+    }
+  });
+
   var origSnapshot = {}; // editId -> { html, fontSize }
   var preEditSnapshot = null;
   var INLINE_OK = { BR:1, SPAN:1, B:1, I:1, EM:1, STRONG:1, SMALL:1, SUP:1, SUB:1, A:1, U:1, MARK:1 };
@@ -1680,6 +1992,12 @@
   function saveEdit(el) {
     var id = el.dataset.editId;
     if (!id) return;
+    // li inside .doc-bullets is structurally managed by BULLETS_KEY
+    if (el.parentElement && el.parentElement.classList && el.parentElement.classList.contains('doc-bullets')) {
+      var idx = getSlideIdxOf(el);
+      if (idx >= 0) saveBulletsForSlide(idx);
+      return;
+    }
     var store = {};
     try { store = JSON.parse(localStorage.getItem(EDIT_KEY) || '{}'); } catch (_) {}
     var orig = origSnapshot[id] || { html: '', fontSize: '' };
@@ -1698,14 +2016,25 @@
     Object.keys(store).forEach(function (id) {
       var el = document.querySelector('#slidesWrapper [data-edit-id="' + id + '"]');
       if (!el) return;
+      // li inside .doc-bullets is restored from BULLETS_KEY; skip EDIT_KEY for those
+      if (el.parentElement && el.parentElement.classList && el.parentElement.classList.contains('doc-bullets')) return;
       if (store[id].html != null) el.innerHTML = store[id].html;
-      if (store[id].fontSize) el.style.fontSize = store[id].fontSize;
+      // Shared-managed classes (.doc-title / .doc-bullets li) ignore per-element fontSize
+      if (store[id].fontSize && !isSharedSizeElement(el)) el.style.fontSize = store[id].fontSize;
     });
   }
 
   function resetEdits() {
     if (!confirm('편집한 내용을 모두 초기화할까요?')) return;
     localStorage.removeItem(EDIT_KEY);
+    localStorage.removeItem(SHARED_SIZES_KEY);
+    localStorage.removeItem(BULLETS_KEY);
+    localStorage.removeItem(FONT_SCALE_MANUAL_KEY);
+    localStorage.removeItem('dashboard-font-scale');
+    sharedSizes = Object.assign({}, SHARED_DEFAULTS);
+    applySharedSizes();
+    location.reload();
+    return;
     Object.keys(origSnapshot).forEach(function (id) {
       var el = document.querySelector('#slidesWrapper [data-edit-id="' + id + '"]');
       if (!el) return;
@@ -1749,6 +2078,9 @@
     clone.querySelectorAll('[contenteditable="true"]').forEach(function (el) {
       el.removeAttribute('contenteditable');
     });
+    // Remove navigation transition classes so initial render doesn't flash a non-cover slide
+    clone.querySelectorAll('.slide.active').forEach(function (s) { s.classList.remove('active'); });
+    clone.querySelectorAll('.slide.exit-left').forEach(function (s) { s.classList.remove('exit-left'); });
     var track = clone.querySelector('#overview-track');
     if (track) track.innerHTML = '';
     var panel = clone.querySelector('#overview-panel');
@@ -1798,6 +2130,13 @@
   function adjustElementFontSize(delta) {
     var el = document.activeElement;
     if (!el || !el.classList || !el.classList.contains('editable')) return;
+    var sharedKey = isSharedSizeElement(el);
+    if (sharedKey) {
+      sharedSizes[sharedKey] = Math.max(8, sharedSizes[sharedKey] + delta);
+      applySharedSizes();
+      saveSharedSizes();
+      return;
+    }
     var current = parseFloat(window.getComputedStyle(el).fontSize) || 16;
     var next = Math.max(8, current + delta);
     el.style.fontSize = next + 'px';
@@ -1815,6 +2154,10 @@
 
   // Document-level mousedown: handles click-to-edit AND click-outside-to-save
   document.addEventListener('mousedown', function (e) {
+    if (e.target.closest && e.target.closest('.bullet-controls, .title-add-list')) {
+      e.preventDefault();
+      return;
+    }
     var clickedEditable = e.target.closest && e.target.closest('.editable');
     if (clickedEditable && clickedEditable.closest('.overview-clone')) clickedEditable = null;
     var currentlyEditing = document.querySelector('#slidesWrapper .editable[contenteditable="plaintext-only"]');
@@ -1910,7 +2253,10 @@
 
   // ===== Init =====
   scaleSlides();
+  restoreBullets();
   initEditable();
+  attachBulletControlsAll();
+  refreshAddListButtons();
   showSlide(0);
 </script>
 

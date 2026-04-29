@@ -443,6 +443,20 @@
 - VRI는 page 6에서 "Visit Regularity Index", page 14에서 "Visit Recurrence Index"로 명명 — 두 가지 후보를 의도적으로 함께 노출 (용어 정의 논의용)
 - p17 LPI 정의 박스의 공식 변수명은 LRI (또 다른 이름 후보)
 
+### 2026-04-29 작업
+- **공유 폰트 사이즈 시스템**: `.doc-title` / `.doc-bullets` 사이즈를 CSS 변수(`--doc-title-size`, `--doc-bullets-size`)로 추출. Cmd+↑↓ 폰트 단축키가 doc-title 또는 doc-bullets li에서 눌리면 element-단위 inline style 대신 변수 수정 → 27장 일괄 반영. localStorage 키 `dashboard-shared-sizes-v1`. `.doc-bullets li::before` 불릿(•)는 별도 22px 고정 (텍스트만 변수 적용)
+- **불릿 +/- 호버 컨트롤**: 각 `.doc-bullets li` 호버 시 우측에 흐린 그린 `−`/`+` 글리프 (테두리 X, 호버 시 100%). `−` = 그 li 삭제 (마지막 li 삭제 시 ul 전체 제거), `+` = 그 li 다음 새 항목 삽입 + 즉시 편집 진입
+- **+ 새 항목 추가 버튼**: doc-bullets 없는 슬라이드에 `.doc-title` 호버 시 등장. 풀폭 + 인셋 점선 outline(라운딩 X) + li와 동일 텍스트 사이즈/위치. 클릭 시 새 ul 생성 + 첫 li 편집 진입
+- **bullets 구조 저장소**: `dashboard-bullets-v1` localStorage. 슬라이드별 `b-N` 키로 ul innerHTML 통째 저장. li 텍스트 편집 시 saveEdit이 자동으로 BULLETS_KEY로 위임. applyStoredEdits에서 li-in-bullets는 EDIT_KEY 무시(자연스러운 마이그레이션)
+- **상/중/하 콘텐츠 정렬 패턴** (slide-intro): flex column + auto margin으로 HTML 구조 변경 없이 3구역 분배. doc-title은 자연 위치 / slide-title.sm `margin-top: auto` / intro-cards `margin-bottom: auto` / intro-footer는 slide-intro의 마지막 자식. guide.md 11번 섹션에 정리
+- **반응형 패딩**: `.slide-doc` / `.slide-intro-body` 위 패딩을 `calc(80px * var(--font-scale))`로 통일 → 두 페이지 위 간격 동일. `.doc-title`의 `margin-top: -20px` 제거(타이틀 위 여백 살림)
+- **autoFitFontScale**: 뷰포트 높이/폭 비율 따라 0.7~1.0으로 자동 조정. fullscreenchange 이벤트에서도 호출 → 토글 시 즉시 padding 반영. 이전의 manual 플래그 차단 제거(매번 재계산)
+- **slides-wrapper 동적 높이**: `Math.max(1080, availForSlide / scale)`로 viewport 높이에 맞춰 늘어남 → 16:10 등 squat한 디스플레이에서 슬라이드가 viewport 가득 채움. `offsetY = 0` (슬라이드 상단 정렬)
+- **dash-wrap.dual 레이아웃 보강**: `grid-template-rows: 1fr; align-items: stretch` + 이미지 `flex: 1; min-height: 0; object-fit: contain` + 캡션 `flex: 0 0 auto`. 슬라이드 패딩 변경에도 캡션 항상 보이게
+- **편집 호버 점선 outline**: `.title-add-list`만 `outline: 1.5px dashed` (인셋, 라운딩 X). 일반 .editable hover는 솔리드 box-shadow 유지(이전 호버 톤 그대로)
+- **폰트 풀 스택 명시**: `.title-add-list`, `.bullet-controls .btn-bullet`에 `'SFProDisplay','SF Pro Display',-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo',sans-serif` — inherit/단축형은 한글 폴백 깨짐
+- **exportHTML 정리**: clone에서 `.slide.active`/`.slide.exit-left` 제거 → export 후 새로고침 시 다른 슬라이드(예: LPI)가 깜빡이는 현상 방지
+
 ---
 
 ## GitHub 연결

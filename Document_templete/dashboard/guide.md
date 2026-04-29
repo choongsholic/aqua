@@ -426,7 +426,75 @@
 
 ---
 
-## 11. 변경 이력 / 가이드 적용 규칙
+## 11. 슬라이드 내 상/중/하 콘텐츠 정렬 패턴
+
+슬라이드를 **상단 / 중앙 / 하단** 3구역으로 나눠서 자동 분배하는 표준 방식. flex column + auto margin으로 HTML 구조 변경 없이 구현.
+
+### 적용 예시 (`.slide-intro`)
+
+```
+<section class="slide slide-intro">      /* flex column, padding: 0 */
+  <div class="slide-intro-body">         /* flex: 1 */
+    <h2 class="doc-title">...</h2>        /* 상단 */
+    <h2 class="slide-title sm">...</h2>  /* 중앙 그룹 시작 */
+    <div class="intro-cards">...</div>   /* 중앙 그룹 끝 */
+  </div>
+  <div class="intro-footer">...</div>    /* 하단 */
+</section>
+```
+
+```css
+/* slide-intro 자체 — flex column */
+.slide-intro { padding: 0; display: flex; flex-direction: column; }
+
+/* body는 flex: 1로 가용공간 차지, 안에서 다시 flex column */
+.slide-intro-body {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column;
+  padding: calc(80px * var(--font-scale)) 100px 60px;
+}
+
+/* 상단 콘텐츠 — 자연 위치 (margin 없음) */
+.doc-title { /* 위쪽에 그대로 */ }
+
+/* 중앙 그룹 시작 요소에 margin-top: auto */
+.slide-intro .slide-title { margin: auto 0 100px; }
+
+/* 중앙 그룹 마지막 요소에 margin-bottom: auto */
+.intro-cards { margin-bottom: auto; }
+
+/* 하단 콘텐츠 — slide-intro의 마지막 자식이라 자동 하단 */
+.intro-footer { /* flex column 마지막 자식 */ }
+```
+
+### 동작 원리
+
+flex column에서 `auto` 마진은 가용 공간을 흡수한다. 두 개의 auto가 경쟁하면 공간이 균등 분할.
+- `slide-title`의 `margin-top: auto` → 위쪽 빈 공간을 절반 흡수
+- `intro-cards`의 `margin-bottom: auto` → 아래쪽 빈 공간을 절반 흡수
+- 결과: doc-title은 위에 붙고, slide-title+intro-cards 그룹은 가운데 떠 있고, intro-footer는 자연스레 바닥(slide-intro의 마지막 flex child)
+
+### 일반화 규칙
+
+| 콘텐츠 위치 | 적용 방법 |
+|---|---|
+| **상단** | flex 첫 자식, margin 기본 |
+| **중앙 그룹 (시작)** | `margin-top: auto` |
+| **중앙 그룹 (끝)** | `margin-bottom: auto` |
+| **하단** | 부모 flex column의 마지막 자식 |
+
+### 주의 사항
+
+- 부모는 반드시 `display: flex; flex-direction: column;` + 가용 높이 확보 (`flex: 1` 또는 명시적 `height`)
+- 중앙 그룹이 1개 요소뿐이면 양쪽 모두 auto: `margin: auto 0`
+- 중앙 그룹 내부 요소 간격은 일반 margin/gap으로 (auto 끼우면 분배 깨짐)
+- 하단 요소가 별도 wrapper 밖에 있어야 자연스레 바닥에 위치 (intro-body 안에 있으면 안 됨)
+
+이 패턴은 `.slide-intro` 외 다른 슬라이드에도 동일하게 적용 가능. 콘텐츠 양에 따라 자동 분배되므로 viewport 높이 변화에도 균형 유지.
+
+---
+
+## 12. 변경 이력 / 가이드 적용 규칙
 
 이 가이드는 dashboard.html v0.8 (2026-04-28) 기준. 디자인 토큰이나 컴포넌트가 바뀌면 이 문서도 같이 업데이트할 것.
 
